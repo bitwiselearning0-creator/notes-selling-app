@@ -59,16 +59,45 @@ function App() {
       setCurrentPage('auth');
     }
 
-    // 3. Hash routing check for admin access
+    // 3. Hash routing check for admin/student access
     const handleHashRouting = () => {
-      const activeHash = window.location.hash;
-      if (activeHash.split('?')[0] === '#admin') {
-        const activeUser = dbService.getCurrentUser();
+      const activeHash = window.location.hash.split('?')[0];
+      const activeUser = dbService.getCurrentUser();
+
+      if (activeHash === '#admin') {
         if (activeUser?.role === 'admin') {
           setCurrentPage('admin');
         } else {
+          window.location.hash = '#admin-login';
+        }
+      } else if (activeHash === '#admin-login') {
+        if (activeUser?.role === 'admin') {
+          window.location.hash = '#admin';
+        } else {
           setCurrentPage('admin-login');
         }
+      } else if (activeHash === '#login') {
+        if (activeUser) {
+          window.location.hash = '#catalog';
+        } else {
+          setCurrentPage('auth');
+        }
+      } else if (activeHash === '#catalog') {
+        setCurrentPage('dashboard');
+      } else if (activeHash === '#library') {
+        if (activeUser) {
+          setCurrentPage('library');
+        } else {
+          window.location.hash = '#login';
+        }
+      } else if (activeHash === '#profile') {
+        if (activeUser) {
+          setCurrentPage('profile');
+        } else {
+          window.location.hash = '#login';
+        }
+      } else if (activeHash === '#home' || activeHash === '') {
+        setCurrentPage('landing');
       }
     };
 
@@ -77,14 +106,40 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashRouting);
   }, []);
 
+  // Custom navigate wrapper to sync hash and views
+  const navigate = (page: string) => {
+    if (page === 'landing') {
+      window.location.hash = '#home';
+    } else if (page === 'dashboard') {
+      window.location.hash = '#catalog';
+    } else if (page === 'auth') {
+      window.location.hash = '#login';
+    } else if (page === 'admin-login') {
+      window.location.hash = '#admin-login';
+    } else if (page === 'admin') {
+      window.location.hash = '#admin';
+    } else if (page === 'library') {
+      window.location.hash = '#library';
+    } else if (page === 'profile') {
+      window.location.hash = '#profile';
+    } else {
+      setCurrentPage(page);
+    }
+  };
+
   const handleLoginSuccess = (user: UserProfile) => {
     setCurrentUser(user);
+    if (user.role === 'admin') {
+      window.location.hash = '#admin';
+    } else {
+      window.location.hash = '#catalog';
+    }
   };
 
   const handleLogout = async () => {
     await dbService.signOut();
     setCurrentUser(null);
-    setCurrentPage('landing');
+    window.location.hash = '#home';
   };
 
   // Navigates to PDF viewer securely checking if the notes are purchased
@@ -98,7 +153,7 @@ function App() {
   // Unlock Note from inside Viewer
   const handleUnlockInViewer = async () => {
     if (!readingNote || !currentUser) {
-      setCurrentPage('auth');
+      window.location.hash = '#login';
       return;
     }
     // Set readingNoteUnlocked to true (simulating successful Razorpay webhook trigger)
@@ -120,7 +175,7 @@ function App() {
       <Navbar 
         user={currentUser} 
         onLogout={handleLogout} 
-        navigate={setCurrentPage} 
+        navigate={navigate} 
         currentPage={currentPage}
         isAppMode={isAppMode}
       />
@@ -129,7 +184,7 @@ function App() {
       <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         {currentPage === 'landing' && (
           <LandingPage 
-            navigate={setCurrentPage} 
+            navigate={navigate} 
             setSelectedYear={setSelectedYear} 
           />
         )}
@@ -140,14 +195,14 @@ function App() {
             selectedYear={selectedYear}
             setSelectedYear={setSelectedYear}
             onReadNote={handleReadNote}
-            navigate={setCurrentPage}
+            navigate={navigate}
           />
         )}
 
         {currentPage === 'auth' && (
           <Auth 
             onLoginSuccess={handleLoginSuccess} 
-            navigate={setCurrentPage} 
+            navigate={navigate} 
           />
         )}
 
@@ -155,21 +210,21 @@ function App() {
           <MyLibrary 
             user={currentUser}
             onReadNote={handleReadNote}
-            navigate={setCurrentPage}
+            navigate={navigate}
           />
         )}
 
         {currentPage === 'admin-login' && (
           <AdminLogin 
             onLoginSuccess={handleLoginSuccess} 
-            navigate={setCurrentPage} 
+            navigate={navigate} 
           />
         )}
 
         {currentPage === 'admin' && (
           <Admin 
             user={currentUser} 
-            navigate={setCurrentPage} 
+            navigate={navigate} 
           />
         )}
 
@@ -177,7 +232,7 @@ function App() {
           <Profile 
             user={currentUser} 
             onLogout={handleLogout} 
-            navigate={setCurrentPage} 
+            navigate={navigate} 
           />
         )}
 
