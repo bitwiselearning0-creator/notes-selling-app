@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen } from 'lucide-react';
 import { dbService, isMock } from '../lib/supabase';
-import type { Note, UserProfile, Bundle } from '../lib/supabase';
+import type { Note, UserProfile, Bundle, Playlist } from '../lib/supabase';
 import { NoteCard } from '../components/NoteCard';
+import { VideoCard } from '../components/VideoCard';
 
 interface DashboardProps {
   user: UserProfile | null;
@@ -28,6 +29,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   
   // Loading & payment states
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [paying, setPaying] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
-  // Load notes, bundles, and user purchases
+  // Load notes, bundles, playlists, and user purchases
   const loadDashboardData = async () => {
     setLoading(true);
     try {
@@ -46,6 +48,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const { data: bundlesData } = await dbService.getBundles(selectedYear);
       const activeBundles = bundlesData || [];
       setBundles(activeBundles);
+
+      const { data: playlistsData } = await dbService.getPlaylists();
+      setPlaylists(playlistsData || []);
 
       if (user) {
         // Load note purchase states
@@ -482,6 +487,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
           )}
         </>
       )}
+
+      {/* Video Solutions / Playlists Section */}
+      <section className="section-padding" style={{ paddingTop: '50px', borderTop: '1px solid var(--glass-border)', marginTop: '50px' }}>
+        <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+          <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-heading)', fontWeight: '700' }} className="yellow-accent">
+            Video Solutions & Syllabus Lectures
+          </h3>
+          <p style={{ color: 'var(--color-muted)', fontSize: '13px', marginBottom: '25px' }}>
+            Learn complex engineering topics step-by-step through our synced YouTube course playlists.
+          </p>
+        </div>
+        
+        {playlists.length > 0 ? (
+          <div className="video-grid">
+            {playlists.map((p) => (
+              <VideoCard key={p.id} playlist={p} />
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state glass-card" style={{ padding: '40px 20px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            No video playlists configured yet.
+          </div>
+        )}
+      </section>
 
       {/* Razorpay Test Payment Modal Simulator */}
       {paymentTarget && (
