@@ -49,7 +49,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const activeBundles = bundlesData || [];
       setBundles(activeBundles);
 
-      const { data: playlistsData } = await dbService.getPlaylists();
+      const { data: playlistsData } = await dbService.getPlaylists(selectedYear);
       setPlaylists(playlistsData || []);
 
       if (user) {
@@ -119,6 +119,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           n.topics.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesSem = selectedSemester === null || n.semester === selectedSemester;
     return matchesSearch && matchesSem;
+  });
+
+  // Filter playlists based on semester selection
+  const filteredPlaylists = playlists.filter(p => {
+    return selectedSemester === null || p.semester === selectedSemester;
   });
 
   // Handle Purchase Triggers
@@ -499,15 +504,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </p>
         </div>
         
-        {playlists.length > 0 ? (
+        {filteredPlaylists.length > 0 ? (
           <div className="video-grid">
-            {playlists.map((p) => (
+            {filteredPlaylists.map((p) => (
               <VideoCard key={p.id} playlist={p} />
             ))}
           </div>
         ) : (
           <div className="empty-state glass-card" style={{ padding: '40px 20px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.06)' }}>
-            No video playlists configured yet.
+            No video playlists configured yet for this semester.
           </div>
         )}
       </section>
