@@ -64,6 +64,8 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   const [playTitle, setPlayTitle] = useState('');
   const [playThumb, setPlayThumb] = useState('');
   const [playSubject, setPlaySubject] = useState('');
+  const [playYear, setPlayYear] = useState<'1st Year' | '2nd Year' | '3rd Year' | '4th Year'>('1st Year');
+  const [playSemester, setPlaySemester] = useState(1);
 
   // --- Bundle Form Fields ---
   const [bundleTitle, setBundleTitle] = useState('');
@@ -227,7 +229,9 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       playlistId: playPlaylistId,
       title: playTitle,
       thumbnailUrl: thumbnail,
-      subject: playSubject
+      subject: playSubject,
+      year: playYear,
+      semester: Number(playSemester)
     };
 
     const { data } = await dbService.addPlaylist(playlistPayload);
@@ -237,6 +241,8 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       setPlayTitle('');
       setPlayThumb('');
       setPlaySubject('');
+      setPlayYear('1st Year');
+      setPlaySemester(1);
       loadInventory();
     }
   };
@@ -676,6 +682,29 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                       />
                     </div>
 
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div className="form-group">
+                        <label>Year</label>
+                        <select value={playYear} onChange={(e) => setPlayYear(e.target.value as any)}>
+                          <option value="1st Year">1st Year</option>
+                          <option value="2nd Year">2nd Year</option>
+                          <option value="3rd Year">3rd Year</option>
+                          <option value="4th Year">4th Year</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Semester</label>
+                        <input 
+                          type="number" 
+                          min="1" 
+                          max="8"
+                          value={playSemester}
+                          onChange={(e) => setPlaySemester(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+
                     <div className="form-group">
                       <label>Custom Thumbnail URL (Optional)</label>
                       <input 
@@ -833,6 +862,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                       <tr>
                         <th>Playlist Title</th>
                         <th>Subject Category</th>
+                        <th>Year / Semester</th>
                         <th>Playlist ID</th>
                         <th style={{ textAlign: 'right' }}>Actions</th>
                       </tr>
@@ -842,6 +872,10 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                         <tr key={p.id}>
                           <td style={{ fontWeight: '600' }}>{p.title}</td>
                           <td style={{ color: 'var(--color-muted)' }}>{p.subject}</td>
+                          <td>
+                            <span className="badge badge-year" style={{ marginRight: '6px', background: 'rgba(59, 130, 246, 0.1)', color: '#93c5fd', padding: '2px 8px', borderRadius: '100px', fontSize: '11px' }}>{p.year}</span>
+                            <span className="badge badge-semester" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#fcd34d', padding: '2px 8px', borderRadius: '100px', fontSize: '11px' }}>Sem {p.semester}</span>
+                          </td>
                           <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{p.playlistId}</td>
                           <td style={{ textAlign: 'right' }}>
                             <button 

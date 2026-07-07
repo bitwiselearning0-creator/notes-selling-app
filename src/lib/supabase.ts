@@ -32,6 +32,8 @@ export interface Playlist {
   title: string;
   thumbnailUrl: string;
   subject: string;
+  year: '1st Year' | '2nd Year' | '3rd Year' | '4th Year';
+  semester: number;
 }
 
 export interface Bundle {
@@ -224,12 +226,15 @@ export const dbService = {
   },
 
   // --- PLAYLISTS SERVICE ---
-  getPlaylists: async (): Promise<{ data: Playlist[]; error: string | null }> => {
+  getPlaylists: async (year?: string): Promise<{ data: Playlist[]; error: string | null }> => {
     if (!isMock && supabase) {
-      const { data, error } = await supabase.from('playlists').select('*');
+      let query = supabase.from('playlists').select('*');
+      if (year) query = query.eq('year', year);
+      const { data, error } = await query;
       return { data: data || [], error: error ? error.message : null };
     } else {
-      return { data: mockPlaylists, error: null };
+      const list = year ? mockPlaylists.filter(p => p.year === year) : mockPlaylists;
+      return { data: list, error: null };
     }
   },
 
@@ -239,9 +244,9 @@ export const dbService = {
       const { data, error } = await supabase.from('playlists').insert([newPlaylist]).select().single();
       return { data, error: error ? error.message : null };
     } else {
-      mockPlaylists.unshift(newPlaylist);
+      mockPlaylists.unshift(newPlaylist as any);
       setStoredData('bw_mock_playlists', mockPlaylists);
-      return { data: newPlaylist, error: null };
+      return { data: newPlaylist as any, error: null };
     }
   },
 
