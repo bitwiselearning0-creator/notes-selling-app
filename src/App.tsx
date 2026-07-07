@@ -350,7 +350,7 @@ function App() {
         }}>
           {/* Home Tab */}
           <button 
-            onClick={() => setCurrentPage('landing')} 
+            onClick={() => navigate('landing')} 
             style={{
               background: 'none',
               border: 'none',
@@ -372,7 +372,7 @@ function App() {
           
           {/* Catalog Tab */}
           <button 
-            onClick={() => setCurrentPage('dashboard')} 
+            onClick={() => navigate('dashboard')} 
             style={{
               background: 'none',
               border: 'none',
@@ -395,7 +395,7 @@ function App() {
           {/* Library Tab (Only if logged in) */}
           {currentUser && (
             <button 
-              onClick={() => setCurrentPage('library')} 
+              onClick={() => navigate('library')} 
               style={{
                 background: 'none',
                 border: 'none',
@@ -419,7 +419,7 @@ function App() {
           {/* Profile OR Sign In Tab */}
           {currentUser ? (
             <button 
-              onClick={() => setCurrentPage('profile')} 
+              onClick={() => navigate('profile')} 
               style={{
                 background: 'none',
                 border: 'none',
@@ -440,7 +440,7 @@ function App() {
             </button>
           ) : (
             <button 
-              onClick={() => setCurrentPage('auth')} 
+              onClick={() => navigate('auth')} 
               style={{
                 background: 'none',
                 border: 'none',
@@ -464,7 +464,7 @@ function App() {
           {/* Admin Panel Tab (Only if admin) */}
           {currentUser?.role === 'admin' && (
             <button 
-              onClick={() => setCurrentPage('admin')} 
+              onClick={() => navigate('admin')} 
               style={{
                 background: 'none',
                 border: 'none',
