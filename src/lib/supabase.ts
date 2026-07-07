@@ -95,6 +95,8 @@ export const dbService = {
         const profile = { id: data.user.id, name, email, phone, role: 'student' as const };
         const { error: dbError } = await supabase.from('profiles').insert([profile]);
         if (dbError) return { data: null, error: dbError.message };
+        currentUser = profile;
+        setStoredData('bw_mock_current_user', currentUser);
         return { data: profile, error: null };
       }
       return { data: null, error: 'Signup failed. Please try again.' };
@@ -128,6 +130,8 @@ export const dbService = {
       if (data.user) {
         const { data: profile, error: dbError } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
         if (dbError) return { data: null, error: dbError.message };
+        currentUser = profile;
+        setStoredData('bw_mock_current_user', currentUser);
         return { data: profile, error: null };
       }
       return { data: null, error: 'Login failed. Invalid credentials.' };
@@ -168,6 +172,8 @@ export const dbService = {
   signOut: async (): Promise<{ error: string | null }> => {
     if (!isMock && supabase) {
       const { error } = await supabase.auth.signOut();
+      currentUser = null;
+      setStoredData('bw_mock_current_user', null);
       return { error: error ? error.message : null };
     } else {
       currentUser = null;
