@@ -155,7 +155,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       topics: topicsArray.length > 0 ? topicsArray : ['Core syllabus', 'PYQs solutions']
     };
 
-    const { data } = await dbService.addNote(notePayload);
+    const { data, error } = await dbService.addNote(notePayload);
     if (data) {
       showNotification('Note successfully added to catalog!');
       setNoteTitle('');
@@ -167,6 +167,8 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       setSelectedFile(null);
       setSelectedFileBase64('');
       loadInventory();
+    } else {
+      alert(error || 'Failed to add note to database.');
     }
   };
 
