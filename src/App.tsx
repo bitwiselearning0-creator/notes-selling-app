@@ -36,7 +36,7 @@ function App() {
     // 2. Platform detection check (URL parameter/hash or saved preference)
     const searchParams = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
-    const hasAppParam = searchParams.get('platform') === 'app' || hash.includes('platform=app') || window.location.href.includes('platform=app');
+    const hasAppParam = searchParams.get('platform') === 'app' || hash.includes('platform=app') || window.location.href.includes('platform=app') || !!(window as any).Capacitor;
     const hasWebParam = searchParams.get('platform') === 'web' || hash.includes('platform=web');
 
     let isApp = false;
