@@ -1,0 +1,441 @@
+{
+  "kind": "youtube#playlistListResponse",
+  "etag": "5x1CuSUtoQdnypQKKc9MPEo-3gQ",
+  "nextPageToken": "CAoQAA",
+  "pageInfo": {
+    "totalResults": 20,
+    "resultsPerPage": 10
+  },
+  "items": [
+    {
+      "kind": "youtube#playlist",
+      "etag": "SwYMMS7fE4pIlhm1xKODfsLkpZI",
+      "id": "PLkIvxvvDMKq2WNbEUkyNcGeUkZYRLTJ28",
+      "snippet": {
+        "publishedAt": "2026-05-07T14:45:36.975831Z",
+        "channelId": "UCqOS38WVZe4LpnHEXZvdsfA",
+        "title": "Topic-Wise Trend Analysis Videos",
+        "description": "",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/WcQ30a89iFU/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/WcQ30a89iFU/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/WcQ30a89iFU/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/WcQ30a89iFU/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/WcQ30a89iFU/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Bitwise Learning",
+        "localized": {
+          "title": "Topic-Wise Trend Analysis Videos",
+          "description": ""
+        }
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "Oki3tRNwjLmgf_M-G2NHXpfmirY",
+      "id": "PLkIvxvvDMKq3XKVS8Y8gBUeGOtepz6hgJ",
+      "snippet": {
+        "publishedAt": "2026-03-14T10:14:29.013631Z",
+        "channelId": "UCqOS38WVZe4LpnHEXZvdsfA",
+        "title": "Cyber Security One Shot Series",
+        "description": "",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/W4yGnqEgqEU/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/W4yGnqEgqEU/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/W4yGnqEgqEU/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/W4yGnqEgqEU/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/W4yGnqEgqEU/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Bitwise Learning",
+        "localized": {
+          "title": "Cyber Security One Shot Series",
+          "description": ""
+        }
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "CPwjlOeGt2rX9k0TCnX6Besmgxs",
+      "id": "PLkIvxvvDMKq2h3WjPggiF9e7NPE-958sx",
+      "snippet": {
+        "publishedAt": "2026-03-02T08:47:31.894959Z",
+        "channelId": "UCqOS38WVZe4LpnHEXZvdsfA",
+        "title": "Mathematics IV ONE SHOT Series | AKTU BAS 303 / BAS 403",
+        "description": "",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/U5dr-KaEDW8/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/U5dr-KaEDW8/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/U5dr-KaEDW8/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/U5dr-KaEDW8/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/U5dr-KaEDW8/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Bitwise Learning",
+        "localized": {
+          "title": "Mathematics IV ONE SHOT Series | AKTU BAS 303 / BAS 403",
+          "description": ""
+        }
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "hdMcJM2gg0XPo-deQ3Tuj8IVurU",
+      "id": "PLkIvxvvDMKq238boFy7h5NdbNMSy5I1TL",
+      "snippet": {
+        "publishedAt": "2026-02-23T10:53:43.031094Z",
+        "channelId": "UCqOS38WVZe4LpnHEXZvdsfA",
+        "title": "Energy Science & Engineering One Shot | AKTU BOE 304/404",
+        "description": "",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/kGvYhSUHtzc/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/kGvYhSUHtzc/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/kGvYhSUHtzc/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/kGvYhSUHtzc/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/kGvYhSUHtzc/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Bitwise Learning",
+        "localized": {
+          "title": "Energy Science & Engineering One Shot | AKTU BOE 304/404",
+          "description": ""
+        }
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "9zLsVl8Ijh_MqyvDt8K0vF0kv6w",
+      "id": "PLkIvxvvDMKq0e8J1yYF10RCD5F3xROZcV",
+      "snippet": {
+        "publishedAt": "2026-02-22T17:53:57.087541Z",
+        "channelId": "UCqOS38WVZe4LpnHEXZvdsfA",
+        "title": "OOPs With JAVA Complete One Shot | BCS 403",
+        "description": "This course consists of whole Java strictly according to the AKTU syllabus BCS403",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/Dtc2hIx5rZM/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/Dtc2hIx5rZM/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/Dtc2hIx5rZM/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/Dtc2hIx5rZM/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/Dtc2hIx5rZM/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Bitwise Learning",
+        "localized": {
+          "title": "OOPs With JAVA Complete One Shot | BCS 403",
+          "description": "This course consists of whole Java strictly according to the AKTU syllabus BCS403"
+        }
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "mPDDMKDBbM-WNYqPCQfbCKD48LU",
+      "id": "PLkIvxvvDMKq2jDKPhRghAUvq0ksJbjGcF",
+      "snippet": {
+        "publishedAt": "2026-02-20T16:17:03.970334Z",
+        "channelId": "UCqOS38WVZe4LpnHEXZvdsfA",
+        "title": "AKTU Operating System (BCS-401) || One Shot",
+        "description": "",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/FvmoIgflRxQ/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/FvmoIgflRxQ/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/FvmoIgflRxQ/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/FvmoIgflRxQ/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/FvmoIgflRxQ/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Bitwise Learning",
+        "localized": {
+          "title": "AKTU Operating System (BCS-401) || One Shot",
+          "description": ""
+        }
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "g6XvvVlGmjF3F_0a-iBytENZgWY",
+      "id": "PLkIvxvvDMKq3llcNUgNi_BdffpGWQ2Cli",
+      "snippet": {
+        "publishedAt": "2026-02-16T21:30:34.327876Z",
+        "channelId": "UCqOS38WVZe4LpnHEXZvdsfA",
+        "title": "Theory of Automata and Formal Languages (BCS402) | Complete ONE SHOT",
+        "description": "",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/x1IcSa5gtBk/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/x1IcSa5gtBk/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/x1IcSa5gtBk/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/x1IcSa5gtBk/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/x1IcSa5gtBk/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Bitwise Learning",
+        "localized": {
+          "title": "Theory of Automata and Formal Languages (BCS402) | Complete ONE SHOT",
+          "description": ""
+        }
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "69H1VyRbFvqIbOQQfva8GL-QSo0",
+      "id": "PLkIvxvvDMKq3a7A-OtC4SfcXs1Hy1EGAw",
+      "snippet": {
+        "publishedAt": "2026-01-04T15:43:24.53857Z",
+        "channelId": "UCqOS38WVZe4LpnHEXZvdsfA",
+        "title": "AKTU Technical Communication ( BAS - 301 / 401 ) One Shot Videos",
+        "description": "",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/UmamzLYkDcY/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/UmamzLYkDcY/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/UmamzLYkDcY/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/UmamzLYkDcY/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/UmamzLYkDcY/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Bitwise Learning",
+        "localized": {
+          "title": "AKTU Technical Communication ( BAS - 301 / 401 ) One Shot Videos",
+          "description": ""
+        }
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "cyuCBNOkxWMMahhXB0ly3FUN_2I",
+      "id": "PLkIvxvvDMKq07wVfM-xSJ3V5B-y9OV2iD",
+      "snippet": {
+        "publishedAt": "2025-12-27T06:02:13.86928Z",
+        "channelId": "UCqOS38WVZe4LpnHEXZvdsfA",
+        "title": "AKTU UHV(BVE- 301 / 401) || One Shot Videos",
+        "description": "",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/ivyFlOaJYco/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/ivyFlOaJYco/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/ivyFlOaJYco/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/ivyFlOaJYco/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/ivyFlOaJYco/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Bitwise Learning",
+        "localized": {
+          "title": "AKTU UHV(BVE- 301 / 401) || One Shot Videos",
+          "description": ""
+        }
+      }
+    },
+    {
+      "kind": "youtube#playlist",
+      "etag": "JU7NjXzj6Qz1LACdbzl9eyQwjPs",
+      "id": "PLkIvxvvDMKq10RWaR0hA2Gb35iGbOuebs",
+      "snippet": {
+        "publishedAt": "2025-12-19T08:07:41.24896Z",
+        "channelId": "UCqOS38WVZe4LpnHEXZvdsfA",
+        "title": "AKTU DSTL (BCS 303) | One Shot Videos",
+        "description": "",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/VpXNsQtU_w4/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/VpXNsQtU_w4/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/VpXNsQtU_w4/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/VpXNsQtU_w4/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/VpXNsQtU_w4/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Bitwise Learning",
+        "localized": {
+          "title": "AKTU DSTL (BCS 303) | One Shot Videos",
+          "description": ""
+        }
+      }
+    }
+  ]
+}

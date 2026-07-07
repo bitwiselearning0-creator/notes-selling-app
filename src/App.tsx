@@ -1,0 +1,438 @@
+import { useState, useEffect } from 'react';
+import { Navbar } from './components/Navbar';
+import { LandingPage } from './pages/LandingPage';
+import { Auth } from './pages/Auth';
+import { Dashboard } from './pages/Dashboard';
+import { MyLibrary } from './pages/MyLibrary';
+import { Admin } from './pages/Admin';
+import { AdminLogin } from './pages/AdminLogin';
+import { Policies } from './pages/Policies';
+import { PDFViewer } from './components/PDFViewer';
+import { Profile } from './pages/Profile';
+import { dbService } from './lib/supabase';
+import type { UserProfile, Note } from './lib/supabase';
+import { Video, Send, Home, BookOpen, Library, ShieldCheck, User } from 'lucide-react';
+
+function App() {
+  const [currentPage, setCurrentPage] = useState<string>('landing');
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  
+  // Dashboard states shared between Landing and Catalog
+  const [selectedYear, setSelectedYear] = useState<'1st Year' | '2nd Year' | '3rd Year' | '4th Year'>('1st Year');
+
+  // Reader states
+  const [readingNote, setReadingNote] = useState<Note | null>(null);
+  const [readingNoteUnlocked, setReadingNoteUnlocked] = useState(false);
+  const [isAppMode, setIsAppMode] = useState(false);
+
+  // Check user session on mount & handle hash routing (e.g. #admin)
+  useEffect(() => {
+    // 1. Session check
+    const user = dbService.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+    }
+
+    // 2. Platform detection check (URL parameter/hash or saved preference)
+    const searchParams = new URLSearchParams(window.location.search);
+    const hash = window.location.hash;
+    const hasAppParam = searchParams.get('platform') === 'app' || hash.includes('platform=app') || window.location.href.includes('platform=app');
+    const hasWebParam = searchParams.get('platform') === 'web' || hash.includes('platform=web');
+
+    let isApp = false;
+    if (hasAppParam) {
+      localStorage.setItem('bw_platform_mode', 'app');
+      isApp = true;
+      setIsAppMode(true);
+    } else if (hasWebParam) {
+      localStorage.setItem('bw_platform_mode', 'web');
+      isApp = false;
+      setIsAppMode(false);
+    } else {
+      const saved = localStorage.getItem('bw_platform_mode');
+      isApp = saved === 'app';
+      setIsAppMode(isApp);
+    }
+
+    // 3. Enforce authentication gateway for app-mode on startup
+    if (isApp && !user) {
+      setCurrentPage('auth');
+    }
+
+    // 3. Hash routing check for admin access
+    const handleHashRouting = () => {
+      const activeHash = window.location.hash;
+      if (activeHash.split('?')[0] === '#admin') {
+        const activeUser = dbService.getCurrentUser();
+        if (activeUser?.role === 'admin') {
+          setCurrentPage('admin');
+        } else {
+          setCurrentPage('admin-login');
+        }
+      }
+    };
+
+    handleHashRouting();
+    window.addEventListener('hashchange', handleHashRouting);
+    return () => window.removeEventListener('hashchange', handleHashRouting);
+  }, []);
+
+  const handleLoginSuccess = (user: UserProfile) => {
+    setCurrentUser(user);
+  };
+
+  const handleLogout = async () => {
+    await dbService.signOut();
+    setCurrentUser(null);
+    setCurrentPage('landing');
+  };
+
+  // Navigates to PDF viewer securely checking if the notes are purchased
+  const handleReadNote = async (note: Note) => {
+    setReadingNote(note);
+    const unlocked = await dbService.isNotesPurchased(note.id);
+    setReadingNoteUnlocked(unlocked || note.price === 0);
+    setCurrentPage('viewer');
+  };
+
+  // Unlock Note from inside Viewer
+  const handleUnlockInViewer = async () => {
+    if (!readingNote || !currentUser) {
+      setCurrentPage('auth');
+      return;
+    }
+    // Set readingNoteUnlocked to true (simulating successful Razorpay webhook trigger)
+    const { success } = await dbService.purchaseNotes(readingNote.id);
+    if (success) {
+      setReadingNoteUnlocked(true);
+    }
+  };
+
+  // Helper for rendering policies pages easily
+  const handlePolicyNav = (type: 'terms' | 'refund' | 'privacy' | 'contact') => {
+    setCurrentPage(`policy-${type}`);
+    window.scrollTo(0, 0);
+  };
+
+  return (
+    <>
+      {/* Navigation Header */}
+      <Navbar 
+        user={currentUser} 
+        onLogout={handleLogout} 
+        navigate={setCurrentPage} 
+        currentPage={currentPage}
+        isAppMode={isAppMode}
+      />
+
+      {/* Main Pages Content Router */}
+      <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+        {currentPage === 'landing' && (
+          <LandingPage 
+            navigate={setCurrentPage} 
+            setSelectedYear={setSelectedYear} 
+          />
+        )}
+        
+        {currentPage === 'dashboard' && (
+          <Dashboard 
+            user={currentUser}
+            selectedYear={selectedYear}
+            setSelectedYear={setSelectedYear}
+            onReadNote={handleReadNote}
+            navigate={setCurrentPage}
+          />
+        )}
+
+        {currentPage === 'auth' && (
+          <Auth 
+            onLoginSuccess={handleLoginSuccess} 
+            navigate={setCurrentPage} 
+          />
+        )}
+
+        {currentPage === 'library' && (
+          <MyLibrary 
+            user={currentUser}
+            onReadNote={handleReadNote}
+            navigate={setCurrentPage}
+          />
+        )}
+
+        {currentPage === 'admin-login' && (
+          <AdminLogin 
+            onLoginSuccess={handleLoginSuccess} 
+            navigate={setCurrentPage} 
+          />
+        )}
+
+        {currentPage === 'admin' && (
+          <Admin 
+            user={currentUser} 
+            navigate={setCurrentPage} 
+          />
+        )}
+
+        {currentPage === 'profile' && (
+          <Profile 
+            user={currentUser} 
+            onLogout={handleLogout} 
+            navigate={setCurrentPage} 
+          />
+        )}
+
+        {currentPage === 'viewer' && readingNote && (
+          <PDFViewer 
+            note={readingNote} 
+            isUnlocked={readingNoteUnlocked}
+            onBack={() => {
+              setReadingNote(null);
+              setCurrentPage('dashboard');
+            }}
+            onUnlock={handleUnlockInViewer}
+          />
+        )}
+
+        {currentPage.startsWith('policy-') && (
+          <Policies 
+            policyType={currentPage.replace('policy-', '') as any} 
+          />
+        )}
+      </main>
+
+      {/* Footer Section (Hidden in App Mode) */}
+      {!isAppMode && (
+        <footer className="footer">
+          <div className="container">
+            <div className="footer-row">
+              {/* Branding Column */}
+              <div className="footer-brand">
+                <div className="footer-logo">
+                  <div className="logo-img-wrapper" style={{ width: '32px', height: '32px' }}>
+                    <img src="/logo.jpg" alt="Bitwise Learning" className="logo-img" />
+                  </div>
+                  <span className="logo-text" style={{ fontSize: '16px' }}>BITWISE LEARNING</span>
+                </div>
+                <p className="footer-desc">
+                  Simplifying BTech syllabus examinations with concise, high-quality, hand-written study notes and video solutions.
+                </p>
+              </div>
+
+              {/* Quick Links Column */}
+              <div className="footer-links-group">
+                <div className="footer-col">
+                  <h4>Legal Info</h4>
+                  <ul className="footer-links-list">
+                    <li>
+                      <button className="footer-link-item" onClick={() => handlePolicyNav('terms')}>
+                        Terms & Conditions
+                      </button>
+                    </li>
+                    <li>
+                      <button className="footer-link-item" onClick={() => handlePolicyNav('refund')}>
+                        Refund & Cancellation
+                      </button>
+                    </li>
+                    <li>
+                      <button className="footer-link-item" onClick={() => handlePolicyNav('privacy')}>
+                        Privacy Policy
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Social Channels Column */}
+                <div className="footer-col">
+                  <h4>Follow Channels</h4>
+                  <div className="social-row">
+                    <a 
+                      href="https://github.com/bitwiselearning0-creator" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="social-icon-btn"
+                      title="GitHub Repository"
+                    >
+                      <Send size={16} />
+                    </a>
+                    <a 
+                      href="https://www.youtube.com" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="social-icon-btn"
+                      title="Youtube Channel"
+                    >
+                      <Video size={16} />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="footer-bottom">
+              <p>&copy; {new Date().getFullYear()} Bitwise Learning. All rights reserved. Created for BTech Learners.</p>
+            </div>
+          </div>
+        </footer>
+      )}
+
+      {/* Bottom Navigation Tabs (App Mode Only) */}
+      {isAppMode && (
+        <div style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '60px',
+          background: 'rgba(7, 12, 27, 0.9)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderTop: '1px solid var(--glass-border)',
+          display: 'flex',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+          zIndex: 9998,
+          boxShadow: '0 -8px 24px rgba(0,0,0,0.5)'
+        }}>
+          {/* Home Tab */}
+          <button 
+            onClick={() => setCurrentPage('landing')} 
+            style={{
+              background: 'none',
+              border: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              color: currentPage === 'landing' ? 'var(--color-yellow)' : 'var(--color-muted)',
+              fontSize: '11px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              flex: 1
+            }}
+          >
+            <Home size={20} />
+            <span>Home</span>
+          </button>
+          
+          {/* Catalog Tab */}
+          <button 
+            onClick={() => setCurrentPage('dashboard')} 
+            style={{
+              background: 'none',
+              border: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              color: currentPage === 'dashboard' ? 'var(--color-yellow)' : 'var(--color-muted)',
+              fontSize: '11px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              flex: 1
+            }}
+          >
+            <BookOpen size={20} />
+            <span>Catalog</span>
+          </button>
+
+          {/* Library Tab (Only if logged in) */}
+          {currentUser && (
+            <button 
+              onClick={() => setCurrentPage('library')} 
+              style={{
+                background: 'none',
+                border: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                color: currentPage === 'library' ? 'var(--color-yellow)' : 'var(--color-muted)',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                flex: 1
+              }}
+            >
+              <Library size={20} />
+              <span>Library</span>
+            </button>
+          )}
+
+          {/* Profile OR Sign In Tab */}
+          {currentUser ? (
+            <button 
+              onClick={() => setCurrentPage('profile')} 
+              style={{
+                background: 'none',
+                border: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                color: currentPage === 'profile' ? 'var(--color-yellow)' : 'var(--color-muted)',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                flex: 1
+              }}
+            >
+              <User size={20} />
+              <span>Profile</span>
+            </button>
+          ) : (
+            <button 
+              onClick={() => setCurrentPage('auth')} 
+              style={{
+                background: 'none',
+                border: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                color: currentPage === 'auth' ? 'var(--color-yellow)' : 'var(--color-muted)',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                flex: 1
+              }}
+            >
+              <User size={20} />
+              <span>Sign In</span>
+            </button>
+          )}
+
+          {/* Admin Panel Tab (Only if admin) */}
+          {currentUser?.role === 'admin' && (
+            <button 
+              onClick={() => setCurrentPage('admin')} 
+              style={{
+                background: 'none',
+                border: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                color: currentPage === 'admin' ? 'var(--color-yellow)' : 'var(--color-muted)',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                flex: 1
+              }}
+            >
+              <ShieldCheck size={20} />
+              <span>Admin</span>
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+export default App;
