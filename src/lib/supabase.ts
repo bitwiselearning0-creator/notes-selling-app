@@ -250,33 +250,75 @@ export const dbService = {
     if (currentUser.role === 'admin') return { purchased: true, expiresAt: null, daysLeft: null };
 
     const now = new Date();
-    
-    // 1. Check direct notes purchase
-    const direct = mockPurchasesV2.find(p => p.itemId === notesId && p.itemType === 'notes');
-    if (direct) {
-      const expDate = new Date(direct.expiresAt);
-      if (expDate > now) {
+
+    if (!isMock && supabase) {
+      // 1. Check direct notes purchase
+      const { data: directPurchase } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('userId', currentUser.id)
+        .eq('itemId', notesId)
+        .eq('itemType', 'notes')
+        .gt('expiresAt', now.toISOString())
+        .maybeSingle();
+
+      if (directPurchase) {
+        const expDate = new Date(directPurchase.expiresAt);
         const diffTime = expDate.getTime() - now.getTime();
         const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return { purchased: true, expiresAt: direct.expiresAt, daysLeft };
+        return { purchased: true, expiresAt: directPurchase.expiresAt, daysLeft };
       }
-    }
 
-    // 2. Check if this note is part of a purchased semester bundle
-    const bundlePurchases = mockPurchasesV2.filter(p => p.itemType === 'bundle');
-    for (const bp of bundlePurchases) {
-      const expDate = new Date(bp.expiresAt);
-      if (expDate > now) {
-        const bundle = mockBundles.find(b => b.id === bp.itemId);
-        if (bundle && bundle.notesIds.includes(notesId)) {
-          const diffTime = expDate.getTime() - now.getTime();
-          const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return { purchased: true, expiresAt: bp.expiresAt, daysLeft };
+      // 2. Check if part of purchased semester combo bundle
+      const { data: bundlePurchases } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('userId', currentUser.id)
+        .eq('itemType', 'bundle')
+        .gt('expiresAt', now.toISOString());
+
+      if (bundlePurchases && bundlePurchases.length > 0) {
+        const { data: dbBundles } = await supabase.from('bundles').select('*');
+        if (dbBundles) {
+          for (const bp of bundlePurchases) {
+            const bundle = dbBundles.find(b => b.id === bp.itemId);
+            if (bundle && bundle.notesIds.includes(notesId)) {
+              const expDate = new Date(bp.expiresAt);
+              const diffTime = expDate.getTime() - now.getTime();
+              const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              return { purchased: true, expiresAt: bp.expiresAt, daysLeft };
+            }
+          }
         }
       }
-    }
+      return { purchased: false, expiresAt: null, daysLeft: null };
+    } else {
+      // Mock logic
+      const direct = mockPurchasesV2.find(p => p.itemId === notesId && p.itemType === 'notes');
+      if (direct) {
+        const expDate = new Date(direct.expiresAt);
+        if (expDate > now) {
+          const diffTime = expDate.getTime() - now.getTime();
+          const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return { purchased: true, expiresAt: direct.expiresAt, daysLeft };
+        }
+      }
 
-    return { purchased: false, expiresAt: null, daysLeft: null };
+      const bundlePurchases = mockPurchasesV2.filter(p => p.itemType === 'bundle');
+      for (const bp of bundlePurchases) {
+        const expDate = new Date(bp.expiresAt);
+        if (expDate > now) {
+          const bundle = mockBundles.find(b => b.id === bp.itemId);
+          if (bundle && bundle.notesIds.includes(notesId)) {
+            const diffTime = expDate.getTime() - now.getTime();
+            const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return { purchased: true, expiresAt: bp.expiresAt, daysLeft };
+          }
+        }
+      }
+
+      return { purchased: false, expiresAt: null, daysLeft: null };
+    }
   },
 
   purchaseNotes: async (notesId: string): Promise<{ success: boolean; error: string | null }> => {
@@ -286,52 +328,92 @@ export const dbService = {
     const expiresAt = new Date();
     expiresAt.setMonth(purchasedAt.getMonth() + 6); // Exactly 6-month validity
 
-    const newPurchase: Purchase = {
-      id: 'purch_' + Math.random().toString(36).substr(2, 9),
-      userId: currentUser.id,
-      itemId: notesId,
-      itemType: 'notes',
-      purchasedAt: purchasedAt.toISOString(),
-      expiresAt: expiresAt.toISOString()
-    };
+    if (!isMock && supabase) {
+      const { error } = await supabase.from('purchases').insert([{
+        userId: currentUser.id,
+        itemId: notesId,
+        itemType: 'notes',
+        purchasedAt: purchasedAt.toISOString(),
+        expiresAt: expiresAt.toISOString()
+      }]);
+      return { success: !error, error: error ? error.message : null };
+    } else {
+      const newPurchase: Purchase = {
+        id: 'purch_' + Math.random().toString(36).substr(2, 9),
+        userId: currentUser.id,
+        itemId: notesId,
+        itemType: 'notes',
+        purchasedAt: purchasedAt.toISOString(),
+        expiresAt: expiresAt.toISOString()
+      };
 
-    // Remove any existing expired purchase for this note
-    mockPurchasesV2 = mockPurchasesV2.filter(p => !(p.itemId === notesId && p.itemType === 'notes'));
-    mockPurchasesV2.push(newPurchase);
-    setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
+      mockPurchasesV2 = mockPurchasesV2.filter(p => !(p.itemId === notesId && p.itemType === 'notes'));
+      mockPurchasesV2.push(newPurchase);
+      setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
 
-    const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-    storedMapV2[currentUser.id] = mockPurchasesV2;
-    setStoredData('bw_mock_purchases_map_v2', storedMapV2);
+      const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+      storedMapV2[currentUser.id] = mockPurchasesV2;
+      setStoredData('bw_mock_purchases_map_v2', storedMapV2);
 
-    return { success: true, error: null };
+      return { success: true, error: null };
+    }
   },
 
   getPurchasedNotes: async (): Promise<{ data: Note[]; error: string | null }> => {
     if (!currentUser) return { data: [], error: 'User session not active.' };
-    if (currentUser.role === 'admin') return { data: mockNotes, error: null };
 
-    const purchasedList: Note[] = [];
-    for (const note of mockNotes) {
-      const active = await dbService.isNotesPurchased(note.id);
-      if (active) {
-        purchasedList.push(note);
+    if (!isMock && supabase) {
+      const { data: allNotes, error: notesError } = await supabase.from('notes').select('*');
+      if (notesError) return { data: [], error: notesError.message };
+      if (currentUser.role === 'admin') return { data: allNotes || [], error: null };
+
+      const purchasedList: Note[] = [];
+      if (allNotes) {
+        for (const note of allNotes) {
+          const active = await dbService.isNotesPurchased(note.id);
+          if (active) {
+            purchasedList.push(note);
+          }
+        }
       }
+      return { data: purchasedList, error: null };
+    } else {
+      if (currentUser.role === 'admin') return { data: mockNotes, error: null };
+
+      const purchasedList: Note[] = [];
+      for (const note of mockNotes) {
+        const active = await dbService.isNotesPurchased(note.id);
+        if (active) {
+          purchasedList.push(note);
+        }
+      }
+      return { data: purchasedList, error: null };
     }
-    return { data: purchasedList, error: null };
   },
 
   // --- BUNDLES SERVICE ---
   getBundles: async (year?: string): Promise<{ data: Bundle[]; error: string | null }> => {
-    const bundles = year ? mockBundles.filter(b => b.year === year) : mockBundles;
-    return { data: bundles, error: null };
+    if (!isMock && supabase) {
+      let query = supabase.from('bundles').select('*');
+      if (year) query = query.eq('year', year);
+      const { data, error } = await query;
+      return { data: data || [], error: error ? error.message : null };
+    } else {
+      const bundles = year ? mockBundles.filter(b => b.year === year) : mockBundles;
+      return { data: bundles, error: null };
+    }
   },
 
   addBundle: async (bundle: Omit<Bundle, 'id'>): Promise<{ data: Bundle | null; error: string | null }> => {
     const newBundle = { ...bundle, id: 'bundle_' + Math.random().toString(36).substr(2, 9) };
-    mockBundles.unshift(newBundle);
-    setStoredData('bw_mock_bundles', mockBundles);
-    return { data: newBundle, error: null };
+    if (!isMock && supabase) {
+      const { data, error } = await supabase.from('bundles').insert([newBundle]).select().single();
+      return { data, error: error ? error.message : null };
+    } else {
+      mockBundles.unshift(newBundle);
+      setStoredData('bw_mock_bundles', mockBundles);
+      return { data: newBundle, error: null };
+    }
   },
 
   purchaseBundle: async (bundleId: string): Promise<{ success: boolean; error: string | null }> => {
@@ -341,25 +423,35 @@ export const dbService = {
     const expiresAt = new Date();
     expiresAt.setMonth(purchasedAt.getMonth() + 6); // 6-month validity
 
-    const newPurchase: Purchase = {
-      id: 'purch_' + Math.random().toString(36).substr(2, 9),
-      userId: currentUser.id,
-      itemId: bundleId,
-      itemType: 'bundle',
-      purchasedAt: purchasedAt.toISOString(),
-      expiresAt: expiresAt.toISOString()
-    };
+    if (!isMock && supabase) {
+      const { error } = await supabase.from('purchases').insert([{
+        userId: currentUser.id,
+        itemId: bundleId,
+        itemType: 'bundle',
+        purchasedAt: purchasedAt.toISOString(),
+        expiresAt: expiresAt.toISOString()
+      }]);
+      return { success: !error, error: error ? error.message : null };
+    } else {
+      const newPurchase: Purchase = {
+        id: 'purch_' + Math.random().toString(36).substr(2, 9),
+        userId: currentUser.id,
+        itemId: bundleId,
+        itemType: 'bundle',
+        purchasedAt: purchasedAt.toISOString(),
+        expiresAt: expiresAt.toISOString()
+      };
 
-    // Remove any existing expired purchase for this bundle
-    mockPurchasesV2 = mockPurchasesV2.filter(p => !(p.itemId === bundleId && p.itemType === 'bundle'));
-    mockPurchasesV2.push(newPurchase);
-    setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
+      mockPurchasesV2 = mockPurchasesV2.filter(p => !(p.itemId === bundleId && p.itemType === 'bundle'));
+      mockPurchasesV2.push(newPurchase);
+      setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
 
-    const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-    storedMapV2[currentUser.id] = mockPurchasesV2;
-    setStoredData('bw_mock_purchases_map_v2', storedMapV2);
+      const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+      storedMapV2[currentUser.id] = mockPurchasesV2;
+      setStoredData('bw_mock_purchases_map_v2', storedMapV2);
 
-    return { success: true, error: null };
+      return { success: true, error: null };
+    }
   },
 
   isBundlePurchased: async (bundleId: string): Promise<{ purchased: boolean; expiresAt: string | null; daysLeft: number | null }> => {
@@ -367,33 +459,73 @@ export const dbService = {
     if (currentUser.role === 'admin') return { purchased: true, expiresAt: null, daysLeft: null };
 
     const now = new Date();
-    const purchase = mockPurchasesV2.find(p => p.itemId === bundleId && p.itemType === 'bundle');
-    
-    if (purchase) {
-      const expDate = new Date(purchase.expiresAt);
-      if (expDate > now) {
+
+    if (!isMock && supabase) {
+      const { data: purchase } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('userId', currentUser.id)
+        .eq('itemId', bundleId)
+        .eq('itemType', 'bundle')
+        .gt('expiresAt', now.toISOString())
+        .maybeSingle();
+
+      if (purchase) {
+        const expDate = new Date(purchase.expiresAt);
         const diffTime = expDate.getTime() - now.getTime();
         const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return { purchased: true, expiresAt: purchase.expiresAt, daysLeft };
       }
+      return { purchased: false, expiresAt: null, daysLeft: null };
+    } else {
+      const purchase = mockPurchasesV2.find(p => p.itemId === bundleId && p.itemType === 'bundle');
+      if (purchase) {
+        const expDate = new Date(purchase.expiresAt);
+        if (expDate > now) {
+          const diffTime = expDate.getTime() - now.getTime();
+          const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return { purchased: true, expiresAt: purchase.expiresAt, daysLeft };
+        }
+      }
+      return { purchased: false, expiresAt: null, daysLeft: null };
     }
-    return { purchased: false, expiresAt: null, daysLeft: null };
   },
 
   getPurchasedBundles: async (): Promise<{ data: { bundle: Bundle; expiresAt: string; daysLeft: number }[]; error: string | null }> => {
     if (!currentUser) return { data: [], error: 'User session not active.' };
     
-    const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
     const now = new Date();
 
-    for (const purchase of mockPurchasesV2) {
-      if (purchase.itemType === 'bundle') {
-        const expDate = new Date(purchase.expiresAt);
-        if (expDate > now || currentUser.role === 'admin') {
-          const bundle = mockBundles.find(b => b.id === purchase.itemId);
+    if (!isMock && supabase) {
+      const { data: allBundles, error: bundlesError } = await supabase.from('bundles').select('*');
+      if (bundlesError) return { data: [], error: bundlesError.message };
+
+      if (currentUser.role === 'admin') {
+        const adminResults = (allBundles || []).map(b => ({
+          bundle: b,
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 180).toISOString(),
+          daysLeft: 9999
+        }));
+        return { data: adminResults, error: null };
+      }
+
+      const { data: dbPurchases, error: purchasesError } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('userId', currentUser.id)
+        .eq('itemType', 'bundle')
+        .gt('expiresAt', now.toISOString());
+
+      if (purchasesError) return { data: [], error: purchasesError.message };
+
+      const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
+      if (dbPurchases && allBundles) {
+        for (const purchase of dbPurchases) {
+          const bundle = allBundles.find(b => b.id === purchase.itemId);
           if (bundle) {
+            const expDate = new Date(purchase.expiresAt);
             const diffTime = expDate.getTime() - now.getTime();
-            const daysLeft = currentUser.role === 'admin' ? 9999 : Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             results.push({
               bundle,
               expiresAt: purchase.expiresAt,
@@ -402,8 +534,29 @@ export const dbService = {
           }
         }
       }
+      return { data: results, error: null };
+    } else {
+      const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
+
+      for (const purchase of mockPurchasesV2) {
+        if (purchase.itemType === 'bundle') {
+          const expDate = new Date(purchase.expiresAt);
+          if (expDate > now || currentUser.role === 'admin') {
+            const bundle = mockBundles.find(b => b.id === purchase.itemId);
+            if (bundle) {
+              const diffTime = expDate.getTime() - now.getTime();
+              const daysLeft = currentUser.role === 'admin' ? 9999 : Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              results.push({
+                bundle,
+                expiresAt: purchase.expiresAt,
+                daysLeft
+              });
+            }
+          }
+        }
+      }
+      return { data: results, error: null };
     }
-    return { data: results, error: null };
   },
 
   // --- ADMIN INVENTORY EDITOR APIs ---
