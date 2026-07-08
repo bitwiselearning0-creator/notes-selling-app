@@ -179,8 +179,8 @@ function App() {
 
   return (
     <>
-      {/* Navigation Header (Hidden in App Mode if not logged in) */}
-      {(!isAppMode || currentUser) && (
+      {/* Navigation Header (Hidden in App Mode) */}
+      {!isAppMode && (
         <Navbar 
           user={currentUser} 
           onLogout={handleLogout} 
