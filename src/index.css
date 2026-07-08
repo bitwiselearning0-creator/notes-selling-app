@@ -1331,6 +1331,11 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 16px rgba(96, 165, 250, 0.25) !important;
 }
 
+select option {
+  background-color: #0b1329 !important;
+  color: #ffffff !important;
+}
+
 /* Specific inputs with icon overlays on the left */
 .form-group div > input,
 .search-bar-wrapper > input {
