@@ -11,7 +11,7 @@ import { PDFViewer } from './components/PDFViewer';
 import { Profile } from './pages/Profile';
 import { dbService } from './lib/supabase';
 import type { UserProfile, Note } from './lib/supabase';
-import { Video, Send, BookOpen, Library, ShieldCheck, User } from 'lucide-react';
+import { BookOpen, Library, ShieldCheck, User } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<string>('landing');
@@ -311,22 +311,21 @@ function App() {
                   <h4>Follow Channels</h4>
                   <div className="social-row">
                     <a 
-                      href="https://github.com/bitwiselearning0-creator" 
+                      href="https://youtube.com/@bitwiselearning25" 
                       target="_blank" 
                       rel="noopener noreferrer" 
                       className="social-icon-btn"
-                      title="GitHub Repository"
+                      title="YouTube Channel"
                     >
-                      <Send size={16} />
+                      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17" /><path d="m10 15 5-3-5-3z" /></svg>
                     </a>
                     <a 
-                      href="https://www.youtube.com" 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
+                      href="#" 
+                      onClick={(e) => e.preventDefault()} 
                       className="social-icon-btn"
-                      title="Youtube Channel"
+                      title="Instagram"
                     >
-                      <Video size={16} />
+                      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><rect width="20" height="20" x="2" y="2" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" x2="17.51" y1="6.5" y2="6.5" /></svg>
                     </a>
                   </div>
                 </div>
