@@ -1539,6 +1539,7 @@ select:-webkit-autofill:focus {
 body.app-mode {
   background-attachment: scroll !important;
   font-size: 14px !important;
+  padding-top: 20px !important; /* Top spacer to prevent welcome cards from clashing at the top boundary */
   padding-bottom: 72px !important; /* Bottom spacer so tab-bar never overlaps content */
 }
 
