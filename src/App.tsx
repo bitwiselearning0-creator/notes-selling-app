@@ -33,26 +33,13 @@ function App() {
       setCurrentUser(user);
     }
 
-    // 2. Platform detection check (URL parameter/hash or saved preference)
+    // 2. Platform detection check (URL parameter/hash or native platform)
+    localStorage.removeItem('bw_platform_mode'); // Clear legacy lock-in cache
     const searchParams = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
     const hasAppParam = searchParams.get('platform') === 'app' || hash.includes('platform=app') || window.location.href.includes('platform=app') || !!(window as any).Capacitor;
-    const hasWebParam = searchParams.get('platform') === 'web' || hash.includes('platform=web');
-
-    let isApp = false;
-    if (hasAppParam) {
-      localStorage.setItem('bw_platform_mode', 'app');
-      isApp = true;
-      setIsAppMode(true);
-    } else if (hasWebParam) {
-      localStorage.setItem('bw_platform_mode', 'web');
-      isApp = false;
-      setIsAppMode(false);
-    } else {
-      const saved = localStorage.getItem('bw_platform_mode');
-      isApp = saved === 'app';
-      setIsAppMode(isApp);
-    }
+    const isApp = hasAppParam;
+    setIsAppMode(isApp);
 
     // 3. Enforce authentication gateway for app-mode on startup
     if (isApp && !user) {
