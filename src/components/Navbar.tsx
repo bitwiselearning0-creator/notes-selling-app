@@ -22,7 +22,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, navigate, curren
     <nav className="navbar" style={{ padding: isAppMode ? '10px 0' : '14px 0' }}>
       <div className="container nav-container">
         {/* Logo and Branding */}
-        <div className="nav-logo" onClick={() => handleNavClick('landing')}>
+        <div className="nav-logo" onClick={() => handleNavClick(isAppMode ? 'dashboard' : 'landing')}>
           <div className="logo-img-wrapper" style={{ width: isAppMode ? '34px' : '42px', height: isAppMode ? '34px' : '42px' }}>
             <img src="/logo.jpg" alt="Bitwise Learning Logo" className="logo-img" />
           </div>

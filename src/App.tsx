@@ -11,7 +11,7 @@ import { PDFViewer } from './components/PDFViewer';
 import { Profile } from './pages/Profile';
 import { dbService } from './lib/supabase';
 import type { UserProfile, Note } from './lib/supabase';
-import { Video, Send, Home, BookOpen, Library, ShieldCheck, User } from 'lucide-react';
+import { Video, Send, BookOpen, Library, ShieldCheck, User } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<string>('landing');
@@ -97,7 +97,11 @@ function App() {
           window.location.hash = '#login';
         }
       } else if (activeHash === '#home' || activeHash === '') {
-        setCurrentPage('landing');
+        if (isApp) {
+          window.location.hash = '#catalog';
+        } else {
+          setCurrentPage('landing');
+        }
       }
     };
 
@@ -162,6 +166,15 @@ function App() {
       setReadingNoteUnlocked(true);
     }
   };
+
+  // Dynamically toggle body class for app-mode specific styles
+  useEffect(() => {
+    if (isAppMode) {
+      document.body.classList.add('app-mode');
+    } else {
+      document.body.classList.remove('app-mode');
+    }
+  }, [isAppMode]);
 
   // Helper for rendering policies pages easily
   const handlePolicyNav = (type: 'terms' | 'refund' | 'privacy' | 'contact') => {
@@ -348,28 +361,6 @@ function App() {
           zIndex: 9998,
           boxShadow: '0 -8px 24px rgba(0,0,0,0.5)'
         }}>
-          {/* Home Tab */}
-          <button 
-            onClick={() => navigate('landing')} 
-            style={{
-              background: 'none',
-              border: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              color: currentPage === 'landing' ? 'var(--color-yellow)' : 'var(--color-muted)',
-              fontSize: '11px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              flex: 1
-            }}
-          >
-            <Home size={20} />
-            <span>Home</span>
-          </button>
-          
           {/* Catalog Tab */}
           <button 
             onClick={() => navigate('dashboard')} 

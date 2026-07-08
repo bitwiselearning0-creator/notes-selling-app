@@ -34,9 +34,9 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, navigate }) =>
         <div className="blob blob-2"></div>
       </div>
 
-      <div className="auth-card glass-card" style={{ maxWidth: '440px', width: '100%', padding: '36px 30px', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="auth-card glass-card profile-card" style={{ maxWidth: '440px', width: '100%', padding: '36px 30px', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          <div style={{ 
+          <div className="profile-avatar-wrapper" style={{ 
             background: 'linear-gradient(135deg, rgba(96, 165, 250, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%)', 
             width: '80px', 
             height: '80px', 
@@ -50,10 +50,10 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, navigate }) =>
           }}>
             <User size={40} />
           </div>
-          <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-white)', margin: 0 }}>
+          <h3 className="profile-name" style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-white)', margin: 0 }}>
             {user.name}
           </h3>
-          <div style={{
+          <div className="profile-badge" style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
@@ -74,8 +74,8 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, navigate }) =>
         </div>
 
         {/* Profile Info Details List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
-          <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div className="profile-details-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
+          <div className="profile-detail-item" style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
             <Mail size={18} style={{ color: 'var(--color-muted)' }} />
             <div style={{ textAlign: 'left' }}>
               <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.05em' }}>Email Address</div>
@@ -83,7 +83,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, navigate }) =>
             </div>
           </div>
 
-          <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div className="profile-detail-item" style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
             <Phone size={18} style={{ color: 'var(--color-muted)' }} />
             <div style={{ textAlign: 'left' }}>
               <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.05em' }}>Phone Number</div>
@@ -94,7 +94,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, navigate }) =>
 
         {/* Log Out Action Button */}
         <button 
-          className="btn-secondary w-full" 
+          className="btn-secondary w-full profile-logout-btn" 
           onClick={onLogout}
           style={{ 
             borderColor: '#ef4444', 
