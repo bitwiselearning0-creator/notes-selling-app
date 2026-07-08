@@ -56,7 +56,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       )}
 
       <div className="note-body">
-        <span className="semester-tag">Sem {note.semester} • {note.year}</span>
+        <span className="semester-tag">Sem {note.semester} • {note.year} • <strong style={{ color: note.type === 'pyqs' ? '#60a5fa' : '#34d399' }}>{note.type === 'pyqs' ? 'PYQ' : 'Notes'}</strong></span>
         <h3 className="note-title">{note.title}</h3>
         <p className="note-description">{note.description}</p>
         
@@ -92,7 +92,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         {isLoggedIn ? (
           isPurchased || isFree ? (
             <button className="btn-primary w-full" onClick={() => onRead(note)}>
-              Read Notes
+              {note.type === 'pyqs' ? 'Read PYQ Solutions' : 'Read Notes'}
             </button>
           ) : (
             <div className="action-buttons-group">

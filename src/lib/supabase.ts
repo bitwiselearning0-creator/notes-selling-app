@@ -24,6 +24,7 @@ export interface Note {
   previewUrl: string; // Dynamic simulated PDF views
   pagesCount: number;
   topics: string[];
+  type?: 'notes' | 'pyqs';
 }
 
 export interface Playlist {
@@ -214,7 +215,8 @@ export const dbService = {
   },
 
   addNote: async (note: Omit<Note, 'id'>): Promise<{ data: Note | null; error: string | null }> => {
-    const newNote = { ...note, id: 'note_' + Math.random().toString(36).substr(2, 9) };
+    const prefix = note.type === 'pyqs' ? 'pyq_' : 'note_';
+    const newNote = { ...note, id: prefix + Math.random().toString(36).substr(2, 9) };
     if (!isMock && supabase) {
       const { data, error } = await supabase.from('notes').insert([newNote]).select().single();
       return { data, error: error ? error.message : null };

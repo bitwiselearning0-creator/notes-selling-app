@@ -29,6 +29,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   const [noteDesc, setNoteDesc] = useState('');
   const [noteTopics, setNoteTopics] = useState('');
   const [notePages, setNotePages] = useState(100);
+  const [noteType, setNoteType] = useState<'notes' | 'pyqs'>('notes');
 
   // File Upload States
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -154,7 +155,8 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       description: noteDesc,
       previewUrl: selectedFileBase64, // Local Base64 PDF String or Supabase Storage URL
       pagesCount: Number(notePages),
-      topics: topicsArray.length > 0 ? topicsArray : ['Core syllabus', 'PYQs solutions']
+      topics: topicsArray.length > 0 ? topicsArray : ['Core syllabus', 'PYQs solutions'],
+      type: noteType
     };
 
     const { data, error } = await dbService.addNote(notePayload);
@@ -162,10 +164,10 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       showNotification('Note successfully added to catalog!');
       setNoteTitle('');
       setNoteSubject('');
-      setNoteDesc('');
       setNoteTopics('');
       setNotePrice(99);
       setNotePages(100);
+      setNoteType('notes');
       setSelectedFile(null);
       setSelectedFileBase64('');
       loadInventory();
@@ -432,6 +434,13 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                   </h3>
                   <form onSubmit={handleAddNote} className="auth-form">
                     <div className="form-group">
+                      <label>Resource Type</label>
+                      <select value={noteType} onChange={(e) => setNoteType(e.target.value as 'notes' | 'pyqs')}>
+                        <option value="notes">Study Notes / Syllabus Guide</option>
+                        <option value="pyqs">Previous Year Questions (PYQs)</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
                       <label>Note Title</label>
                       <input 
                         type="text" 
@@ -626,7 +635,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                                   }
                                 }}
                               />
-                              <span>{note.title}</span>
+                              <span>{note.title} <strong style={{ color: note.type === 'pyqs' ? '#60a5fa' : '#34d399', fontSize: '10px' }}>({note.type === 'pyqs' ? 'PYQ' : 'Notes'})</strong></span>
                             </label>
                           ))}
                         </div>
@@ -762,6 +771,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                     <thead>
                       <tr>
                         <th>Subject Title</th>
+                        <th>Type</th>
                         <th>Year & Sem</th>
                         <th>Price</th>
                         <th>Pages</th>
@@ -772,6 +782,20 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                       {notes.map(n => (
                         <tr key={n.id}>
                           <td style={{ fontWeight: '600' }}>{n.title}</td>
+                          <td>
+                            <span className="bundle-banner-badge" style={{ 
+                              background: n.type === 'pyqs' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                              color: n.type === 'pyqs' ? '#60a5fa' : '#34d399',
+                              border: n.type === 'pyqs' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 'bold',
+                              display: 'inline-block'
+                            }}>
+                              {n.type === 'pyqs' ? 'Exam PYQ' : 'Study Notes'}
+                            </span>
+                          </td>
                           <td style={{ color: 'var(--color-muted)' }}>{n.year} (Sem {n.semester})</td>
                           <td className="yellow-accent" style={{ fontWeight: '700' }}>₹{n.price}</td>
                           <td>{n.pagesCount} pgs</td>
@@ -940,7 +964,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                     >
                       {licenseType === 'notes' ? (
                         notes.map(n => (
-                          <option key={n.id} value={n.id}>[Notes] {n.title} (Sem {n.semester})</option>
+                          <option key={n.id} value={n.id}>[{n.type === 'pyqs' ? 'PYQ' : 'Notes'}] {n.title} (Sem {n.semester})</option>
                         ))
                       ) : (
                         bundles.map(b => (
@@ -1062,6 +1086,17 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                   onChange={(e) => setEditingNote({ ...editingNote, subject: e.target.value })}
                   required
                 />
+              </div>
+
+              <div className="form-group">
+                <label>Resource Type</label>
+                <select 
+                  value={editingNote.type || 'notes'} 
+                  onChange={(e) => setEditingNote({ ...editingNote, type: e.target.value as 'notes' | 'pyqs' })}
+                >
+                  <option value="notes">Study Notes / Syllabus Guide</option>
+                  <option value="pyqs">Previous Year Questions (PYQs)</option>
+                </select>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -1259,7 +1294,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                             }
                           }}
                         />
-                        <span>{note.title}</span>
+                        <span>{note.title} <strong style={{ color: note.type === 'pyqs' ? '#60a5fa' : '#34d399', fontSize: '10px' }}>({note.type === 'pyqs' ? 'PYQ' : 'Notes'})</strong></span>
                       </label>
                     ))}
                 </div>

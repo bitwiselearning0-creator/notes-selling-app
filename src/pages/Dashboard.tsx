@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen } from 'lucide-react';
+import { Search, Loader2, CheckCircle2, ShieldCheck, User } from 'lucide-react';
 import { dbService, isMock } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Playlist } from '../lib/supabase';
 import { NoteCard } from '../components/NoteCard';
@@ -120,6 +120,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const matchesSem = selectedSemester === null || n.semester === selectedSemester;
     return matchesSearch && matchesSem;
   });
+
+  const studyNotes = filteredNotes.filter(n => n.type !== 'pyqs');
+  const pyqs = filteredNotes.filter(n => n.type === 'pyqs');
 
   // Filter playlists based on semester selection
   const filteredPlaylists = playlists.filter(p => {
@@ -444,17 +447,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           {/* Individual Notes Section */}
           <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-            <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-heading)', fontWeight: '700' }} className="blue-accent">
+            <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700' }} className="blue-accent">
               Individual Subject Notes (6 Months Validity)
             </h3>
-            <p style={{ color: 'var(--color-muted)', fontSize: '13px', marginBottom: '20px' }}>
+            <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '20px' }}>
               Choose specific subject modules to unlock individually with 6-month license coverage.
             </p>
           </div>
 
-          {filteredNotes.length > 0 ? (
-            <div className="notes-grid">
-              {filteredNotes.map(note => (
+          {studyNotes.length > 0 ? (
+            <div className="notes-grid" style={{ marginBottom: '30px' }}>
+              {studyNotes.map(note => (
                 <NoteCard 
                   key={note.id}
                   note={note}
@@ -468,26 +471,43 @@ export const Dashboard: React.FC<DashboardProps> = ({
               ))}
             </div>
           ) : (
-            <div className="empty-state glass-card" style={{ padding: '50px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(217, 119, 6, 0.05) 100%)',
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--color-yellow)',
-                border: '1px solid rgba(251, 191, 36, 0.25)',
-                boxShadow: '0 0 20px rgba(251, 191, 36, 0.05)',
-                marginBottom: '4px'
-              }}>
-                <BookOpen size={28} />
-              </div>
-              <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: 'var(--color-white)' }}>No Note Packs Available</h4>
-              <p style={{ margin: 0, fontSize: '13px', color: 'var(--color-muted)', maxWidth: '300px', lineHeight: '1.5' }}>
-                We couldn't find any note packs matching your search query or semester filters. Try adjusting your year or filters tab.
-              </p>
+            <div className="empty-state glass-card" style={{ padding: '30px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '16px', border: '1px dashed var(--glass-border)', background: 'rgba(255,255,255,0.01)', marginBottom: '30px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '500' }}>
+                No subject study notes available for this semester.
+              </span>
+            </div>
+          )}
+
+          {/* Exam PYQs Section */}
+          <div style={{ textAlign: 'left', marginBottom: '15px', marginTop: '30px' }}>
+            <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700' }} className="blue-accent">
+              Previous Year Questions - PYQs (6 Months Validity)
+            </h3>
+            <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '20px' }}>
+              Solve official past engineering exams with verified step-by-step solutions.
+            </p>
+          </div>
+
+          {pyqs.length > 0 ? (
+            <div className="notes-grid">
+              {pyqs.map(note => (
+                <NoteCard 
+                  key={note.id}
+                  note={note}
+                  isPurchased={purchasedIds.includes(note.id)}
+                  isLoggedIn={!!user}
+                  onPurchase={handlePurchaseTrigger}
+                  onRead={onReadNote}
+                  onNavigateToAuth={() => navigate('auth')}
+                  purchaseDetails={purchaseDetailsMap[note.id]}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state glass-card" style={{ padding: '30px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '16px', border: '1px dashed var(--glass-border)', background: 'rgba(255,255,255,0.01)' }}>
+              <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '500' }}>
+                No past year exam PYQs available for this semester.
+              </span>
             </div>
           )}
         </>
