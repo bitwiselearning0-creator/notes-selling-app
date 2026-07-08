@@ -51,6 +51,14 @@ function App() {
       const activeHash = window.location.hash.split('?')[0];
       const activeUser = dbService.getCurrentUser();
 
+      // Strict protection for App Mode: redirect to login if not authenticated
+      if (isApp && !activeUser) {
+        if (activeHash !== '#login' && activeHash !== '#admin-login' && activeHash !== '#admin') {
+          window.location.hash = '#login';
+          return;
+        }
+      }
+
       if (activeHash === '#admin') {
         if (activeUser?.role === 'admin') {
           setCurrentPage('admin');
@@ -171,14 +179,16 @@ function App() {
 
   return (
     <>
-      {/* Navigation Header */}
-      <Navbar 
-        user={currentUser} 
-        onLogout={handleLogout} 
-        navigate={navigate} 
-        currentPage={currentPage}
-        isAppMode={isAppMode}
-      />
+      {/* Navigation Header (Hidden in App Mode if not logged in) */}
+      {(!isAppMode || currentUser) && (
+        <Navbar 
+          user={currentUser} 
+          onLogout={handleLogout} 
+          navigate={navigate} 
+          currentPage={currentPage}
+          isAppMode={isAppMode}
+        />
+      )}
 
       {/* Main Pages Content Router */}
       <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
@@ -331,7 +341,7 @@ function App() {
       )}
 
       {/* Bottom Navigation Tabs (App Mode Only) */}
-      {isAppMode && (
+      {isAppMode && currentUser && (
         <div style={{
           position: 'fixed',
           bottom: 0,
