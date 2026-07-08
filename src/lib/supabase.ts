@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Retrieve environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Retrieve environment variables with hardcoded fallbacks for native Android/iOS APK builds
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://zczomcghyktsaimwhwxp.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_T_NLVZYhGMxVuELQNEgtGQ_zBgeBMHl';
 
 // Determine if we should use mock database
 export const isMock = !supabaseUrl || !supabaseAnonKey;
