@@ -263,6 +263,37 @@ function App() {
             policyType={currentPage.replace('policy-', '') as any} 
           />
         )}
+
+        {/* App Mode Glowing Card Footer */}
+        {isAppMode && (
+          <div className="app-glowing-footer" style={{ padding: '0 16px 24px 16px', marginTop: 'auto', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
+            <div className="glass-card" style={{
+              padding: '10px 14px',
+              borderRadius: '10px',
+              background: 'rgba(13, 22, 47, 0.45)',
+              border: '1.5px solid rgba(96, 165, 250, 0.22)',
+              boxShadow: '0 0 15px rgba(37, 99, 235, 0.15)',
+              fontSize: '11px',
+              color: 'var(--color-muted)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+              gap: '4px',
+              margin: '20px auto 0 auto'
+            }}>
+              <span>Proudly Designed & Developed with ❤️ by</span>
+              <a 
+                href="https://www.instagram.com/hackwithsaket/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                style={{ color: 'var(--color-yellow)', fontWeight: '700', textDecoration: 'none' }}
+              >
+                Saket Choudhary
+              </a>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Footer Section (Hidden in App Mode) */}
@@ -320,8 +351,9 @@ function App() {
                       <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17" /><path d="m10 15 5-3-5-3z" /></svg>
                     </a>
                     <a 
-                      href="#" 
-                      onClick={(e) => e.preventDefault()} 
+                      href="https://www.instagram.com/hackwithsaket/" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
                       className="social-icon-btn"
                       title="Instagram"
                     >
@@ -332,8 +364,19 @@ function App() {
               </div>
             </div>
 
-            <div className="footer-bottom">
+            <div className="footer-bottom" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
               <p>&copy; {new Date().getFullYear()} Bitwise Learning. All rights reserved. Created for BTech Learners.</p>
+              <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>Proudly Designed & Developed with ❤️ by</span>
+                <a 
+                  href="https://www.instagram.com/hackwithsaket/" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  style={{ color: 'var(--color-yellow)', fontWeight: '700', textDecoration: 'none' }}
+                >
+                  Saket Choudhary
+                </a>
+              </p>
             </div>
           </div>
         </footer>
