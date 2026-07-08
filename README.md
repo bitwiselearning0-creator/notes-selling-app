@@ -153,4 +153,4 @@ cd android
 ## ✍️ Credits & Author Info
 Proudly Designed & Developed with ❤️ by **Saket Choudhary**.
 *   **Instagram Profile**: [@hackwithsaket](https://www.instagram.com/hackwithsaket/)
-*   **Developer Portal**: [saket-choudhary](https://www.instagram.com/hackwithsaket/)
+*   **Developer Portal**: [saket-choudhary](https://www.github.com/pingsaketchoudhary)
