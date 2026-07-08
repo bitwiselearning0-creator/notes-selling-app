@@ -225,7 +225,30 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       return;
     }
 
-    const thumbnail = playThumb.trim() || `https://img.youtube.com/vi/${playPlaylistId}/mqdefault.jpg`;
+    let thumbnail = playThumb.trim();
+    
+    if (!thumbnail) {
+      const isPlaylist = playPlaylistId.startsWith('PL') || playPlaylistId.length > 12;
+      if (isPlaylist) {
+        try {
+          const response = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/playlist?list=${playPlaylistId}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.thumbnail_url) {
+              thumbnail = data.thumbnail_url;
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching playlist thumbnail:', err);
+        }
+      } else {
+        thumbnail = `https://img.youtube.com/vi/${playPlaylistId}/mqdefault.jpg`;
+      }
+      
+      if (!thumbnail) {
+        thumbnail = `https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=80`;
+      }
+    }
 
     const playlistPayload = {
       playlistId: playPlaylistId,
