@@ -231,7 +231,9 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       const isPlaylist = playPlaylistId.startsWith('PL') || playPlaylistId.length > 12;
       if (isPlaylist) {
         try {
-          const response = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/playlist?list=${playPlaylistId}`);
+          // 1. Try direct fetch to YouTube official oEmbed API
+          const directUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/playlist?list=${playPlaylistId}&format=json`;
+          const response = await fetch(directUrl);
           if (response.ok) {
             const data = await response.json();
             if (data && data.thumbnail_url) {
@@ -239,7 +241,26 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
             }
           }
         } catch (err) {
-          console.error('Error fetching playlist thumbnail:', err);
+          console.warn('Direct YouTube oEmbed failed, trying CORS proxy...', err);
+        }
+
+        // 2. Try proxy fallback if direct fetch failed
+        if (!thumbnail) {
+          try {
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://www.youtube.com/oembed?url=https://www.youtube.com/playlist?list=${playPlaylistId}&format=json`)}`;
+            const response = await fetch(proxyUrl);
+            if (response.ok) {
+              const data = await response.json();
+              if (data && data.contents) {
+                const parsed = JSON.parse(data.contents);
+                if (parsed && parsed.thumbnail_url) {
+                  thumbnail = parsed.thumbnail_url;
+                }
+              }
+            }
+          } catch (err) {
+            console.error('CORS proxy YouTube oEmbed failed:', err);
+          }
         }
       } else {
         thumbnail = `https://img.youtube.com/vi/${playPlaylistId}/mqdefault.jpg`;
