@@ -198,10 +198,10 @@ export const dbService = {
   // --- NOTES SERVICE ---
   getNotes: async (year?: string): Promise<{ data: Note[]; error: string | null }> => {
     if (!isMock && supabase) {
-      let query = supabase.from('notes').select('*');
+      let query = supabase.from('notes').select('id, title, subject, year, semester, price, originalPrice, description, pagesCount, type, topics');
       if (year) query = query.eq('year', year);
       const { data, error } = await query;
-      return { data: data || [], error: error ? error.message : null };
+      return { data: (data as any) || [], error: error ? error.message : null };
     } else {
       const notes = year ? mockNotes.filter(n => n.year === year) : mockNotes;
       return { data: notes, error: null };

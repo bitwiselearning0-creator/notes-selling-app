@@ -1222,9 +1222,11 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                               <button 
                                 className="btn-secondary" 
                                 style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                onClick={() => {
-                                  setEditingNote(n);
-                                  setEditTopicsText(Array.isArray(n.topics) ? n.topics.join(', ') : n.topics);
+                                onClick={async () => {
+                                  const { data: fullNote } = await dbService.getNoteById(n.id);
+                                  const noteToUse = fullNote || n;
+                                  setEditingNote(noteToUse);
+                                  setEditTopicsText(Array.isArray(noteToUse.topics) ? noteToUse.topics.join(', ') : noteToUse.topics);
                                 }}
                               >
                                 <Edit2 size={12} /> Edit

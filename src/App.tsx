@@ -204,6 +204,13 @@ function App() {
     const unlocked = await dbService.isNotesPurchased(note.id);
     setReadingNoteUnlocked(unlocked || note.price === 0);
     setCurrentPage('viewer');
+
+    // Fetch full note payload (with previewUrl) in background to optimize dashboard loading times
+    dbService.getNoteById(note.id).then(({ data: fullNote }) => {
+      if (fullNote) {
+        setReadingNote(fullNote);
+      }
+    });
   };
 
   // Unlock Note from inside Viewer
