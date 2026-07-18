@@ -6,6 +6,52 @@ import {
 import { dbService } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Purchase, Playlist } from '../lib/supabase';
 
+const getPredefinedSubjects = (year: string, sem: number): string[] => {
+  if (year === '1st Year') {
+    return [
+      'Engineering Physics',
+      'Engineering Chemistry',
+      'Engineering Mathematics-I',
+      'Programming for Problem Solving',
+      'Fundamentals of Electronics Engineering',
+      'Environment and Ecology',
+      'Soft Skills'
+    ];
+  }
+  if (year === '2nd Year') {
+    const sem3 = ['Data Structure', 'Computer Organization & Architecture', 'Discrete Structures & Theory of Logic'];
+    const sem4 = ['Operating System', 'Theory of Automata and Formal Languages', 'Object Oriented Programming with Java'];
+    const common = ['Math IV', 'Technical Communication', 'UHV', 'Energy Science and Engineering'];
+    if (sem === 3) return [...sem3, ...common];
+    if (sem === 4) return [...sem4, ...common];
+    return [...sem3, ...sem4, ...common];
+  }
+  if (year === '3rd Year') {
+    const sem5 = [
+      'Database Management System',
+      'Web Technology',
+      'Design and Analysis of Algorithm (DAA)',
+      'Data Analytics',
+      'Object Oriented System Design with C++ (OOSD)',
+      'Image Processing',
+      'Data Warehouse & Data Mining'
+    ];
+    const sem6 = [
+      'Software Engineering',
+      'Compiler Design',
+      'Computer Networks',
+      'Blockchain Architecture Design',
+      'Big Data',
+      'Software Project Management (SPM)'
+    ];
+    const common = ['Constitution of India (COI)', 'Essence of Indian Traditional Knowledge (EITK)'];
+    if (sem === 5) return [...sem5, ...common];
+    if (sem === 6) return [...sem6, ...common];
+    return [...sem5, ...sem6, ...common];
+  }
+  return [];
+};
+
 interface AdminProps {
   user: UserProfile | null;
   navigate: (page: string) => void;
@@ -23,9 +69,11 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   // --- Note Form Fields ---
   const [noteTitle, setNoteTitle] = useState('');
   const [noteSubject, setNoteSubject] = useState('');
+  const [isCustomSubject, setIsCustomSubject] = useState(false);
   const [noteYear, setNoteYear] = useState<'1st Year' | '2nd Year' | '3rd Year' | '4th Year'>('1st Year');
   const [noteSemester, setNoteSemester] = useState(1);
   const [notePrice, setNotePrice] = useState(99);
+  const [noteOriginalPrice, setNoteOriginalPrice] = useState(199);
   const [noteDesc, setNoteDesc] = useState('');
   const [noteTopics, setNoteTopics] = useState('');
   const [notePages, setNotePages] = useState(100);
@@ -73,9 +121,21 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   const [bundleTitle, setBundleTitle] = useState('');
   const [bundleDesc, setBundleDesc] = useState('');
   const [bundlePrice, setBundlePrice] = useState(149);
+  const [bundleOriginalPrice, setBundleOriginalPrice] = useState(249);
   const [bundleYear, setBundleYear] = useState<'1st Year' | '2nd Year' | '3rd Year' | '4th Year'>('2nd Year');
   const [bundleSemester, setBundleSemester] = useState(4);
   const [selectedNotesIds, setSelectedNotesIds] = useState<string[]>([]);
+
+  // --- Subject Bundle Form Fields ---
+  const [subjBundleTitle, setSubjBundleTitle] = useState('');
+  const [subjBundleDesc, setSubjBundleDesc] = useState('');
+  const [subjBundlePrice, setSubjBundlePrice] = useState(149);
+  const [subjBundleOriginalPrice, setSubjBundleOriginalPrice] = useState(249);
+  const [subjBundleYear, setSubjBundleYear] = useState<'1st Year' | '2nd Year' | '3rd Year' | '4th Year'>('2nd Year');
+  const [subjBundleSemester, setSubjBundleSemester] = useState(3);
+  const [subjBundleSubject, setSubjBundleSubject] = useState('');
+  const [isCustomSubjBundleSubject, setIsCustomSubjBundleSubject] = useState(false);
+  const [subjBundleSelectedNotesIds, setSubjBundleSelectedNotesIds] = useState<string[]>([]);
 
   // --- License Grant Form Fields ---
   const [studentEmail, setStudentEmail] = useState('');
@@ -127,6 +187,30 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
     }
   }, [licenseType, notes, bundles]);
 
+  // Reset note subject when year or semester changes
+  useEffect(() => {
+    const predefined = getPredefinedSubjects(noteYear, noteSemester);
+    if (predefined.length > 0) {
+      setNoteSubject(predefined[0]);
+      setIsCustomSubject(false);
+    } else {
+      setNoteSubject('');
+      setIsCustomSubject(true);
+    }
+  }, [noteYear, noteSemester]);
+
+  // Reset subject bundle subject when year or semester changes
+  useEffect(() => {
+    const predefined = getPredefinedSubjects(subjBundleYear, subjBundleSemester);
+    if (predefined.length > 0) {
+      setSubjBundleSubject(predefined[0]);
+      setIsCustomSubjBundleSubject(false);
+    } else {
+      setSubjBundleSubject('');
+      setIsCustomSubjBundleSubject(true);
+    }
+  }, [subjBundleYear, subjBundleSemester]);
+
   const showNotification = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 3000);
@@ -171,6 +255,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       year: noteYear,
       semester: Number(noteSemester),
       price: Number(notePrice),
+      originalPrice: Number(noteOriginalPrice),
       description: noteDesc,
       previewUrl: finalPreviewUrl,
       pagesCount: Number(notePages),
@@ -179,6 +264,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
     };
 
     const { data, error } = await dbService.addNote(notePayload);
+    setUploading(true); // Wait, in original code it does setUploading(false) right before checking data. Let's make sure it is setUploading(false)
     setUploading(false);
     
     if (data) {
@@ -187,6 +273,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       setNoteSubject('');
       setNoteTopics('');
       setNotePrice(99);
+      setNoteOriginalPrice(199);
       setNotePages(100);
       setNoteType('notes');
       setSelectedFile(null);
@@ -354,9 +441,11 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       title: bundleTitle,
       description: bundleDesc,
       price: Number(bundlePrice),
+      originalPrice: Number(bundleOriginalPrice),
       year: bundleYear,
       semester: Number(bundleSemester),
-      notesIds: selectedNotesIds
+      notesIds: selectedNotesIds,
+      type: 'semester' as const
     };
 
     const { data } = await dbService.addBundle(bundlePayload);
@@ -365,7 +454,40 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       setBundleTitle('');
       setBundleDesc('');
       setBundlePrice(149);
+      setBundleOriginalPrice(249);
       setSelectedNotesIds([]);
+      loadInventory();
+    }
+  };
+
+  // Handle Subject Bundle Submission
+  const handleAddSubjectBundle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subjBundleTitle || !subjBundleDesc || !subjBundleSubject || subjBundleSelectedNotesIds.length === 0) {
+      alert('Please fill out all subject bundle fields and select at least one note.');
+      return;
+    }
+
+    const bundlePayload = {
+      title: subjBundleTitle,
+      description: subjBundleDesc,
+      price: Number(subjBundlePrice),
+      originalPrice: Number(subjBundleOriginalPrice),
+      year: subjBundleYear,
+      semester: Number(subjBundleSemester),
+      notesIds: subjBundleSelectedNotesIds,
+      type: 'subject' as const,
+      subject: subjBundleSubject
+    };
+
+    const { data } = await dbService.addBundle(bundlePayload);
+    if (data) {
+      showNotification('Subject study bundle successfully created!');
+      setSubjBundleTitle('');
+      setSubjBundleDesc('');
+      setSubjBundlePrice(149);
+      setSubjBundleOriginalPrice(249);
+      setSubjBundleSelectedNotesIds([]);
       loadInventory();
     }
   };
@@ -434,10 +556,20 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
     n => n.year === bundleYear && n.semester === Number(bundleSemester)
   );
 
+  // Filter notes available for selection in the subject bundle
+  const availableNotesForSubjBundle = notes.filter(
+    n => n.year === subjBundleYear && n.semester === Number(subjBundleSemester) && n.subject.toLowerCase() === subjBundleSubject.toLowerCase()
+  );
+
   // Reset selected checkboxes if year or semester changes in Add Bundle form
   useEffect(() => {
     setSelectedNotesIds([]);
   }, [bundleYear, bundleSemester]);
+
+  // Reset selected checkboxes if year, semester, or subject changes in Add Subject Bundle form
+  useEffect(() => {
+    setSubjBundleSelectedNotesIds([]);
+  }, [subjBundleYear, subjBundleSemester, subjBundleSubject]);
 
   if (!user || user.role !== 'admin') {
     return (
@@ -536,14 +668,38 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                     <div className="form-group">
                       <label>Subject</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Operating Systems"
-                        value={noteSubject}
-                        onChange={(e) => setNoteSubject(e.target.value)}
-                        required
-                      />
+                      <select 
+                        value={isCustomSubject ? '__custom__' : noteSubject} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '__custom__') {
+                            setIsCustomSubject(true);
+                            setNoteSubject('');
+                          } else {
+                            setIsCustomSubject(false);
+                            setNoteSubject(val);
+                          }
+                        }}
+                      >
+                        {getPredefinedSubjects(noteYear, noteSemester).map((subj, idx) => (
+                          <option key={idx} value={subj}>{subj}</option>
+                        ))}
+                        <option value="__custom__">+ Enter Custom Subject...</option>
+                      </select>
                     </div>
+
+                    {isCustomSubject && (
+                      <div className="form-group">
+                        <label>Custom Subject Name</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Operating Systems"
+                          value={noteSubject}
+                          onChange={(e) => setNoteSubject(e.target.value)}
+                          required
+                        />
+                      </div>
+                    )}
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div className="form-group">
@@ -570,7 +726,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div className="form-group">
-                        <label>Price (₹)</label>
+                        <label>Discounted Price (₹)</label>
                         <input 
                           type="number" 
                           min="0"
@@ -580,14 +736,24 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                       </div>
 
                       <div className="form-group">
-                        <label>Pages Count</label>
+                        <label>Original Price (₹)</label>
                         <input 
                           type="number" 
-                          min="1"
-                          value={notePages}
-                          onChange={(e) => setNotePages(Number(e.target.value))}
+                          min="0"
+                          value={noteOriginalPrice}
+                          onChange={(e) => setNoteOriginalPrice(Number(e.target.value))}
                         />
                       </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Pages Count</label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        value={notePages}
+                        onChange={(e) => setNotePages(Number(e.target.value))}
+                      />
                     </div>
 
                     <div className="form-group">
@@ -640,6 +806,150 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                     </button>
                   </form>
                 </div>
+
+                {/* Subject Bundle Form Card */}
+                <div className="admin-form-card glass-card" style={{ marginTop: '24px' }}>
+                  <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }} className="blue-accent">
+                    <Layers size={20} /> Create Subject Bundle
+                  </h3>
+                  <form onSubmit={handleAddSubjectBundle} className="auth-form">
+                    <div className="form-group">
+                      <label>Bundle Title</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Data Structures All-in-One Complete Bundle"
+                        value={subjBundleTitle}
+                        onChange={(e) => setSubjBundleTitle(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div className="form-group">
+                        <label>Year</label>
+                        <select value={subjBundleYear} onChange={(e) => setSubjBundleYear(e.target.value as any)}>
+                          <option value="1st Year">1st Year</option>
+                          <option value="2nd Year">2nd Year</option>
+                          <option value="3rd Year">3rd Year</option>
+                          <option value="4th Year">4th Year</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Semester</label>
+                        <input 
+                          type="number" 
+                          min="1" 
+                          max="8"
+                          value={subjBundleSemester}
+                          onChange={(e) => setSubjBundleSemester(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Subject</label>
+                      <select 
+                        value={isCustomSubjBundleSubject ? '__custom__' : subjBundleSubject} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '__custom__') {
+                            setIsCustomSubjBundleSubject(true);
+                            setSubjBundleSubject('');
+                          } else {
+                            setIsCustomSubjBundleSubject(false);
+                            setSubjBundleSubject(val);
+                          }
+                        }}
+                      >
+                        {getPredefinedSubjects(subjBundleYear, subjBundleSemester).map((subj, idx) => (
+                          <option key={idx} value={subj}>{subj}</option>
+                        ))}
+                        <option value="__custom__">+ Enter Custom Subject...</option>
+                      </select>
+                    </div>
+
+                    {isCustomSubjBundleSubject && (
+                      <div className="form-group">
+                        <label>Custom Subject Name</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Data Structure"
+                          value={subjBundleSubject}
+                          onChange={(e) => setSubjBundleSubject(e.target.value)}
+                          required
+                        />
+                      </div>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div className="form-group">
+                        <label>Bundle Discount Price (₹)</label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={subjBundlePrice}
+                          onChange={(e) => setSubjBundlePrice(Number(e.target.value))}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Original Price (₹)</label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={subjBundleOriginalPrice}
+                          onChange={(e) => setSubjBundleOriginalPrice(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Bundle Description</label>
+                      <textarea 
+                        placeholder="Includes syllabus notes, all units, previous year questions, solutions..."
+                        value={subjBundleDesc}
+                        onChange={(e) => setSubjBundleDesc(e.target.value)}
+                        style={{ minHeight: '80px' }}
+                        required
+                      />
+                    </div>
+
+                    {/* Selected Notes Checkbox list */}
+                    <div className="form-group">
+                      <label>Select Included Notes (filtered by Year/Sem/Subject)</label>
+                      {availableNotesForSubjBundle.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                          {availableNotesForSubjBundle.map(note => (
+                            <label key={note.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--color-white)', cursor: 'pointer', textTransform: 'none', fontWeight: '500' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={subjBundleSelectedNotesIds.includes(note.id)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSubjBundleSelectedNotesIds([...subjBundleSelectedNotesIds, note.id]);
+                                  } else {
+                                    setSubjBundleSelectedNotesIds(subjBundleSelectedNotesIds.filter(id => id !== note.id));
+                                  }
+                                }}
+                              />
+                              <span>{note.title} <strong style={{ color: note.type === 'pyqs' ? '#60a5fa' : '#34d399', fontSize: '10px' }}>({note.type === 'pyqs' ? 'PYQ' : 'Notes'})</strong></span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '12px', color: 'var(--color-muted)', fontStyle: 'italic', padding: '10px 0' }}>
+                          No subject notes found for {subjBundleYear} Semester {subjBundleSemester} subject "{subjBundleSubject}" yet. Publish notes for this subject first!
+                        </p>
+                      )}
+                    </div>
+
+                    <button type="submit" className="btn-primary w-full" style={{ justifyContent: 'center' }} disabled={subjBundleSelectedNotesIds.length === 0}>
+                      Create Subject Bundle
+                    </button>
+                  </form>
+                </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -683,14 +993,26 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                       </div>
                     </div>
 
-                    <div className="form-group">
-                      <label>Combo Discount Price (₹)</label>
-                      <input 
-                        type="number" 
-                        min="0"
-                        value={bundlePrice}
-                        onChange={(e) => setBundlePrice(Number(e.target.value))}
-                      />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div className="form-group">
+                        <label>Combo Discount Price (₹)</label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={bundlePrice}
+                          onChange={(e) => setBundlePrice(Number(e.target.value))}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Original Price (₹)</label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={bundleOriginalPrice}
+                          onChange={(e) => setBundleOriginalPrice(Number(e.target.value))}
+                        />
+                      </div>
                     </div>
 
                     <div className="form-group">
@@ -861,7 +1183,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                         <th>Subject Title</th>
                         <th>Type</th>
                         <th>Year & Sem</th>
-                        <th>Price</th>
+                        <th>Price (Disc / Orig)</th>
                         <th>Pages</th>
                         <th style={{ textAlign: 'right' }}>Actions</th>
                       </tr>
@@ -885,7 +1207,9 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                             </span>
                           </td>
                           <td style={{ color: 'var(--color-muted)' }}>{n.year} (Sem {n.semester})</td>
-                          <td className="yellow-accent" style={{ fontWeight: '700' }}>₹{n.price}</td>
+                          <td className="yellow-accent" style={{ fontWeight: '700' }}>
+                            ₹{n.price} <span style={{ textDecoration: 'line-through', color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal', marginLeft: '4px' }}>₹{n.originalPrice ?? (n.price + 100)}</span>
+                          </td>
                           <td>{n.pagesCount} pgs</td>
                           <td style={{ textAlign: 'right' }}>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -925,8 +1249,9 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                     <thead>
                       <tr>
                         <th>Bundle Name</th>
+                        <th>Type / Subject</th>
                         <th>Year & Sem</th>
-                        <th>Combo Price</th>
+                        <th>Price (Disc / Orig)</th>
                         <th>Contents</th>
                         <th style={{ textAlign: 'right' }}>Actions</th>
                       </tr>
@@ -935,8 +1260,24 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                       {bundles.map(b => (
                         <tr key={b.id}>
                           <td style={{ fontWeight: '600' }}>{b.title}</td>
+                          <td>
+                            <span className="bundle-banner-badge" style={{ 
+                              background: b.type === 'subject' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                              color: b.type === 'subject' ? '#60a5fa' : '#fbbf24',
+                              border: b.type === 'subject' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 'bold',
+                              display: 'inline-block'
+                            }}>
+                              {b.type === 'subject' ? `Subject: ${b.subject}` : 'Semester Combo'}
+                            </span>
+                          </td>
                           <td style={{ color: 'var(--color-muted)' }}>{b.year} (Sem {b.semester})</td>
-                          <td className="yellow-accent" style={{ fontWeight: '700' }}>₹{b.price}</td>
+                          <td className="yellow-accent" style={{ fontWeight: '700' }}>
+                            ₹{b.price} <span style={{ textDecoration: 'line-through', color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal', marginLeft: '4px' }}>₹{b.originalPrice ?? (b.price + 100)}</span>
+                          </td>
                           <td>{b.notesIds.length} syllabus subfiles</td>
                           <td style={{ textAlign: 'right' }}>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -1215,7 +1556,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div className="form-group">
-                  <label>Price (₹)</label>
+                  <label>Discounted Price (₹)</label>
                   <input 
                     type="number" 
                     min="0"
@@ -1225,14 +1566,24 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                 </div>
 
                 <div className="form-group">
-                  <label>Pages Count</label>
+                  <label>Original Price (₹)</label>
                   <input 
                     type="number" 
-                    min="1"
-                    value={editingNote.pagesCount}
-                    onChange={(e) => setEditingNote({ ...editingNote, pagesCount: Number(e.target.value) })}
+                    min="0"
+                    value={editingNote.originalPrice || 0}
+                    onChange={(e) => setEditingNote({ ...editingNote, originalPrice: Number(e.target.value) })}
                   />
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label>Pages Count</label>
+                <input 
+                  type="number" 
+                  min="1"
+                  value={editingNote.pagesCount}
+                  onChange={(e) => setEditingNote({ ...editingNote, pagesCount: Number(e.target.value) })}
+                />
               </div>
 
               <div className="form-group">
@@ -1316,6 +1667,18 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                 />
               </div>
 
+              {editingBundle.type === 'subject' && (
+                <div className="form-group">
+                  <label>Subject</label>
+                  <input 
+                    type="text" 
+                    value={editingBundle.subject || ''}
+                    onChange={(e) => setEditingBundle({ ...editingBundle, subject: e.target.value })}
+                    required
+                  />
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div className="form-group">
                   <label>Year</label>
@@ -1342,14 +1705,26 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Combo Discount Price (₹)</label>
-                <input 
-                  type="number" 
-                  min="0"
-                  value={editingBundle.price}
-                  onChange={(e) => setEditingBundle({ ...editingBundle, price: Number(e.target.value) })}
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div className="form-group">
+                  <label>Combo Discount Price (₹)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    value={editingBundle.price}
+                    onChange={(e) => setEditingBundle({ ...editingBundle, price: Number(e.target.value) })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Original Price (₹)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    value={editingBundle.originalPrice || 0}
+                    onChange={(e) => setEditingBundle({ ...editingBundle, originalPrice: Number(e.target.value) })}
+                  />
+                </div>
               </div>
 
               <div className="form-group">

@@ -1,9 +1,88 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Loader2, CheckCircle2, ShieldCheck, User } from 'lucide-react';
+import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen } from 'lucide-react';
 import { dbService, isMock } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Playlist } from '../lib/supabase';
 import { NoteCard } from '../components/NoteCard';
 import { VideoCard } from '../components/VideoCard';
+
+interface SubjectItem {
+  name: string;
+  semester: number | 'Common' | 'Coming Soon';
+  isComingSoon?: boolean;
+}
+
+const getSubjectsForActiveFilter = (
+  year: '1st Year' | '2nd Year' | '3rd Year' | '4th Year',
+  sem: number | null
+): SubjectItem[] => {
+  if (year === '1st Year') {
+    return [
+      { name: 'Engineering Physics', semester: 'Common' },
+      { name: 'Engineering Chemistry', semester: 'Common' },
+      { name: 'Engineering Mathematics-I', semester: 'Common' },
+      { name: 'Programming for Problem Solving', semester: 'Common' },
+      { name: 'Fundamentals of Electronics Engineering', semester: 'Common' },
+      { name: 'Environment and Ecology', semester: 'Common' },
+      { name: 'Soft Skills', semester: 'Common' }
+    ];
+  }
+  if (year === '2nd Year') {
+    const sem3: SubjectItem[] = [
+      { name: 'Data Structure', semester: 3 },
+      { name: 'Computer Organization & Architecture', semester: 3 },
+      { name: 'Discrete Structures & Theory of Logic', semester: 3 }
+    ];
+    const sem4: SubjectItem[] = [
+      { name: 'Operating System', semester: 4 },
+      { name: 'Theory of Automata and Formal Languages', semester: 4 },
+      { name: 'Object Oriented Programming with Java', semester: 4 }
+    ];
+    const common: SubjectItem[] = [
+      { name: 'Math IV', semester: 'Common' },
+      { name: 'Technical Communication', semester: 'Common' },
+      { name: 'UHV', semester: 'Common' },
+      { name: 'Energy Science and Engineering', semester: 'Common' }
+    ];
+
+    if (sem === 3) return [...sem3, ...common];
+    if (sem === 4) return [...sem4, ...common];
+    return [...sem3, ...sem4, ...common];
+  }
+  if (year === '3rd Year') {
+    const sem5: SubjectItem[] = [
+      { name: 'Database Management System', semester: 5 },
+      { name: 'Web Technology', semester: 5 },
+      { name: 'Design and Analysis of Algorithm (DAA)', semester: 5 },
+      { name: 'Data Analytics', semester: 5 },
+      { name: 'Object Oriented System Design with C++ (OOSD)', semester: 5 },
+      { name: 'Image Processing', semester: 5 },
+      { name: 'Data Warehouse & Data Mining', semester: 5 }
+    ];
+    const sem6: SubjectItem[] = [
+      { name: 'Software Engineering', semester: 6 },
+      { name: 'Compiler Design', semester: 6 },
+      { name: 'Computer Networks', semester: 6 },
+      { name: 'Blockchain Architecture Design', semester: 6 },
+      { name: 'Big Data', semester: 6 },
+      { name: 'Software Project Management (SPM)', semester: 6 }
+    ];
+    const common: SubjectItem[] = [
+      { name: 'Constitution of India (COI)', semester: 'Common' },
+      { name: 'Essence of Indian Traditional Knowledge (EITK)', semester: 'Common' }
+    ];
+
+    if (sem === 5) return [...sem5, ...common];
+    if (sem === 6) return [...sem6, ...common];
+    return [...sem5, ...sem6, ...common];
+  }
+  if (year === '4th Year') {
+    return [
+      { name: 'Semester 7 subjects', semester: 'Coming Soon', isComingSoon: true },
+      { name: 'Semester 8 subjects', semester: 'Coming Soon', isComingSoon: true }
+    ];
+  }
+  return [];
+};
 
 interface DashboardProps {
   user: UserProfile | null;
@@ -30,6 +109,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   
   // Loading & payment states
   const [loading, setLoading] = useState(true);
@@ -106,27 +186,37 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  // Reset semester filter when changing year tab
+  // Reset semester & subject filter when changing year tab
   const handleYearChange = (year: '1st Year' | '2nd Year' | '3rd Year' | '4th Year') => {
     setSelectedYear(year);
     setSelectedSemester(null);
+    setSelectedSubject(null);
   };
 
-  // Filter notes based on search & sem filter
+  // Reset subject filter when changing semester
+  const handleSemesterChange = (sem: number | null) => {
+    setSelectedSemester(sem);
+    setSelectedSubject(null);
+  };
+
+  // Filter notes based on search, sem filter & subject filter
   const filteredNotes = notes.filter(n => {
     const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           n.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           n.topics.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesSem = selectedSemester === null || n.semester === selectedSemester;
-    return matchesSearch && matchesSem;
+    const matchesSubject = selectedSubject === null || n.subject.toLowerCase() === selectedSubject.toLowerCase();
+    return matchesSearch && matchesSem && matchesSubject;
   });
 
   const studyNotes = filteredNotes.filter(n => n.type !== 'pyqs');
   const pyqs = filteredNotes.filter(n => n.type === 'pyqs');
 
-  // Filter playlists based on semester selection
+  // Filter playlists based on semester & subject selection
   const filteredPlaylists = playlists.filter(p => {
-    return selectedSemester === null || p.semester === selectedSemester;
+    const matchesSem = selectedSemester === null || p.semester === selectedSemester;
+    const matchesSubject = selectedSubject === null || p.subject.toLowerCase() === selectedSubject.toLowerCase();
+    return matchesSem && matchesSubject;
   });
 
   // Handle Purchase Triggers
@@ -316,7 +406,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="sem-filters">
           <button 
             className={`sem-filter-btn ${selectedSemester === null ? 'active' : ''}`}
-            onClick={() => setSelectedSemester(null)}
+            onClick={() => handleSemesterChange(null)}
           >
             All Semesters
           </button>
@@ -324,7 +414,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <button
               key={sem}
               className={`sem-filter-btn ${selectedSemester === sem ? 'active' : ''}`}
-              onClick={() => setSelectedSemester(sem)}
+              onClick={() => handleSemesterChange(sem)}
             >
               Semester {sem}
             </button>
@@ -340,8 +430,78 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       ) : (
         <>
+          {/* Subject Cards Grid */}
+          {selectedYear && (
+            <div className="subject-section fade-in" style={{ marginBottom: '35px' }}>
+              <div className="subject-section-header">
+                <h3 className="subject-section-title">
+                  {selectedYear} Subjects {selectedSemester !== null ? `(Semester ${selectedSemester})` : ''}
+                </h3>
+                {selectedSubject && (
+                  <div className="subject-filter-indicator">
+                    <span>Filtered by: <strong>{selectedSubject}</strong></span>
+                    <button className="subject-filter-clear" onClick={() => setSelectedSubject(null)}>
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="subject-cards-grid">
+                {getSubjectsForActiveFilter(selectedYear, selectedSemester).map((subject, i) => {
+                  if (subject.isComingSoon) {
+                    return (
+                      <div key={i} className="subject-card coming-soon">
+                        <div className="subject-card-top">
+                          <div className="subject-card-icon-box">
+                            <BookOpen size={16} />
+                          </div>
+                          <span className="subject-card-badge">Coming Soon</span>
+                        </div>
+                        <div className="subject-card-name">{subject.name}</div>
+                        <div className="subject-card-stats">Resources launching soon</div>
+                      </div>
+                    );
+                  }
+
+                  const subjectNotesCount = notes.filter(
+                    n => n.subject.toLowerCase() === subject.name.toLowerCase() && n.type !== 'pyqs'
+                  ).length;
+                  const subjectPyqsCount = notes.filter(
+                    n => n.subject.toLowerCase() === subject.name.toLowerCase() && n.type === 'pyqs'
+                  ).length;
+                  const subjectVideosCount = playlists.filter(
+                    p => p.subject.toLowerCase() === subject.name.toLowerCase()
+                  ).length;
+
+                  const isActive = selectedSubject === subject.name;
+
+                  return (
+                    <div 
+                      key={i} 
+                      className={`subject-card ${isActive ? 'active' : ''}`}
+                      onClick={() => setSelectedSubject(isActive ? null : subject.name)}
+                    >
+                      <div className="subject-card-top">
+                        <div className="subject-card-icon-box">
+                          <BookOpen size={16} />
+                        </div>
+                        <span className="subject-card-badge">
+                          {typeof subject.semester === 'number' ? `Sem ${subject.semester}` : subject.semester}
+                        </span>
+                      </div>
+                      <div className="subject-card-name" title={subject.name}>{subject.name}</div>
+                      <div className="subject-card-stats">
+                        {subjectNotesCount} Notes • {subjectPyqsCount} PYQs {subjectVideosCount > 0 ? `• ${subjectVideosCount} Videos` : ''}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Semester Combo Bundles Section */}
-          {bundles.length > 0 && (
+          {selectedSubject === null && bundles.filter(b => (b.type === 'semester' || !b.type) && (selectedSemester === null || b.semester === selectedSemester)).length > 0 && (
             <div className="bundles-container">
               <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '4px' }} className="yellow-accent">
                 Semester Combo Packs (6 Months Validity)
@@ -350,98 +510,187 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 Save more by unlocking all study notes for your active semester at a discounted combo rate.
               </p>
               
-              {bundles.filter(b => selectedSemester === null || b.semester === selectedSemester).length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '40px' }}>
-                  {bundles
-                    .filter(b => selectedSemester === null || b.semester === selectedSemester)
-                    .map(bundle => {
-                      const isPurchased = purchasedBundleIds.includes(bundle.id);
-                      const expiry = bundlePurchaseDetailsMap[bundle.id];
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '40px' }}>
+                {bundles
+                  .filter(b => (b.type === 'semester' || !b.type) && (selectedSemester === null || b.semester === selectedSemester))
+                  .map(bundle => {
+                    const isPurchased = purchasedBundleIds.includes(bundle.id);
+                    const expiry = bundlePurchaseDetailsMap[bundle.id];
 
-                      // Calculate normal bundle value (sum of note prices included)
-                      const normalSum = bundle.notesIds.reduce((sum, id) => {
-                        const note = notes.find(n => n.id === id);
-                        return sum + (note ? note.price : 99);
-                      }, 0);
+                    // Calculate normal bundle value (sum of note prices included)
+                    const normalSum = bundle.notesIds.reduce((sum, id) => {
+                      const note = notes.find(n => n.id === id);
+                      return sum + (note ? note.price : 99);
+                    }, 0);
 
-                      return (
-                        <div key={bundle.id} className="bundle-banner-card fade-in">
-                          {/* Column 1: Details */}
-                          <div>
-                            <div className="bundle-banner-badge">
-                              {isPurchased ? 'Unlocked Combo Pack' : '🔥 Semester Discount Combo'}
-                            </div>
-                            <h4 className="bundle-banner-title">{bundle.title}</h4>
-                            <p className="bundle-banner-desc">{bundle.description}</p>
+                    return (
+                      <div key={bundle.id} className="bundle-banner-card fade-in">
+                        {/* Column 1: Details */}
+                        <div>
+                          <div className="bundle-banner-badge">
+                            {isPurchased ? 'Unlocked Combo Pack' : '🔥 Semester Discount Combo'}
                           </div>
-
-                          {/* Column 2: Included Resources */}
-                          <div className="bundle-banner-includes">
-                            <div className="bundle-banner-includes-title">Resources Included</div>
-                            <ul className="bundle-banner-includes-list">
-                              {bundle.notesIds.map(noteId => {
-                                const noteItem = notes.find(n => n.id === noteId);
-                                return (
-                                  <li key={noteId} className="bundle-banner-includes-item">
-                                    <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                      {noteItem ? noteItem.title : 'Engineering Lecture Notes'}
-                                    </span>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-
-                          {/* Column 3: Price & Actions */}
-                          <div className="bundle-banner-checkout">
-                            <div className="bundle-banner-price-box">
-                              {!isPurchased && (
-                                <span className="bundle-banner-original-price">
-                                  Value: ₹{normalSum || bundle.price + 100}
-                                </span>
-                              )}
-                              <span className="bundle-banner-price">₹{bundle.price}</span>
-                            </div>
-
-                            {user ? (
-                              isPurchased ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
-                                  <button className="btn-secondary w-full" style={{ pointerEvents: 'none', opacity: 0.8, justifyContent: 'center' }}>
-                                    Active & Unlocked
-                                  </button>
-                                  {expiry && (
-                                    <span style={{ fontSize: '11px', color: 'var(--color-yellow)', fontWeight: '700' }}>
-                                      {expiry.daysLeft !== null && expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <button 
-                                  className="btn-primary w-full" 
-                                  style={{ justifyContent: 'center' }}
-                                  onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}
-                                >
-                                  Unlock Combo
-                                </button>
-                              )
-                            ) : (
-                              <button className="btn-primary w-full" style={{ justifyContent: 'center' }} onClick={() => navigate('auth')}>
-                                Sign In to Unlock
-                              </button>
-                            )}
-                          </div>
+                          <h4 className="bundle-banner-title">{bundle.title}</h4>
+                          <p className="bundle-banner-desc">{bundle.description}</p>
                         </div>
-                      );
-                    })}
-                </div>
-              ) : (
-                <div className="empty-state glass-card" style={{ padding: '30px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '16px', border: '1px dashed var(--glass-border)', background: 'rgba(255,255,255,0.01)', marginBottom: '40px' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--color-muted)', fontWeight: '500' }}>
-                    No combo bundles configured for this semester filter yet.
-                  </span>
-                </div>
-              )}
+
+                        {/* Column 2: Included Resources */}
+                        <div className="bundle-banner-includes">
+                          <div className="bundle-banner-includes-title">Resources Included</div>
+                          <ul className="bundle-banner-includes-list">
+                            {bundle.notesIds.map(noteId => {
+                              const noteItem = notes.find(n => n.id === noteId);
+                              return (
+                                <li key={noteId} className="bundle-banner-includes-item">
+                                  <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {noteItem ? noteItem.title : 'Engineering Lecture Notes'}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+
+                        {/* Column 3: Price & Actions */}
+                        <div className="bundle-banner-checkout">
+                          <div className="bundle-banner-price-box">
+                            {!isPurchased && (
+                              <span className="bundle-banner-original-price">
+                                ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
+                              </span>
+                            )}
+                            <span className="bundle-banner-price">₹{bundle.price}</span>
+                          </div>
+
+                          {user ? (
+                            isPurchased ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                                <button className="btn-secondary w-full" style={{ pointerEvents: 'none', opacity: 0.8, justifyContent: 'center' }}>
+                                  Active & Unlocked
+                                </button>
+                                {expiry && (
+                                  <span style={{ fontSize: '11px', color: 'var(--color-yellow)', fontWeight: '700' }}>
+                                    {expiry.daysLeft !== null && expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <button 
+                                className="btn-primary w-full" 
+                                style={{ justifyContent: 'center' }}
+                                onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}
+                              >
+                                Unlock Combo
+                              </button>
+                            )
+                          ) : (
+                            <button className="btn-primary w-full" style={{ justifyContent: 'center' }} onClick={() => navigate('auth')}>
+                              Sign In to Unlock
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* Subject Study Bundles Section */}
+          {bundles.filter(b => b.type === 'subject' && (selectedSemester === null || b.semester === selectedSemester) && (selectedSubject === null || b.subject?.toLowerCase() === selectedSubject.toLowerCase())).length > 0 && (
+            <div className="bundles-container">
+              <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '4px' }} className="blue-accent">
+                Subject Study Bundles (6 Months Validity)
+              </h3>
+              <p style={{ color: 'var(--color-muted)', fontSize: '13px', marginBottom: '20px' }}>
+                Unlock all units, PYQs, and solutions of this specific subject at a discounted rate.
+              </p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '40px' }}>
+                {bundles
+                  .filter(b => b.type === 'subject' && (selectedSemester === null || b.semester === selectedSemester) && (selectedSubject === null || b.subject?.toLowerCase() === selectedSubject.toLowerCase()))
+                  .map(bundle => {
+                    const isPurchased = purchasedBundleIds.includes(bundle.id);
+                    const expiry = bundlePurchaseDetailsMap[bundle.id];
+
+                    // Calculate normal bundle value (sum of note prices included)
+                    const normalSum = bundle.notesIds.reduce((sum, id) => {
+                      const note = notes.find(n => n.id === id);
+                      return sum + (note ? note.price : 99);
+                    }, 0);
+
+                    return (
+                      <div key={bundle.id} className="bundle-banner-card fade-in" style={{ borderColor: 'rgba(96, 165, 250, 0.25)' }}>
+                        {/* Column 1: Details */}
+                        <div>
+                          <div className="bundle-banner-badge" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                            {isPurchased ? 'Unlocked Subject Bundle' : '⚡ Subject All-In-One Pack'}
+                          </div>
+                          <h4 className="bundle-banner-title">{bundle.title}</h4>
+                          <p className="bundle-banner-desc">{bundle.description}</p>
+                        </div>
+
+                        {/* Column 2: Included Resources */}
+                        <div className="bundle-banner-includes">
+                          <div className="bundle-banner-includes-title">Resources Included</div>
+                          <ul className="bundle-banner-includes-list">
+                            {bundle.notesIds.map(noteId => {
+                              const noteItem = notes.find(n => n.id === noteId);
+                              return (
+                                <li key={noteId} className="bundle-banner-includes-item">
+                                  <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {noteItem ? noteItem.title : 'Engineering Lecture Notes'}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+
+                        {/* Column 3: Price & Actions */}
+                        <div className="bundle-banner-checkout">
+                          <div className="bundle-banner-price-box">
+                            {!isPurchased && (
+                              <span className="bundle-banner-original-price">
+                                ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
+                              </span>
+                            )}
+                            <span className="bundle-banner-price">₹{bundle.price}</span>
+                          </div>
+
+                          {user ? (
+                            isPurchased ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                                <button className="btn-secondary w-full" style={{ pointerEvents: 'none', opacity: 0.8, justifyContent: 'center' }}>
+                                  Active & Unlocked
+                                </button>
+                                {expiry && (
+                                  <span style={{ fontSize: '11px', color: 'var(--color-yellow)', fontWeight: '700' }}>
+                                    {expiry.daysLeft !== null && expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <button 
+                                className="btn-primary w-full" 
+                                style={{ justifyContent: 'center' }}
+                                onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}
+                              >
+                                Unlock Bundle
+                              </button>
+                            )
+                          ) : (
+                            <button className="btn-primary w-full" style={{ justifyContent: 'center' }} onClick={() => navigate('auth')}>
+                              Sign In to Unlock
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
           )}
 

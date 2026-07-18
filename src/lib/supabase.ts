@@ -20,6 +20,7 @@ export interface Note {
   year: '1st Year' | '2nd Year' | '3rd Year' | '4th Year';
   semester: number;
   price: number;
+  originalPrice?: number;
   description: string;
   previewUrl: string; // Dynamic simulated PDF views
   pagesCount: number;
@@ -42,9 +43,12 @@ export interface Bundle {
   title: string;
   description: string;
   price: number;
+  originalPrice?: number;
   year: '1st Year' | '2nd Year' | '3rd Year' | '4th Year';
   semester: number;
   notesIds: string[]; // IDs of notes included in this bundle
+  type?: 'semester' | 'subject';
+  subject?: string;
 }
 
 export interface Purchase {

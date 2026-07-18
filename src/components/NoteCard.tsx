@@ -79,8 +79,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
               <span className="free-price">FREE</span>
             ) : (
               <>
-                <span className="original-price">₹{note.price + 100}</span>
                 <span className="discounted-price">₹{note.price}</span>
+                <span className="original-price">₹{note.originalPrice ?? (note.price + 100)}</span>
               </>
             )}
           </div>
