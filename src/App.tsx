@@ -24,6 +24,7 @@ function App() {
   const [readingNote, setReadingNote] = useState<Note | null>(null);
   const [readingNoteUnlocked, setReadingNoteUnlocked] = useState(false);
   const [isAppMode, setIsAppMode] = useState(false);
+  const [blackout, setBlackout] = useState(false);
 
   // Check user session on mount & handle hash routing (e.g. #admin)
   useEffect(() => {
@@ -100,9 +101,65 @@ function App() {
       }
     };
 
+    // Global right-click blocker
+    const preventRightClick = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    // Global key intercepts
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent Copy / Cut / Source View shortcuts
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C' || e.key === 'x' || e.key === 'X' || e.key === 'u' || e.key === 'U')) {
+        e.preventDefault();
+        alert('Copying content is disabled.');
+      }
+
+      // Prevent Print
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        alert('Printing content is disabled.');
+      }
+
+      // Prevent Inspect Console
+      if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'i' || e.key === 'I' || e.key === 'j' || e.key === 'J'))) {
+        e.preventDefault();
+      }
+
+      // Detect screenshot shortcuts and blackout screen instantly
+      const isScreenshotKey =
+        e.key === 'PrintScreen' ||
+        (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S')) || // Win+Shift+S
+        (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) || // Mac capture
+        e.key === 'Snapshot' ||
+        e.key === 'MediaRecord';
+
+      if (isScreenshotKey) {
+        setBlackout(true);
+        e.preventDefault();
+        alert('Screenshots are disabled for security reasons.');
+        setTimeout(() => {
+          setBlackout(false);
+        }, 3000);
+      }
+    };
+
+    // Global select start block
+    const preventSelection = (e: Event) => {
+      e.preventDefault();
+    };
+
     handleHashRouting();
     window.addEventListener('hashchange', handleHashRouting);
-    return () => window.removeEventListener('hashchange', handleHashRouting);
+    window.addEventListener('contextmenu', preventRightClick);
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('selectstart', preventSelection);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashRouting);
+      window.removeEventListener('contextmenu', preventRightClick);
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('selectstart', preventSelection);
+    };
   }, []);
 
   // Custom navigate wrapper to sync hash and views
@@ -179,6 +236,28 @@ function App() {
 
   return (
     <>
+      {blackout && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: '#000000',
+          color: '#ffffff',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          fontFamily: 'Inter, sans-serif'
+        }}>
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <h2 style={{ color: 'var(--color-yellow)', marginBottom: '10px' }}>Security Protection Active</h2>
+            <p style={{ color: 'var(--color-muted)' }}>Screenshots and recordings are strictly disabled to protect intellectual property.</p>
+          </div>
+        </div>
+      )}
       {/* Navigation Header (Hidden in App Mode) */}
       {!isAppMode && (
         <Navbar 
