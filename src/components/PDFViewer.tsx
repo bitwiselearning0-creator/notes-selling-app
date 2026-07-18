@@ -10,6 +10,7 @@ interface PDFViewerProps {
 }
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, onUnlock }) => {
+  const isAppMode = document.body.classList.contains('app-mode') || window.location.href.includes('platform=app');
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
@@ -176,67 +177,114 @@ void processNode() {
   };
 
   return (
-    <div className="pdf-viewer-container fade-in" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
-      {/* Viewer Header Dashboard */}
-      <div className="viewer-header glass-card">
-        <button className="btn-secondary" onClick={onBack}>
+    <div className="pdf-viewer-container fade-in" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none', display: 'flex', flexDirection: 'column', gap: '16px', margin: isAppMode ? '0' : '10px 0 20px 0', height: isAppMode ? 'calc(100vh - 80px)' : 'auto' }}>
+      {/* Premium Header Bar */}
+      <div className="viewer-header glass-card" style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        padding: isAppMode ? '8px 12px' : '16px 24px', 
+        borderRadius: '16px', 
+        border: '1px solid var(--glass-border)', 
+        background: 'rgba(10, 17, 43, 0.7)',
+        backdropFilter: 'blur(15px)',
+        WebkitBackdropFilter: 'blur(15px)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)'
+      }}>
+        <button className="btn-secondary" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '10px', fontWeight: '600' }}>
           <ChevronLeft size={16} /> Back
         </button>
         
-        <div className="viewer-title-area">
-          <h2 className="viewer-title">{note.title}</h2>
-          <span className="viewer-subtitle">
-            {isUnlocked ? 'Full Study Material' : 'Locked Mode (Free Preview)'}
+        <div className="viewer-title-area" style={{ textAlign: 'center', flexGrow: 1, padding: '0 12px' }}>
+          <h2 className="viewer-title" style={{ fontSize: isAppMode ? '13px' : '18px', fontWeight: '700', letterSpacing: '0.5px', color: 'var(--color-white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: isAppMode ? '140px' : '400px', margin: 0 }}>
+            {note.title}
+          </h2>
+          <span className="viewer-subtitle" style={{ fontSize: isAppMode ? '8px' : '11px', color: isUnlocked ? '#22c55e' : 'var(--color-yellow)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginTop: '2px' }}>
+            {isUnlocked ? '✦ Full Access Unlocked' : '✦ Free Preview Mode'}
           </span>
         </div>
 
-        <div className="viewer-controls">
-          <button className="btn-icon" onClick={() => setZoom(Math.max(50, zoom - 10))} title="Zoom Out">
+        <div className="viewer-controls" style={{ display: 'flex', alignItems: 'center', gap: isAppMode ? '6px' : '12px' }}>
+          <button className="btn-icon" onClick={() => setZoom(Math.max(50, zoom - 10))} title="Zoom Out" style={{ width: '36px', height: '36px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-muted)', cursor: 'pointer', transition: 'all 0.2s ease' }}>
             <ZoomOut size={16} />
           </button>
-          <span className="zoom-text">{zoom}%</span>
-          <button className="btn-icon" onClick={() => setZoom(Math.min(150, zoom + 10))} title="Zoom In">
+          {!isAppMode && <span className="zoom-text" style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-white)', minWidth: '40px', textAlign: 'center' }}>{zoom}%</span>}
+          <button className="btn-icon" onClick={() => setZoom(Math.min(150, zoom + 10))} title="Zoom In" style={{ width: '36px', height: '36px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-muted)', cursor: 'pointer', transition: 'all 0.2s ease' }}>
             <ZoomIn size={16} />
           </button>
-          <button className="btn-icon" onClick={() => setRotation((rotation + 90) % 360)} title="Rotate Page">
-            <RotateCw size={16} />
-          </button>
+          {!isAppMode && (
+            <button className="btn-icon" onClick={() => setRotation((rotation + 90) % 360)} title="Rotate Page" style={{ width: '36px', height: '36px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-muted)', cursor: 'pointer', transition: 'all 0.2s ease' }}>
+              <RotateCw size={16} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Security alert notification bar */}
-      <div className="security-banner">
-        <ShieldAlert size={14} className="yellow-accent" />
-        <span>Secure Viewer Active. Text selection, copy-pasting, right-clicking, and printing have been blocked.</span>
+      {/* Security alert notification banner */}
+      <div className="security-banner" style={{
+        background: 'rgba(239, 68, 68, 0.08)',
+        border: '1.5px solid rgba(239, 68, 68, 0.25)',
+        padding: '10px 20px',
+        borderRadius: '12px',
+        fontSize: isAppMode ? '10px' : '13px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '10px',
+        color: '#f87171',
+        fontWeight: '600',
+        boxShadow: '0 4px 12px rgba(239, 68, 68, 0.05)',
+        margin: '0 4px'
+      }}>
+        <ShieldAlert size={16} style={{ color: '#ef4444' }} />
+        <span>Secure Document Viewer: Text copy, download, inspect, and screenshots are strictly monitored & blocked.</span>
       </div>
 
-      {/* Document Workspace */}
-      <div className="viewer-workspace" style={{ height: '78vh' }}>
+      {/* Main Workspace Layout */}
+      <div className="viewer-workspace" style={{
+        flexGrow: 1,
+        overflow: 'hidden',
+        padding: '12px',
+        background: 'radial-gradient(circle at center, #0e162b 0%, #060913 100%)',
+        backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.02) 1.5px, transparent 0)',
+        backgroundSize: '24px 24px',
+        borderRadius: '24px',
+        border: '1.5px solid var(--glass-border)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+        boxShadow: 'inset 0 4px 30px rgba(0,0,0,0.6)'
+      }}>
         {isUnlocked ? (
-          <div style={{ 
+          <div className="unlocked-scroll-wrapper" style={{ 
             width: '100%', 
-            height: '75vh', 
-            padding: '0 10px 10px 10px', 
-            overflowY: 'auto', 
+            height: isAppMode ? '54vh' : '65vh', 
+            padding: '10px 10px 30px 10px', 
+            overflowY: 'scroll', 
             overflowX: 'hidden',
             display: 'flex', 
             flexDirection: 'column',
             alignItems: 'center', 
-            justifyContent: 'flex-start' 
+            justifyContent: 'flex-start',
+            gap: '20px',
+            scrollBehavior: 'smooth'
           }}>
             <div style={{ 
               width: `${zoom}%`, 
-              height: '1050px', 
+              maxWidth: '820px',
+              height: '1160px', 
               minWidth: '100%',
               borderRadius: '16px',
               overflow: 'hidden',
               position: 'relative',
               transform: `rotate(${rotation}deg)`,
               transformOrigin: 'center center',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+              transition: 'transform 0.3s ease, width 0.3s ease',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.5), 0 0 0 1.5px rgba(255,255,255,0.06)'
             }}>
-              {/* Invisible overlay div to block drag selections and clicks inside the iframe */}
+              {/* Blocker overlay */}
               <div style={{
                 position: 'absolute',
                 top: 0,
@@ -248,7 +296,7 @@ void processNode() {
                 cursor: 'default'
               }} />
 
-              {/* Tiled Watermark Overlay */}
+              {/* Watermark Overlay */}
               <div style={{
                 position: 'absolute',
                 top: 0,
@@ -262,17 +310,18 @@ void processNode() {
                 justifyContent: 'center',
                 alignItems: 'center',
                 overflow: 'hidden',
-                opacity: 0.08
+                opacity: 0.05
               }}>
-                {Array.from({ length: 12 }).map((_, i) => (
+                {Array.from({ length: 15 }).map((_, i) => (
                   <div key={i} style={{
-                    transform: 'rotate(-30deg)',
+                    transform: 'rotate(-35deg)',
                     fontSize: '28px',
                     fontWeight: 'bold',
                     color: 'var(--color-white)',
-                    margin: '80px',
+                    margin: '60px',
                     whiteSpace: 'nowrap',
-                    userSelect: 'none'
+                    userSelect: 'none',
+                    letterSpacing: '1px'
                   }}>
                     BITWISE LEARNING
                   </div>
@@ -283,32 +332,51 @@ void processNode() {
                 src={pdfUrl ? `${pdfUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0` : ''} 
                 title={note.title} 
                 style={{ 
-                  width: '100%', 
+                  width: 'calc(100% + 18px)', 
                   height: '100%', 
-                  border: '1px solid var(--glass-border)', 
-                  borderRadius: '16px', 
-                  background: '#090d16',
+                  border: 'none', 
+                  background: '#ffffff',
                   pointerEvents: 'none'
                 }} 
               />
             </div>
           </div>
         ) : (
-          <div className="page-scroller">
+          <div className="page-scroller" style={{ height: isAppMode ? '54vh' : '65vh', overflowY: 'auto' }}>
             {/* Active Page Card */}
-            <div className="page-canvas-wrapper glass-card">
+            <div className="page-canvas-wrapper glass-card" style={{ boxShadow: '0 20px 50px rgba(0,0,0,0.5)', borderRadius: '16px' }}>
               {getSimulatedPageContent(currentPage)}
             </div>
 
-            {/* Locked Overlay for free preview limit */}
+            {/* Locked Overlay */}
             {!isUnlocked && currentPage === totalPages && (
-              <div className="locked-preview-overlay glass-card fade-in">
-                <div className="locked-overlay-content">
-                  <AlertTriangle size={48} className="yellow-accent" />
-                  <h3>End of Free Preview</h3>
-                  <p>You have read all 2 free pages. Buy these notes to unlock all {note.pagesCount} pages of this syllabus with PYQ solutions.</p>
-                  <button className="btn-primary" onClick={onUnlock}>
-                    Unlock Full Notes (₹{note.price})
+              <div className="locked-preview-overlay glass-card fade-in" style={{
+                borderRadius: '16px',
+                border: '1.5px solid rgba(245, 158, 11, 0.25)',
+                background: 'rgba(10, 17, 36, 0.85)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)'
+              }}>
+                <div className="locked-overlay-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                  <div className="locked-shield-icon" style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: 'rgba(245, 158, 11, 0.1)',
+                    border: '1.5px solid var(--color-yellow)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '8px'
+                  }}>
+                    <AlertTriangle size={32} className="yellow-accent" />
+                  </div>
+                  <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--color-white)', margin: 0 }}>🔒 End of Free Preview</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--color-muted)', textAlign: 'center', maxWidth: '320px', lineHeight: '1.6', margin: '0 0 10px 0' }}>
+                    You have read all 2 free pages. Buy this syllabus combo pack to unlock all {note.pagesCount} pages of this syllabus with PYQ solutions.
+                  </p>
+                  <button className="btn-primary" onClick={onUnlock} style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)' }}>
+                    Unlock Full Syllabus (₹{note.price})
                   </button>
                 </div>
               </div>
@@ -317,22 +385,44 @@ void processNode() {
         )}
       </div>
 
-      {/* Page Navigation Footer */}
-      <div className="viewer-footer glass-card">
+      {/* Elegant Universal Navigation Footer */}
+      <div className="viewer-footer glass-card" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 24px',
+        borderRadius: '16px',
+        border: '1px solid var(--glass-border)',
+        background: 'rgba(10, 17, 43, 0.8)',
+        backdropFilter: 'blur(15px)',
+        WebkitBackdropFilter: 'blur(15px)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+      }}>
         <button 
           className="btn-secondary" 
           onClick={handlePrevPage}
           disabled={currentPage === 1}
+          style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
         >
           <ChevronLeft size={16} /> Prev
         </button>
-        <span className="page-counter">
-          Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> {isUnlocked ? <span className="locked-tag" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.2)' }}>Full Access</span> : <span className="locked-tag">(Preview Limit)</span>}
+        <span className="page-counter" style={{ fontSize: '14px', color: 'var(--color-muted)', fontWeight: '600' }}>
+          Page <strong style={{ color: 'var(--color-white)', fontSize: '16px' }}>{currentPage}</strong> of <strong style={{ color: 'var(--color-white)', fontSize: '16px' }}>{totalPages}</strong> 
+          {isUnlocked ? (
+            <span className="locked-tag" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.25)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', marginLeft: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              ✦ Full Access
+            </span>
+          ) : (
+            <span className="locked-tag" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--color-yellow)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', marginLeft: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Preview Limit
+            </span>
+          )}
         </span>
         <button 
           className="btn-secondary" 
           onClick={handleNextPage}
           disabled={currentPage === totalPages}
+          style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
         >
           Next <ChevronRight size={16} />
         </button>
