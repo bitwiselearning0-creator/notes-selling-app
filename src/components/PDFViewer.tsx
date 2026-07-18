@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, ShieldAlert, Lock } from 'lucide-react';
+import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, ShieldAlert, Lock, Loader2, AlertTriangle } from 'lucide-react';
 import type { Note } from '../lib/supabase';
 
 interface PDFViewerProps {
@@ -9,15 +9,127 @@ interface PDFViewerProps {
   onUnlock: () => void;
 }
 
+// Sub-component to render individual PDF pages onto canvas securely
+const CanvasPage: React.FC<{
+  pageNumber: number;
+  pdfDoc: any;
+  zoom: number;
+  rotation: number;
+}> = ({ pageNumber, pdfDoc, zoom, rotation }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderTaskRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!pdfDoc || !canvasRef.current) return;
+    
+    let isMounted = true;
+
+    const renderPage = async () => {
+      try {
+        const page = await pdfDoc.getPage(pageNumber);
+        if (!isMounted) return;
+
+        // Cancel previous rendering if active
+        if (renderTaskRef.current) {
+          renderTaskRef.current.cancel();
+        }
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        // Standard PDF render scale (increased to 1.5 for high-DPI crisp text rendering)
+        const scale = (zoom / 100) * 1.5;
+        const viewport = page.getViewport({ scale, rotation });
+
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        const context = canvas.getContext('2d');
+        if (!context) return;
+
+        const renderContext = {
+          canvasContext: context,
+          viewport: viewport
+        };
+
+        const renderTask = page.render(renderContext);
+        renderTaskRef.current = renderTask;
+
+        await renderTask.promise;
+      } catch (err: any) {
+        if (err.name !== 'RenderingCancelledException') {
+          console.error('Error rendering page:', err);
+        }
+      }
+    };
+
+    renderPage();
+
+    return () => {
+      isMounted = false;
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+      }
+    };
+  }, [pdfDoc, pageNumber, zoom, rotation]);
+
+  return (
+    <div style={{ 
+      margin: '14px 0', 
+      boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      background: '#ffffff',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      maxWidth: '100%',
+      transition: 'transform 0.3s ease'
+    }}>
+      <canvas 
+        ref={canvasRef} 
+        style={{ 
+          width: '100%', 
+          maxWidth: '800px', 
+          display: 'block' 
+        }} 
+      />
+    </div>
+  );
+};
+
 export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, onUnlock }) => {
   const isAppMode = document.body.classList.contains('app-mode') || window.location.href.includes('platform=app');
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [scrollPage, setScrollPage] = useState(1);
+  const [pdfjsLoaded, setPdfjsLoaded] = useState(false);
+  const [pdfDoc, setPdfDoc] = useState<any>(null);
+  const [loadingDoc, setLoadingDoc] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Convert Base64 previewUrl to Blob URL if necessary
+  // 1. Load PDF.js from CDN dynamically
+  useEffect(() => {
+    if ((window as any).pdfjsLib) {
+      setPdfjsLoaded(true);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+    script.onload = () => {
+      (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+      setPdfjsLoaded(true);
+    };
+    script.onerror = () => {
+      setLoadError('Failed to load secure document renderer engine.');
+    };
+    document.head.appendChild(script);
+  }, []);
+
+  // 2. Convert Base64 previewUrl to Blob URL if necessary
   useEffect(() => {
     if (!note.previewUrl) return;
 
@@ -49,7 +161,30 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     }
   }, [note.previewUrl]);
 
-  // Anti-copying and anti-printing bindings
+  // 3. Load PDF Document via PDF.js when script and URL are ready (only if unlocked)
+  useEffect(() => {
+    if (!pdfjsLoaded || !pdfUrl || !isUnlocked) return;
+
+    const loadDocument = async () => {
+      setLoadingDoc(true);
+      setLoadError(null);
+      try {
+        const pdfjsLib = (window as any).pdfjsLib;
+        const loadingTask = pdfjsLib.getDocument(pdfUrl);
+        const pdf = await loadingTask.promise;
+        setPdfDoc(pdf);
+      } catch (err: any) {
+        console.error('Error loading PDF document:', err);
+        setLoadError(err.message || 'Error parsing document content.');
+      } finally {
+        setLoadingDoc(false);
+      }
+    };
+
+    loadDocument();
+  }, [pdfjsLoaded, pdfUrl, isUnlocked]);
+
+  // 4. Anti-copying and anti-printing bindings
   useEffect(() => {
     const preventSelection = (e: Event) => {
       e.preventDefault();
@@ -71,13 +206,19 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     };
   }, []);
 
-  // Calculate pages on scroll (each page has height proportional to zoom)
-  const singlePageHeight = 1160 * (zoom / 100);
+  // Calculate pages on scroll dynamically
   const totalPages = isUnlocked ? note.pagesCount : 2;
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const scrollTop = e.currentTarget.scrollTop;
-    const page = Math.min(totalPages, Math.max(1, Math.floor((scrollTop + 400) / singlePageHeight) + 1));
+    const target = e.currentTarget;
+    const scrollTop = target.scrollTop;
+    const scrollHeight = target.scrollHeight - target.clientHeight;
+    
+    if (scrollHeight <= 0) return;
+    
+    // Estimate current page by finding scroll percentage
+    const percentage = scrollTop / scrollHeight;
+    const page = Math.min(totalPages, Math.max(1, Math.round(percentage * (totalPages - 1)) + 1));
     setScrollPage(page);
   };
 
@@ -210,8 +351,24 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
         position: 'relative',
         boxShadow: 'inset 0 4px 30px rgba(0,0,0,0.6)'
       }}>
-        {isUnlocked ? (
-          /* Active Parent scrollbar window that handles all continuous scrolling actions */
+        {/* Loading / Error States */}
+        {(!pdfjsLoaded || (isUnlocked && loadingDoc)) && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: 'var(--color-muted)' }}>
+            <Loader2 className="animate-spin" size={32} style={{ color: 'var(--color-yellow)' }} />
+            <span style={{ fontSize: '14px', fontWeight: '600' }}>Decrypting and loading secure document renderer...</span>
+          </div>
+        )}
+
+        {loadError && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: '#f87171', textAlign: 'center', padding: '20px' }}>
+            <AlertTriangle size={36} />
+            <span style={{ fontSize: '14px', fontWeight: '700' }}>Error Loading Document: {loadError}</span>
+            <button className="btn-secondary" onClick={() => window.location.reload()} style={{ marginTop: '8px' }}>Retry Load</button>
+          </div>
+        )}
+
+        {/* Unlocked Full Note View (Renders PDF via Canvas Pages) */}
+        {isUnlocked && pdfjsLoaded && pdfDoc && !loadError && (
           <div 
             ref={scrollContainerRef}
             onScroll={handleScroll}
@@ -228,39 +385,15 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
               scrollBehavior: 'smooth'
             }}
           >
-            {/* Inner Wrapper holding the ultra tall iframe (single page height * total pages) */}
-            <div style={{ 
-              width: `${zoom}%`, 
-              maxWidth: '820px',
-              height: `${singlePageHeight * note.pagesCount}px`, 
-              minWidth: '100%',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              position: 'relative',
-              transform: `rotate(${rotation}deg)`,
-              transformOrigin: 'top center',
-              transition: 'transform 0.3s ease, width 0.3s ease',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.5), 0 0 0 1.5px rgba(255,255,255,0.06)'
-            }}>
-              {/* Blocker overlay completely intercepting mouse selections over the visible PDF page area */}
+            {/* Scrollable Container of Canvas Pages */}
+            <div style={{ width: '100%', maxWidth: '800px', position: 'relative' }}>
+              {/* Floating Diagonal Security Watermark Overlay */}
               <div style={{
                 position: 'absolute',
                 top: 0,
                 left: 0,
-                width: '100%',
-                height: '100%',
-                zIndex: 10,
-                background: 'transparent',
-                cursor: 'default'
-              }} />
-
-              {/* Watermark Overlay */}
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
+                right: 0,
+                bottom: 0,
                 zIndex: 9,
                 pointerEvents: 'none',
                 display: 'flex',
@@ -286,22 +419,22 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
                 ))}
               </div>
 
-              {/* PDF Document Render Frame */}
-              <iframe 
-                src={pdfUrl ? `${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0` : ''} 
-                title={note.title} 
-                style={{ 
-                  width: 'calc(100% + 20px)', // Shift the native unclickable browser scrollbar completely outside container window
-                  height: '100%', 
-                  border: 'none', 
-                  background: '#ffffff',
-                  pointerEvents: 'none' // Direct text click protection
-                }} 
-              />
+              {/* Render all pages consecutively */}
+              {Array.from({ length: note.pagesCount }).map((_, idx) => (
+                <CanvasPage 
+                  key={idx} 
+                  pageNumber={idx + 1} 
+                  pdfDoc={pdfDoc} 
+                  zoom={zoom} 
+                  rotation={rotation} 
+                />
+              ))}
             </div>
           </div>
-        ) : (
-          /* Preview mode showing the 2 pages scrollable */
+        )}
+
+        {/* Locked Preview View (2 Simulated Preview Pages) */}
+        {!isUnlocked && !loadError && (
           <div 
             onScroll={handleScroll}
             style={{ 
@@ -313,20 +446,20 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
               flexDirection: 'column',
               alignItems: 'center',
               gap: '24px',
-              paddingBottom: '60px',
+              padding: '0 10px 60px 10px',
               scrollBehavior: 'smooth'
             }}
           >
-            {/* Page 1 Preview Canvas */}
+            {/* Page 1 Simulated Preview */}
             <div style={{ width: `${zoom}%`, maxWidth: '780px', minWidth: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', borderRadius: '16px', overflow: 'hidden' }}>
               {getSimulatedPageContent(1)}
             </div>
 
-            {/* Page 2 Preview Canvas */}
+            {/* Page 2 Simulated Preview */}
             <div style={{ width: `${zoom}%`, maxWidth: '780px', minWidth: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
               {getSimulatedPageContent(2)}
               
-              {/* Locked paywall block overlay */}
+              {/* Paywall locked overlay on top of Page 2 */}
               <div className="locked-preview-overlay glass-card fade-in" style={{
                 position: 'absolute',
                 top: 0,
@@ -359,7 +492,7 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
                   </div>
                   <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-white)', margin: 0 }}>🔒 End of Free Preview</h3>
                   <p style={{ fontSize: '13px', color: 'var(--color-muted)', textAlign: 'center', maxWidth: '320px', lineHeight: '1.6', margin: '0 0 10px 0' }}>
-                    You have read all 2 free pages. Buy this syllabus combo pack to unlock all {note.pagesCount} pages of this syllabus with PYQ solutions.
+                    You have read all 2 free preview pages. Buy this combo pack or unlock the notes to read all {note.pagesCount} pages.
                   </p>
                   <button className="btn-primary" onClick={onUnlock} style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)' }}>
                     Unlock Full Syllabus (₹{note.price})
@@ -372,32 +505,34 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
       </div>
 
       {/* Floating Pill Page Indicator Bar */}
-      <div className="viewer-footer glass-card" style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '12px 24px',
-        borderRadius: '16px',
-        border: '1px solid var(--glass-border)',
-        background: 'rgba(10, 17, 43, 0.85)',
-        backdropFilter: 'blur(15px)',
-        WebkitBackdropFilter: 'blur(15px)',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
-        gap: '20px'
-      }}>
-        <span className="page-counter" style={{ fontSize: '14px', color: 'var(--color-muted)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          Viewing Page <strong style={{ color: 'var(--color-white)', fontSize: '18px' }}>{scrollPage}</strong> of <strong style={{ color: 'var(--color-white)', fontSize: '18px' }}>{totalPages}</strong> 
-          {isUnlocked ? (
-            <span className="locked-tag" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.25)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              ✦ Full Access
-            </span>
-          ) : (
-            <span className="locked-tag" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--color-yellow)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Preview Limit
+      {pdfjsLoaded && !loadError && (
+        <div className="viewer-footer glass-card" style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '12px 24px',
+          borderRadius: '16px',
+          border: '1px solid var(--glass-border)',
+          background: 'rgba(10, 17, 43, 0.85)',
+          backdropFilter: 'blur(15px)',
+          WebkitBackdropFilter: 'blur(15px)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+          gap: '20px'
+        }}>
+          <span className="page-counter" style={{ fontSize: '14px', color: 'var(--color-muted)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Viewing Page <strong style={{ color: 'var(--color-white)', fontSize: '18px' }}>{scrollPage}</strong> of <strong style={{ color: 'var(--color-white)', fontSize: '18px' }}>{totalPages}</strong> 
+            {isUnlocked ? (
+              <span className="locked-tag" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.25)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                ✦ Full Access
+              </span>
+            ) : (
+              <span className="locked-tag" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--color-yellow)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Preview Limit
             </span>
           )}
         </span>
       </div>
+      )}
     </div>
   );
 };
