@@ -372,57 +372,62 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               </div>
 
               {/* Render pages: either all pages (if unlocked) or up to 2 pages (if locked) */}
-              {Array.from({ length: isUnlocked ? pdfDoc.numPages : Math.min(2, pdfDoc.numPages) }).map((_, idx) => (
-                <CanvasPage 
-                  key={idx} 
-                  pageNumber={idx + 1} 
-                  pdfDoc={pdfDoc} 
-                  zoom={zoom} 
-                  rotation={rotation} 
-                />
-              ))}
+              {Array.from({ length: isUnlocked ? pdfDoc.numPages : Math.min(2, pdfDoc.numPages) }).map((_, idx) => {
+                const pageNum = idx + 1;
+                const isSecondPageLocked = !isUnlocked && pageNum === 2;
 
-              {/* Locked Preview overlay right below Page 2 if locked */}
-              {!isUnlocked && (
-                <div className="locked-preview-overlay glass-card fade-in" style={{
-                  margin: '20px 0 40px 0',
-                  padding: '40px 24px',
-                  borderRadius: '16px',
-                  border: '1.5px solid rgba(245, 158, 11, 0.25)',
-                  background: 'rgba(10, 17, 36, 0.88)',
-                  backdropFilter: 'blur(22px)',
-                  WebkitBackdropFilter: 'blur(22px)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  textAlign: 'center',
-                  boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-                  width: '100%',
-                  boxSizing: 'border-box'
-                }}>
-                  <div className="locked-shield-icon" style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '50%',
-                    background: 'rgba(245, 158, 11, 0.1)',
-                    border: '1.5px solid var(--color-yellow)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '16px'
-                  }}>
-                    <Lock size={32} style={{ color: 'var(--color-yellow)' }} />
+                return (
+                  <div key={idx} style={{ position: 'relative', width: '100%' }}>
+                    <CanvasPage 
+                      pageNumber={pageNum} 
+                      pdfDoc={pdfDoc} 
+                      zoom={zoom} 
+                      rotation={rotation} 
+                    />
+                    
+                    {isSecondPageLocked && (
+                      <div className="locked-preview-overlay" style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: '12px',
+                        background: 'rgba(10, 17, 36, 0.9)',
+                        backdropFilter: 'blur(22px)',
+                        WebkitBackdropFilter: 'blur(22px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 15
+                      }}>
+                        <div className="locked-overlay-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '24px', textAlign: 'center' }}>
+                          <div className="locked-shield-icon" style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '50%',
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            border: '1.5px solid var(--color-yellow)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '8px'
+                          }}>
+                            <Lock size={32} style={{ color: 'var(--color-yellow)' }} />
+                          </div>
+                          <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-white)', margin: 0 }}>🔒 End of Free Preview</h3>
+                          <p style={{ fontSize: '13px', color: 'var(--color-muted)', textAlign: 'center', maxWidth: '320px', lineHeight: '1.6', margin: '0 0 10px 0' }}>
+                            You have read all 2 free preview pages of the actual notes. Buy this combo pack or unlock the notes to read all {pdfDoc.numPages} pages.
+                          </p>
+                          <button className="btn-primary" onClick={onUnlock} style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)' }}>
+                            Unlock Full Syllabus (₹{note.price})
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-white)', margin: '0 0 8px 0' }}>🔒 End of Free Preview</h3>
-                  <p style={{ fontSize: '14px', color: 'var(--color-muted)', textAlign: 'center', maxWidth: '360px', lineHeight: '1.6', margin: '0 0 20px 0' }}>
-                    You have read all 2 free preview pages of the actual notes. Buy this combo pack or unlock the notes to read all {pdfDoc.numPages} pages.
-                  </p>
-                  <button className="btn-primary" onClick={onUnlock} style={{ padding: '12px 28px', fontSize: '15px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)' }}>
-                    Unlock Full Syllabus (₹{note.price})
-                  </button>
-                </div>
-              )}
+                );
+              })}
             </div>
           </div>
         )}
