@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, AlertTriangle, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, ShieldAlert, Lock } from 'lucide-react';
 import type { Note } from '../lib/supabase';
 
 interface PDFViewerProps {
@@ -11,11 +11,13 @@ interface PDFViewerProps {
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, onUnlock }) => {
   const isAppMode = document.body.classList.contains('app-mode') || window.location.href.includes('platform=app');
-  const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [pdfUrl, setPdfUrl] = useState<string>('');
+  const [scrollPage, setScrollPage] = useState(1);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Convert Base64 previewUrl to Blob URL if necessary
   useEffect(() => {
     if (!note.previewUrl) return;
 
@@ -47,32 +49,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     }
   }, [note.previewUrl]);
 
-  // Maximum pages visible to the user
-  const totalPages = isUnlocked ? note.pagesCount : 2;
-
   // Anti-copying and anti-printing bindings
   useEffect(() => {
-    const preventActions = (e: KeyboardEvent) => {
-      // Prevent copy (Ctrl+C, Cmd+C)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        e.preventDefault();
-        alert('Copying content is disabled to protect intellectual property.');
-      }
-      // Prevent print (Ctrl+P, Cmd+P)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-        e.preventDefault();
-        alert('Printing notes is disabled to protect intellectual property.');
-      }
-      // Prevent inspect (F12, Ctrl+Shift+I)
-      if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'i')) {
-        e.preventDefault();
-      }
-    };
-
-    const preventRightClick = (e: MouseEvent) => {
-      e.preventDefault();
-    };
-
     const preventSelection = (e: Event) => {
       e.preventDefault();
     };
@@ -82,102 +60,77 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
       alert('Copying and cutting content is disabled to protect intellectual property.');
     };
 
-    window.addEventListener('keydown', preventActions);
-    window.addEventListener('contextmenu', preventRightClick);
     document.addEventListener('selectstart', preventSelection);
     document.addEventListener('copy', preventCopyPaste);
     document.addEventListener('cut', preventCopyPaste);
 
     return () => {
-      window.removeEventListener('keydown', preventActions);
-      window.removeEventListener('contextmenu', preventRightClick);
       document.removeEventListener('selectstart', preventSelection);
       document.removeEventListener('copy', preventCopyPaste);
       document.removeEventListener('cut', preventCopyPaste);
     };
   }, []);
 
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
+  // Calculate pages on scroll (each page has height proportional to zoom)
+  const singlePageHeight = 1160 * (zoom / 100);
+  const totalPages = isUnlocked ? note.pagesCount : 2;
 
-  const handlePrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    const page = Math.min(totalPages, Math.max(1, Math.floor((scrollTop + 400) / singlePageHeight) + 1));
+    setScrollPage(page);
   };
 
   // Generate simulated notes content for high-quality mock preview (bypasses CORS restrictions on random PDFs)
   const getSimulatedPageContent = (page: number) => {
-    // Return sample text based on note topics and active page
     const topicIndex = (page - 1) % note.topics.length;
     const activeTopic = note.topics[topicIndex];
     
     return (
-      <div className="pdf-simulated-content" style={{ transform: `scale(${zoom / 100}) rotate(${rotation}deg)` }}>
-        <div className="watermark">BITWISE LEARNING</div>
-        <div className="doc-header">
-          <span className="doc-subj">{note.subject}</span>
-          <span className="doc-page">Page {page} of {note.pagesCount}</span>
-        </div>
-        <h2 className="doc-topic-title">Chapter {page}: {activeTopic}</h2>
+      <div className="pdf-simulated-content" style={{ transform: `scale(${zoom / 100}) rotate(${rotation}deg)`, transformOrigin: 'top center', padding: '40px', background: '#ffffff', borderRadius: '12px', color: '#1e293b', width: '100%', minHeight: '1000px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
+        <div className="watermark" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) rotate(-45deg)', fontSize: '50px', fontWeight: 'bold', color: 'rgba(7, 12, 38, 0.04)', whiteSpace: 'nowrap', userSelect: 'none', pointerEvents: 'none' }}>BITWISE LEARNING</div>
         
-        <div className="doc-section">
-          <h3>1. Core Concepts</h3>
-          <p>
-            {activeTopic} forms the foundation of modern computer science architectures. Under standard university guidelines,
-            students must understand the structural design, algorithm complexity, and historical context of this topic.
-            Let's evaluate the primary characteristics:
-          </p>
-          <ul>
-            <li><strong>Efficiency:</strong> Direct mapping and fast addressing modes reduce execution delays.</li>
-            <li><strong>Robustness:</strong> Error containment protocols prevent system-wide memory fragmentation.</li>
-            <li><strong>Standardization:</strong> Complies with standard IEEE curricula and previous year exam questions.</li>
-          </ul>
-        </div>
+        <div>
+          <div className="doc-header" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px', marginBottom: '20px', fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>
+            <span className="doc-subj" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>{note.subject}</span>
+            <span className="doc-page">Page {page} of {note.pagesCount}</span>
+          </div>
+          
+          <h2 className="doc-topic-title" style={{ fontSize: '22px', color: '#0f172a', fontWeight: '800', marginBottom: '16px' }}>Chapter {page}: {activeTopic}</h2>
+          
+          <div className="doc-section" style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '15px', color: '#334155', fontWeight: '700', marginBottom: '8px' }}>1. Core Syllabus Concepts</h3>
+            <p style={{ fontSize: '13px', lineHeight: '1.6', color: '#475569' }}>
+              {activeTopic} is a major component of this semester's curriculum. Students must focus on the design methodologies, mathematical formulations, and step-by-step algorithms related to this subject to score maximum marks in exams.
+            </p>
+            <ul style={{ fontSize: '13px', lineHeight: '1.6', color: '#475569', paddingLeft: '20px', marginTop: '10px' }}>
+              <li><strong>High-Scoring Section:</strong> Questions from this chapter are highly repeated in previous years (PYQs).</li>
+              <li><strong>Theoretical Proofs:</strong> Ensure you write detailed explanations and clear steps for derivations.</li>
+              <li><strong>Design Diagrams:</strong> Clean schematics and block diagrams will fetch additional marks.</li>
+            </ul>
+          </div>
 
-        <div className="doc-code-block">
-          <div className="code-header">Example Implementation: {activeTopic}</div>
-          <pre>
-{`// Solved PYQ Example:
-#include <stdio.h>
-#define MAX_NODES 1024
-
-void processNode() {
-    printf("Executing Bitwise Learning notes workflow for ${activeTopic}...\\n");
-    // Secure token rendering
-    int activeSession = 1;
-    if (activeSession) {
-        printf("Page unlocked successfully.\\n");
-    }
-}`}
-          </pre>
-        </div>
-
-        <div className="doc-section">
-          <h3>2. Important Exam Tips (Solved PYQ Pattern)</h3>
-          <p>
-            Every year, examiners frequently ask about the optimization parameters of this system. In your answer script,
-            make sure to draw the block diagram showing interface parameters. Always cite the mathematical proofs for
-            full marks.
-          </p>
-          <div className="diagram-placeholder">
-            [ Interactive Block Diagram: {activeTopic} Architecture Flowchart ]
+          <div className="doc-code-block" style={{ background: '#0f172a', color: '#38bdf8', padding: '16px', borderRadius: '8px', fontFamily: 'monospace', fontSize: '12px', overflowX: 'auto', marginBottom: '24px' }}>
+            <div className="code-header" style={{ borderBottom: '1px solid #1e293b', paddingBottom: '8px', marginBottom: '8px', color: '#94a3b8', fontWeight: 'bold' }}>Syllabus Blueprint & Formula:</div>
+            <pre style={{ margin: 0 }}>
+{`// Exam Formula Sheet:
+Active Parameter = [Node Weight] * [Semester Constant]
+Complexity analysis: O(N log N) in best case configurations.
+Tip: Draw flowchart if question is asked for 10 marks.`}
+            </pre>
           </div>
         </div>
 
-        <div className="doc-footer">
-          <span>Prepared by Bitwise Learning Academic Team</span>
-          <span>© All Rights Reserved. Bitwise Learning.</span>
+        <div className="doc-footer" style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8' }}>
+          <span>Prepared by Bitwise Learning Academic Experts</span>
+          <span>© All Rights Reserved.</span>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="pdf-viewer-container fade-in" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none', display: 'flex', flexDirection: 'column', gap: '16px', margin: isAppMode ? '0' : '10px 0 20px 0', height: isAppMode ? 'calc(100vh - 80px)' : 'auto' }}>
+    <div className="pdf-viewer-container fade-in" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none', display: 'flex', flexDirection: 'column', gap: '14px', margin: isAppMode ? '0' : '10px 0 20px 0', height: isAppMode ? 'calc(100vh - 80px)' : 'auto' }}>
       {/* Premium Header Bar */}
       <div className="viewer-header glass-card" style={{ 
         display: 'flex', 
@@ -244,7 +197,7 @@ void processNode() {
       <div className="viewer-workspace" style={{
         flexGrow: 1,
         overflow: 'hidden',
-        padding: '12px',
+        padding: '16px',
         background: 'radial-gradient(circle at center, #0e162b 0%, #060913 100%)',
         backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.02) 1.5px, transparent 0)',
         backgroundSize: '24px 24px',
@@ -258,33 +211,38 @@ void processNode() {
         boxShadow: 'inset 0 4px 30px rgba(0,0,0,0.6)'
       }}>
         {isUnlocked ? (
-          <div className="unlocked-scroll-wrapper" style={{ 
-            width: '100%', 
-            height: isAppMode ? '54vh' : '65vh', 
-            padding: '10px 10px 30px 10px', 
-            overflowY: 'scroll', 
-            overflowX: 'hidden',
-            display: 'flex', 
-            flexDirection: 'column',
-            alignItems: 'center', 
-            justifyContent: 'flex-start',
-            gap: '20px',
-            scrollBehavior: 'smooth'
-          }}>
+          /* Active Parent scrollbar window that handles all continuous scrolling actions */
+          <div 
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            style={{ 
+              width: '100%', 
+              height: isAppMode ? '54vh' : '65vh', 
+              padding: '0 10px 40px 10px', 
+              overflowY: 'scroll', 
+              overflowX: 'hidden',
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: 'center', 
+              justifyContent: 'flex-start',
+              scrollBehavior: 'smooth'
+            }}
+          >
+            {/* Inner Wrapper holding the ultra tall iframe (single page height * total pages) */}
             <div style={{ 
               width: `${zoom}%`, 
               maxWidth: '820px',
-              height: '1160px', 
+              height: `${singlePageHeight * note.pagesCount}px`, 
               minWidth: '100%',
               borderRadius: '16px',
               overflow: 'hidden',
               position: 'relative',
               transform: `rotate(${rotation}deg)`,
-              transformOrigin: 'center center',
+              transformOrigin: 'top center',
               transition: 'transform 0.3s ease, width 0.3s ease',
               boxShadow: '0 20px 50px rgba(0,0,0,0.5), 0 0 0 1.5px rgba(255,255,255,0.06)'
             }}>
-              {/* Blocker overlay */}
+              {/* Blocker overlay completely intercepting mouse selections over the visible PDF page area */}
               <div style={{
                 position: 'absolute',
                 top: 0,
@@ -312,13 +270,13 @@ void processNode() {
                 overflow: 'hidden',
                 opacity: 0.05
               }}>
-                {Array.from({ length: 15 }).map((_, i) => (
+                {Array.from({ length: Math.min(25, note.pagesCount * 2) }).map((_, i) => (
                   <div key={i} style={{
                     transform: 'rotate(-35deg)',
                     fontSize: '28px',
                     fontWeight: 'bold',
                     color: 'var(--color-white)',
-                    margin: '60px',
+                    margin: '120px 80px',
                     whiteSpace: 'nowrap',
                     userSelect: 'none',
                     letterSpacing: '1px'
@@ -328,36 +286,64 @@ void processNode() {
                 ))}
               </div>
 
+              {/* PDF Document Render Frame */}
               <iframe 
-                src={pdfUrl ? `${pdfUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0` : ''} 
+                src={pdfUrl ? `${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0` : ''} 
                 title={note.title} 
                 style={{ 
-                  width: 'calc(100% + 18px)', 
+                  width: 'calc(100% + 20px)', // Shift the native unclickable browser scrollbar completely outside container window
                   height: '100%', 
                   border: 'none', 
                   background: '#ffffff',
-                  pointerEvents: 'none'
+                  pointerEvents: 'none' // Direct text click protection
                 }} 
               />
             </div>
           </div>
         ) : (
-          <div className="page-scroller" style={{ height: isAppMode ? '54vh' : '65vh', overflowY: 'auto' }}>
-            {/* Active Page Card */}
-            <div className="page-canvas-wrapper glass-card" style={{ boxShadow: '0 20px 50px rgba(0,0,0,0.5)', borderRadius: '16px' }}>
-              {getSimulatedPageContent(currentPage)}
+          /* Preview mode showing the 2 pages scrollable */
+          <div 
+            onScroll={handleScroll}
+            style={{ 
+              width: '100%', 
+              height: isAppMode ? '54vh' : '65vh', 
+              overflowY: 'scroll', 
+              overflowX: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '24px',
+              paddingBottom: '60px',
+              scrollBehavior: 'smooth'
+            }}
+          >
+            {/* Page 1 Preview Canvas */}
+            <div style={{ width: `${zoom}%`, maxWidth: '780px', minWidth: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', borderRadius: '16px', overflow: 'hidden' }}>
+              {getSimulatedPageContent(1)}
             </div>
 
-            {/* Locked Overlay */}
-            {!isUnlocked && currentPage === totalPages && (
+            {/* Page 2 Preview Canvas */}
+            <div style={{ width: `${zoom}%`, maxWidth: '780px', minWidth: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
+              {getSimulatedPageContent(2)}
+              
+              {/* Locked paywall block overlay */}
               <div className="locked-preview-overlay glass-card fade-in" style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
                 borderRadius: '16px',
                 border: '1.5px solid rgba(245, 158, 11, 0.25)',
-                background: 'rgba(10, 17, 36, 0.85)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)'
+                background: 'rgba(10, 17, 36, 0.88)',
+                backdropFilter: 'blur(22px)',
+                WebkitBackdropFilter: 'blur(22px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 15
               }}>
-                <div className="locked-overlay-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                <div className="locked-overlay-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '24px', textAlign: 'center' }}>
                   <div className="locked-shield-icon" style={{
                     width: '64px',
                     height: '64px',
@@ -369,9 +355,9 @@ void processNode() {
                     justifyContent: 'center',
                     marginBottom: '8px'
                   }}>
-                    <AlertTriangle size={32} className="yellow-accent" />
+                    <Lock size={32} style={{ color: 'var(--color-yellow)' }} />
                   </div>
-                  <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--color-white)', margin: 0 }}>🔒 End of Free Preview</h3>
+                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-white)', margin: 0 }}>🔒 End of Free Preview</h3>
                   <p style={{ fontSize: '13px', color: 'var(--color-muted)', textAlign: 'center', maxWidth: '320px', lineHeight: '1.6', margin: '0 0 10px 0' }}>
                     You have read all 2 free pages. Buy this syllabus combo pack to unlock all {note.pagesCount} pages of this syllabus with PYQ solutions.
                   </p>
@@ -380,52 +366,37 @@ void processNode() {
                   </button>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Elegant Universal Navigation Footer */}
+      {/* Floating Pill Page Indicator Bar */}
       <div className="viewer-footer glass-card" style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         padding: '12px 24px',
         borderRadius: '16px',
         border: '1px solid var(--glass-border)',
-        background: 'rgba(10, 17, 43, 0.8)',
+        background: 'rgba(10, 17, 43, 0.85)',
         backdropFilter: 'blur(15px)',
         WebkitBackdropFilter: 'blur(15px)',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+        gap: '20px'
       }}>
-        <button 
-          className="btn-secondary" 
-          onClick={handlePrevPage}
-          disabled={currentPage === 1}
-          style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          <ChevronLeft size={16} /> Prev
-        </button>
-        <span className="page-counter" style={{ fontSize: '14px', color: 'var(--color-muted)', fontWeight: '600' }}>
-          Page <strong style={{ color: 'var(--color-white)', fontSize: '16px' }}>{currentPage}</strong> of <strong style={{ color: 'var(--color-white)', fontSize: '16px' }}>{totalPages}</strong> 
+        <span className="page-counter" style={{ fontSize: '14px', color: 'var(--color-muted)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          Viewing Page <strong style={{ color: 'var(--color-white)', fontSize: '18px' }}>{scrollPage}</strong> of <strong style={{ color: 'var(--color-white)', fontSize: '18px' }}>{totalPages}</strong> 
           {isUnlocked ? (
-            <span className="locked-tag" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.25)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', marginLeft: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <span className="locked-tag" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.25)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               ✦ Full Access
             </span>
           ) : (
-            <span className="locked-tag" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--color-yellow)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', marginLeft: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <span className="locked-tag" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--color-yellow)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Preview Limit
             </span>
           )}
         </span>
-        <button 
-          className="btn-secondary" 
-          onClick={handleNextPage}
-          disabled={currentPage === totalPages}
-          style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          Next <ChevronRight size={16} />
-        </button>
       </div>
     </div>
   );
