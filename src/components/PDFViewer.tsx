@@ -161,9 +161,9 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     }
   }, [note.previewUrl]);
 
-  // 3. Load PDF Document via PDF.js when script and URL are ready (only if unlocked)
+  // 3. Load PDF Document via PDF.js when script and URL are ready (always load to render actual preview pages)
   useEffect(() => {
-    if (!pdfjsLoaded || !pdfUrl || !isUnlocked) return;
+    if (!pdfjsLoaded || !pdfUrl) return;
 
     const loadDocument = async () => {
       setLoadingDoc(true);
@@ -182,7 +182,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     };
 
     loadDocument();
-  }, [pdfjsLoaded, pdfUrl, isUnlocked]);
+  }, [pdfjsLoaded, pdfUrl]);
 
   // 4. Anti-copying and anti-printing bindings
   useEffect(() => {
@@ -207,7 +207,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   }, []);
 
   // Calculate pages on scroll dynamically
-  const totalPages = isUnlocked ? note.pagesCount : 2;
+  const totalPages = isUnlocked ? (pdfDoc ? pdfDoc.numPages : note.pagesCount) : Math.min(2, pdfDoc ? pdfDoc.numPages : 2);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
@@ -220,54 +220,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     const percentage = scrollTop / scrollHeight;
     const page = Math.min(totalPages, Math.max(1, Math.round(percentage * (totalPages - 1)) + 1));
     setScrollPage(page);
-  };
-
-  // Generate simulated notes content for high-quality mock preview (bypasses CORS restrictions on random PDFs)
-  const getSimulatedPageContent = (page: number) => {
-    const topicIndex = (page - 1) % note.topics.length;
-    const activeTopic = note.topics[topicIndex];
-    
-    return (
-      <div className="pdf-simulated-content" style={{ transform: `scale(${zoom / 100}) rotate(${rotation}deg)`, transformOrigin: 'top center', padding: '40px', background: '#ffffff', borderRadius: '12px', color: '#1e293b', width: '100%', minHeight: '1000px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
-        <div className="watermark" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) rotate(-45deg)', fontSize: '50px', fontWeight: 'bold', color: 'rgba(7, 12, 38, 0.04)', whiteSpace: 'nowrap', userSelect: 'none', pointerEvents: 'none' }}>BITWISE LEARNING</div>
-        
-        <div>
-          <div className="doc-header" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px', marginBottom: '20px', fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>
-            <span className="doc-subj" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>{note.subject}</span>
-            <span className="doc-page">Page {page} of {note.pagesCount}</span>
-          </div>
-          
-          <h2 className="doc-topic-title" style={{ fontSize: '22px', color: '#0f172a', fontWeight: '800', marginBottom: '16px' }}>Chapter {page}: {activeTopic}</h2>
-          
-          <div className="doc-section" style={{ marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '15px', color: '#334155', fontWeight: '700', marginBottom: '8px' }}>1. Core Syllabus Concepts</h3>
-            <p style={{ fontSize: '13px', lineHeight: '1.6', color: '#475569' }}>
-              {activeTopic} is a major component of this semester's curriculum. Students must focus on the design methodologies, mathematical formulations, and step-by-step algorithms related to this subject to score maximum marks in exams.
-            </p>
-            <ul style={{ fontSize: '13px', lineHeight: '1.6', color: '#475569', paddingLeft: '20px', marginTop: '10px' }}>
-              <li><strong>High-Scoring Section:</strong> Questions from this chapter are highly repeated in previous years (PYQs).</li>
-              <li><strong>Theoretical Proofs:</strong> Ensure you write detailed explanations and clear steps for derivations.</li>
-              <li><strong>Design Diagrams:</strong> Clean schematics and block diagrams will fetch additional marks.</li>
-            </ul>
-          </div>
-
-          <div className="doc-code-block" style={{ background: '#0f172a', color: '#38bdf8', padding: '16px', borderRadius: '8px', fontFamily: 'monospace', fontSize: '12px', overflowX: 'auto', marginBottom: '24px' }}>
-            <div className="code-header" style={{ borderBottom: '1px solid #1e293b', paddingBottom: '8px', marginBottom: '8px', color: '#94a3b8', fontWeight: 'bold' }}>Syllabus Blueprint & Formula:</div>
-            <pre style={{ margin: 0 }}>
-{`// Exam Formula Sheet:
-Active Parameter = [Node Weight] * [Semester Constant]
-Complexity analysis: O(N log N) in best case configurations.
-Tip: Draw flowchart if question is asked for 10 marks.`}
-            </pre>
-          </div>
-        </div>
-
-        <div className="doc-footer" style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8' }}>
-          <span>Prepared by Bitwise Learning Academic Experts</span>
-          <span>© All Rights Reserved.</span>
-        </div>
-      </div>
-    );
   };
 
   return (
@@ -352,7 +304,7 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
         boxShadow: 'inset 0 4px 30px rgba(0,0,0,0.6)'
       }}>
         {/* Loading / Error States */}
-        {(!pdfjsLoaded || (isUnlocked && loadingDoc)) && (
+        {(!pdfjsLoaded || loadingDoc || !pdfUrl) && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: 'var(--color-muted)' }}>
             <Loader2 className="animate-spin" size={32} style={{ color: 'var(--color-yellow)' }} />
             <span style={{ fontSize: '14px', fontWeight: '600' }}>Decrypting and loading secure document renderer...</span>
@@ -367,8 +319,8 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
           </div>
         )}
 
-        {/* Unlocked Full Note View (Renders PDF via Canvas Pages) */}
-        {isUnlocked && pdfjsLoaded && pdfDoc && !loadError && (
+        {/* Unified Note Page Renderer (Renders real PDF pages) */}
+        {pdfjsLoaded && pdfDoc && !loadError && (
           <div 
             ref={scrollContainerRef}
             onScroll={handleScroll}
@@ -403,7 +355,7 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
                 overflow: 'hidden',
                 opacity: 0.05
               }}>
-                {Array.from({ length: Math.min(25, note.pagesCount * 2) }).map((_, i) => (
+                {Array.from({ length: Math.min(25, (isUnlocked ? pdfDoc.numPages : 2) * 2) }).map((_, i) => (
                   <div key={i} style={{
                     transform: 'rotate(-35deg)',
                     fontSize: '28px',
@@ -419,8 +371,8 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
                 ))}
               </div>
 
-              {/* Render all pages consecutively */}
-              {Array.from({ length: note.pagesCount }).map((_, idx) => (
+              {/* Render pages: either all pages (if unlocked) or up to 2 pages (if locked) */}
+              {Array.from({ length: isUnlocked ? pdfDoc.numPages : Math.min(2, pdfDoc.numPages) }).map((_, idx) => (
                 <CanvasPage 
                   key={idx} 
                   pageNumber={idx + 1} 
@@ -429,54 +381,26 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
                   rotation={rotation} 
                 />
               ))}
-            </div>
-          </div>
-        )}
 
-        {/* Locked Preview View (2 Simulated Preview Pages) */}
-        {!isUnlocked && !loadError && (
-          <div 
-            onScroll={handleScroll}
-            style={{ 
-              width: '100%', 
-              height: isAppMode ? '54vh' : '65vh', 
-              overflowY: 'scroll', 
-              overflowX: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '24px',
-              padding: '0 10px 60px 10px',
-              scrollBehavior: 'smooth'
-            }}
-          >
-            {/* Page 1 Simulated Preview */}
-            <div style={{ width: `${zoom}%`, maxWidth: '780px', minWidth: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', borderRadius: '16px', overflow: 'hidden' }}>
-              {getSimulatedPageContent(1)}
-            </div>
-
-            {/* Page 2 Simulated Preview */}
-            <div style={{ width: `${zoom}%`, maxWidth: '780px', minWidth: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
-              {getSimulatedPageContent(2)}
-              
-              {/* Paywall locked overlay on top of Page 2 */}
-              <div className="locked-preview-overlay glass-card fade-in" style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                borderRadius: '16px',
-                border: '1.5px solid rgba(245, 158, 11, 0.25)',
-                background: 'rgba(10, 17, 36, 0.88)',
-                backdropFilter: 'blur(22px)',
-                WebkitBackdropFilter: 'blur(22px)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 15
-              }}>
-                <div className="locked-overlay-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '24px', textAlign: 'center' }}>
+              {/* Locked Preview overlay right below Page 2 if locked */}
+              {!isUnlocked && (
+                <div className="locked-preview-overlay glass-card fade-in" style={{
+                  margin: '20px 0 40px 0',
+                  padding: '40px 24px',
+                  borderRadius: '16px',
+                  border: '1.5px solid rgba(245, 158, 11, 0.25)',
+                  background: 'rgba(10, 17, 36, 0.88)',
+                  backdropFilter: 'blur(22px)',
+                  WebkitBackdropFilter: 'blur(22px)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}>
                   <div className="locked-shield-icon" style={{
                     width: '64px',
                     height: '64px',
@@ -486,19 +410,19 @@ Tip: Draw flowchart if question is asked for 10 marks.`}
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: '8px'
+                    marginBottom: '16px'
                   }}>
                     <Lock size={32} style={{ color: 'var(--color-yellow)' }} />
                   </div>
-                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-white)', margin: 0 }}>🔒 End of Free Preview</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--color-muted)', textAlign: 'center', maxWidth: '320px', lineHeight: '1.6', margin: '0 0 10px 0' }}>
-                    You have read all 2 free preview pages. Buy this combo pack or unlock the notes to read all {note.pagesCount} pages.
+                  <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-white)', margin: '0 0 8px 0' }}>🔒 End of Free Preview</h3>
+                  <p style={{ fontSize: '14px', color: 'var(--color-muted)', textAlign: 'center', maxWidth: '360px', lineHeight: '1.6', margin: '0 0 20px 0' }}>
+                    You have read all 2 free preview pages of the actual notes. Buy this combo pack or unlock the notes to read all {pdfDoc.numPages} pages.
                   </p>
-                  <button className="btn-primary" onClick={onUnlock} style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)' }}>
+                  <button className="btn-primary" onClick={onUnlock} style={{ padding: '12px 28px', fontSize: '15px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)' }}>
                     Unlock Full Syllabus (₹{note.price})
                   </button>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
