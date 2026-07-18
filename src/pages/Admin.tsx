@@ -36,6 +36,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   const [selectedFileBase64, setSelectedFileBase64] = useState<string>('');
   const [editSelectedFile, setEditSelectedFile] = useState<File | null>(null);
   const [editSelectedFileBase64, setEditSelectedFileBase64] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
     const file = e.target.files?.[0];
@@ -139,9 +140,27 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       return;
     }
 
-    if (!selectedFileBase64) {
+    if (!selectedFile) {
       alert('Please upload a PDF file for these notes.');
       return;
+    }
+
+    setUploading(true);
+    let finalPreviewUrl = selectedFileBase64;
+
+    const isMockMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!isMockMode) {
+      const { url, error: uploadError } = await dbService.uploadFile(selectedFile, noteType);
+      if (uploadError) {
+        if (selectedFile.size > 2.5 * 1024 * 1024) {
+          alert(`File upload failed: ${uploadError}. Because the file is large (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB), it cannot be saved directly in the database. Please ensure you have created a public bucket named 'notes-bucket' in your Supabase storage dashboard.`);
+          setUploading(false);
+          return;
+        }
+        console.warn('Supabase storage upload failed, falling back to base64 for small file:', uploadError);
+      } else if (url) {
+        finalPreviewUrl = url;
+      }
     }
 
     const topicsArray = noteTopics.split(',').map(t => t.trim()).filter(Boolean);
@@ -153,13 +172,15 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       semester: Number(noteSemester),
       price: Number(notePrice),
       description: noteDesc,
-      previewUrl: selectedFileBase64, // Local Base64 PDF String or Supabase Storage URL
+      previewUrl: finalPreviewUrl,
       pagesCount: Number(notePages),
       topics: topicsArray.length > 0 ? topicsArray : ['Core syllabus', 'PYQs solutions'],
       type: noteType
     };
 
     const { data, error } = await dbService.addNote(notePayload);
+    setUploading(false);
+    
     if (data) {
       showNotification('Note successfully added to catalog!');
       setNoteTitle('');
@@ -181,13 +202,29 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
     e.preventDefault();
     if (!editingNote) return;
 
+    setUploading(true);
     const topicsArray = typeof editingNote.topics === 'string'
       ? (editingNote.topics as string).split(',').map(t => t.trim()).filter(Boolean)
       : editingNote.topics;
 
     let updatedPreviewUrl = editingNote.previewUrl;
-    if (editSelectedFileBase64) {
+    
+    if (editSelectedFile && editSelectedFileBase64) {
       updatedPreviewUrl = editSelectedFileBase64;
+      const isMockMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!isMockMode) {
+        const { url, error: uploadError } = await dbService.uploadFile(editSelectedFile, editingNote.type || 'notes');
+        if (uploadError) {
+          if (editSelectedFile.size > 2.5 * 1024 * 1024) {
+            alert(`File upload failed: ${uploadError}. Because the file is large (${(editSelectedFile.size / (1024 * 1024)).toFixed(2)} MB), it cannot be saved directly in the database. Please ensure you have created a public bucket named 'notes-bucket' in your Supabase storage dashboard.`);
+            setUploading(false);
+            return;
+          }
+          console.warn('Supabase storage upload failed, falling back to base64 for small file:', uploadError);
+        } else if (url) {
+          updatedPreviewUrl = url;
+        }
+      }
     }
 
     const { success, error } = await dbService.updateNote(editingNote.id, {
@@ -195,6 +232,8 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       previewUrl: updatedPreviewUrl,
       topics: topicsArray
     });
+
+    setUploading(false);
 
     if (success) {
       showNotification('Notes pack successfully updated!');
@@ -591,8 +630,13 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                       </div>
                     </div>
 
-                    <button type="submit" className="btn-primary w-full" style={{ justifyContent: 'center' }}>
-                      Publish Notes Pack
+                    <button type="submit" className="btn-primary w-full" style={{ justifyContent: 'center' }} disabled={uploading}>
+                      {uploading ? (
+                        <>
+                          <Loader2 className="animate-spin" size={18} style={{ marginRight: '8px' }} />
+                          Uploading PDF to Storage...
+                        </>
+                      ) : 'Publish Notes Pack'}
                     </button>
                   </form>
                 </div>
@@ -1230,8 +1274,13 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
               </div>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
-                  Save Updates
+                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: 'center' }} disabled={uploading}>
+                  {uploading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={18} style={{ marginRight: '8px' }} />
+                      Saving & Uploading...
+                    </>
+                  ) : 'Save Updates'}
                 </button>
                 <button 
                   type="button" 

@@ -214,6 +214,37 @@ export const dbService = {
     }
   },
 
+  uploadFile: async (file: File, folder: 'notes' | 'pyqs' = 'notes'): Promise<{ url: string | null; error: string | null }> => {
+    if (!isMock && supabase) {
+      try {
+        const fileExt = file.name.split('.').pop() || 'pdf';
+        const cleanName = file.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+        const fileName = `${folder}_${cleanName}_${Math.random().toString(36).substr(2, 9)}_${Date.now()}.${fileExt}`;
+        const filePath = `${folder}/${fileName}`;
+
+        const { error } = await supabase.storage
+          .from('notes-bucket')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (error) {
+          return { url: null, error: error.message };
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('notes-bucket')
+          .getPublicUrl(filePath);
+
+        return { url: urlData.publicUrl, error: null };
+      } catch (err: any) {
+        return { url: null, error: err.message || 'Error uploading file to storage.' };
+      }
+    }
+    return { url: null, error: 'App running in mock mode. Storage upload bypassed.' };
+  },
+
   addNote: async (note: Omit<Note, 'id'>): Promise<{ data: Note | null; error: string | null }> => {
     const prefix = note.type === 'pyqs' ? 'pyq_' : 'note_';
     const newNote = { ...note, id: prefix + Math.random().toString(36).substr(2, 9) };
