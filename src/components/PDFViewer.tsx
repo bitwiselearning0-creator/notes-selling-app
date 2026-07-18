@@ -213,17 +213,28 @@ void processNode() {
       {/* Document Workspace */}
       <div className="viewer-workspace" style={{ height: '78vh' }}>
         {isUnlocked ? (
-          <div style={{ width: '100%', height: '100%', padding: '0 10px 10px 10px', overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+          <div style={{ 
+            width: '100%', 
+            height: '75vh', 
+            padding: '0 10px 10px 10px', 
+            overflowY: 'auto', 
+            overflowX: 'hidden',
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center', 
+            justifyContent: 'flex-start' 
+          }}>
             <div style={{ 
               width: `${zoom}%`, 
-              height: '70vh',
+              height: '1050px', 
               minWidth: '100%',
               borderRadius: '16px',
               overflow: 'hidden',
               position: 'relative',
               transform: `rotate(${rotation}deg)`,
               transformOrigin: 'center center',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
             }}>
               {/* Invisible overlay div to block drag selections and clicks inside the iframe */}
               <div style={{
@@ -237,6 +248,37 @@ void processNode() {
                 cursor: 'default'
               }} />
 
+              {/* Tiled Watermark Overlay */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: 9,
+                pointerEvents: 'none',
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'hidden',
+                opacity: 0.08
+              }}>
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} style={{
+                    transform: 'rotate(-30deg)',
+                    fontSize: '28px',
+                    fontWeight: 'bold',
+                    color: 'var(--color-white)',
+                    margin: '80px',
+                    whiteSpace: 'nowrap',
+                    userSelect: 'none'
+                  }}>
+                    BITWISE LEARNING
+                  </div>
+                ))}
+              </div>
+
               <iframe 
                 src={pdfUrl ? `${pdfUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0` : ''} 
                 title={note.title} 
@@ -246,7 +288,7 @@ void processNode() {
                   border: '1px solid var(--glass-border)', 
                   borderRadius: '16px', 
                   background: '#090d16',
-                  pointerEvents: 'none' // Strict text block inside browser frames
+                  pointerEvents: 'none'
                 }} 
               />
             </div>
