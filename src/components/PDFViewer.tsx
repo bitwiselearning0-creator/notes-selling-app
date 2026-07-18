@@ -216,19 +216,38 @@ void processNode() {
           <div style={{ width: '100%', height: '100%', padding: '0 10px 10px 10px', overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
             <div style={{ 
               width: `${zoom}%`, 
-              height: `${zoom}%`,
+              height: '70vh',
               minWidth: '100%',
-              minHeight: '100%',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              position: 'relative',
               transform: `rotate(${rotation}deg)`,
               transformOrigin: 'center center',
-              transition: 'all 0.2s ease',
-              borderRadius: '16px',
-              overflow: 'hidden'
+              transition: 'all 0.2s ease'
             }}>
+              {/* Invisible overlay div to block drag selections and clicks inside the iframe */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: 10,
+                background: 'transparent',
+                cursor: 'default'
+              }} />
+
               <iframe 
-                src={pdfUrl ? `${pdfUrl}#toolbar=0` : ''} 
+                src={pdfUrl ? `${pdfUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0` : ''} 
                 title={note.title} 
-                style={{ width: '100%', height: '100%', border: '1px solid var(--glass-border)', borderRadius: '16px', background: '#090d16' }} 
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  border: '1px solid var(--glass-border)', 
+                  borderRadius: '16px', 
+                  background: '#090d16',
+                  pointerEvents: 'none' // Strict text block inside browser frames
+                }} 
               />
             </div>
           </div>
@@ -257,27 +276,25 @@ void processNode() {
       </div>
 
       {/* Page Navigation Footer */}
-      {!isUnlocked && (
-        <div className="viewer-footer glass-card">
-          <button 
-            className="btn-secondary" 
-            onClick={handlePrevPage}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft size={16} /> Prev
-          </button>
-          <span className="page-counter">
-            Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> {!isUnlocked && <span className="locked-tag">(Preview Limit)</span>}
-          </span>
-          <button 
-            className="btn-secondary" 
-            onClick={handleNextPage}
-            disabled={currentPage === totalPages}
-          >
-            Next <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <div className="viewer-footer glass-card">
+        <button 
+          className="btn-secondary" 
+          onClick={handlePrevPage}
+          disabled={currentPage === 1}
+        >
+          <ChevronLeft size={16} /> Prev
+        </button>
+        <span className="page-counter">
+          Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> {isUnlocked ? <span className="locked-tag" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.2)' }}>Full Access</span> : <span className="locked-tag">(Preview Limit)</span>}
+        </span>
+        <button 
+          className="btn-secondary" 
+          onClick={handleNextPage}
+          disabled={currentPage === totalPages}
+        >
+          Next <ChevronRight size={16} />
+        </button>
+      </div>
     </div>
   );
 };
