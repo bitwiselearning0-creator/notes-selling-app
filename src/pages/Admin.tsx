@@ -124,7 +124,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   const [bundleOriginalPrice, setBundleOriginalPrice] = useState(249);
   const [bundleYear, setBundleYear] = useState<'1st Year' | '2nd Year' | '3rd Year' | '4th Year'>('2nd Year');
   const [bundleSemester, setBundleSemester] = useState(4);
-  const [selectedNotesIds, setSelectedNotesIds] = useState<string[]>([]);
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
 
   // --- Subject Bundle Form Fields ---
   const [subjBundleTitle, setSubjBundleTitle] = useState('');
@@ -432,10 +432,15 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   // Handle Bundle Submission
   const handleAddBundle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bundleTitle || !bundleDesc || selectedNotesIds.length === 0) {
-      alert('Please fill out all bundle fields and select at least one note.');
+    if (!bundleTitle || !bundleDesc || selectedSubjects.length === 0) {
+      alert('Please fill out all bundle fields and select at least one subject.');
       return;
     }
+
+    // Find all note IDs that belong to the selected subjects for this Year/Sem
+    const noteIdsToInclude = notes
+      .filter(n => n.year === bundleYear && n.semester === Number(bundleSemester) && selectedSubjects.includes(n.subject))
+      .map(n => n.id);
 
     const bundlePayload = {
       title: bundleTitle,
@@ -444,7 +449,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       originalPrice: Number(bundleOriginalPrice),
       year: bundleYear,
       semester: Number(bundleSemester),
-      notesIds: selectedNotesIds,
+      notesIds: noteIdsToInclude,
       type: 'semester' as const
     };
 
@@ -455,7 +460,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       setBundleDesc('');
       setBundlePrice(149);
       setBundleOriginalPrice(249);
-      setSelectedNotesIds([]);
+      setSelectedSubjects([]);
       loadInventory();
     }
   };
@@ -551,19 +556,20 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
     }
   };
 
-  // Filter notes available for selection in the bundle
-  const availableNotesForBundle = notes.filter(
-    n => n.year === bundleYear && n.semester === Number(bundleSemester)
-  );
+  // Get all subjects (predefined + custom from database) for the active Year/Sem in the add bundle form
+  const availableSubjectsForBundle = Array.from(new Set([
+    ...getPredefinedSubjects(bundleYear, bundleSemester),
+    ...notes.filter(n => n.year === bundleYear && n.semester === Number(bundleSemester)).map(n => n.subject)
+  ]));
 
   // Filter notes available for selection in the subject bundle
   const availableNotesForSubjBundle = notes.filter(
     n => n.year === subjBundleYear && n.semester === Number(subjBundleSemester) && n.subject.toLowerCase() === subjBundleSubject.toLowerCase()
   );
 
-  // Reset selected checkboxes if year or semester changes in Add Bundle form
+  // Reset selected subjects if year or semester changes in Add Bundle form
   useEffect(() => {
-    setSelectedNotesIds([]);
+    setSelectedSubjects([]);
   }, [bundleYear, bundleSemester]);
 
   // Reset selected checkboxes if year, semester, or subject changes in Add Subject Bundle form
@@ -1026,37 +1032,37 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                       />
                     </div>
 
-                    {/* Selected Notes Checkbox list */}
+                    {/* Selected Subjects Checkbox list */}
                     <div className="form-group">
-                      <label>Select Included Notes (filtered by Year/Sem)</label>
-                      {availableNotesForBundle.length > 0 ? (
+                      <label>Select Included Subjects (filtered by Year/Sem)</label>
+                      {availableSubjectsForBundle.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                          {availableNotesForBundle.map(note => (
-                            <label key={note.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--color-white)', cursor: 'pointer', textTransform: 'none', fontWeight: '500' }}>
+                          {availableSubjectsForBundle.map((subject, idx) => (
+                            <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--color-white)', cursor: 'pointer', textTransform: 'none', fontWeight: '500' }}>
                               <input 
                                 type="checkbox" 
-                                checked={selectedNotesIds.includes(note.id)}
+                                checked={selectedSubjects.includes(subject)}
                                 style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setSelectedNotesIds([...selectedNotesIds, note.id]);
+                                    setSelectedSubjects([...selectedSubjects, subject]);
                                   } else {
-                                    setSelectedNotesIds(selectedNotesIds.filter(id => id !== note.id));
+                                    setSelectedSubjects(selectedSubjects.filter(s => s !== subject));
                                   }
                                 }}
                               />
-                              <span>{note.title} <strong style={{ color: note.type === 'pyqs' ? '#60a5fa' : '#34d399', fontSize: '10px' }}>({note.type === 'pyqs' ? 'PYQ' : 'Notes'})</strong></span>
+                              <span>{subject}</span>
                             </label>
                           ))}
                         </div>
                       ) : (
                         <p style={{ fontSize: '12px', color: 'var(--color-muted)', fontStyle: 'italic', padding: '10px 0' }}>
-                          No subject notes found for {bundleYear} Semester {bundleSemester} yet. Publish notes on the left first!
+                          No subjects configured for {bundleYear} Semester {bundleSemester} yet.
                         </p>
                       )}
                     </div>
 
-                    <button type="submit" className="btn-primary w-full" style={{ justifyContent: 'center' }} disabled={selectedNotesIds.length === 0}>
+                    <button type="submit" className="btn-primary w-full" style={{ justifyContent: 'center' }} disabled={selectedSubjects.length === 0}>
                       Create Combo Bundle
                     </button>
                   </form>
