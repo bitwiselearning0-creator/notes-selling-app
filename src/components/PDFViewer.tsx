@@ -13,6 +13,38 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
+  const [pdfUrl, setPdfUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (!note.previewUrl) return;
+
+    if (note.previewUrl.startsWith('data:application/pdf;base64,') || note.previewUrl.includes(';base64,')) {
+      try {
+        const parts = note.previewUrl.split(';base64,');
+        const contentType = parts[0].split(':')[1] || 'application/pdf';
+        const raw = window.atob(parts[1]);
+        const rawLength = raw.length;
+        const uInt8Array = new Uint8Array(rawLength);
+        
+        for (let i = 0; i < rawLength; ++i) {
+          uInt8Array[i] = raw.charCodeAt(i);
+        }
+        
+        const blob = new Blob([uInt8Array], { type: contentType });
+        const blobUrl = URL.createObjectURL(blob);
+        setPdfUrl(blobUrl);
+
+        return () => {
+          URL.revokeObjectURL(blobUrl);
+        };
+      } catch (err) {
+        console.error('Error converting base64 to blob:', err);
+        setPdfUrl(note.previewUrl);
+      }
+    } else {
+      setPdfUrl(note.previewUrl);
+    }
+  }, [note.previewUrl]);
 
   // Maximum pages visible to the user
   const totalPages = isUnlocked ? note.pagesCount : 2;
@@ -40,12 +72,27 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
       e.preventDefault();
     };
 
+    const preventSelection = (e: Event) => {
+      e.preventDefault();
+    };
+
+    const preventCopyPaste = (e: Event) => {
+      e.preventDefault();
+      alert('Copying and cutting content is disabled to protect intellectual property.');
+    };
+
     window.addEventListener('keydown', preventActions);
     window.addEventListener('contextmenu', preventRightClick);
+    document.addEventListener('selectstart', preventSelection);
+    document.addEventListener('copy', preventCopyPaste);
+    document.addEventListener('cut', preventCopyPaste);
 
     return () => {
       window.removeEventListener('keydown', preventActions);
       window.removeEventListener('contextmenu', preventRightClick);
+      document.removeEventListener('selectstart', preventSelection);
+      document.removeEventListener('copy', preventCopyPaste);
+      document.removeEventListener('cut', preventCopyPaste);
     };
   }, []);
 
@@ -129,7 +176,7 @@ void processNode() {
   };
 
   return (
-    <div className="pdf-viewer-container fade-in">
+    <div className="pdf-viewer-container fade-in" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
       {/* Viewer Header Dashboard */}
       <div className="viewer-header glass-card">
         <button className="btn-secondary" onClick={onBack}>
@@ -179,7 +226,7 @@ void processNode() {
               overflow: 'hidden'
             }}>
               <iframe 
-                src={`${note.previewUrl}#toolbar=0`} 
+                src={pdfUrl ? `${pdfUrl}#toolbar=0` : ''} 
                 title={note.title} 
                 style={{ width: '100%', height: '100%', border: '1px solid var(--glass-border)', borderRadius: '16px', background: '#090d16' }} 
               />
