@@ -751,8 +751,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         }, 0);
 
                         const getBundleSubjectsList = (b: Bundle): string[] => {
-                          if (b.subjects && b.subjects.length > 0) {
+                          if (b.subjects && Array.isArray(b.subjects) && b.subjects.length > 0) {
                             return b.subjects;
+                          }
+                          // Always return all configured subjects for this semester & year
+                          const allSemSubjects = getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
+                          if (allSemSubjects.length > 0) {
+                            return allSemSubjects;
                           }
                           const uniqueSubjsFromNotes = Array.from(
                             new Set(
@@ -761,10 +766,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 .filter((s): s is string => !!s)
                             )
                           );
-                          if (uniqueSubjsFromNotes.length > 0) {
-                            return uniqueSubjsFromNotes;
-                          }
-                          return getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
+                          return uniqueSubjsFromNotes;
                         };
 
                         const includedSubjectsList = getBundleSubjectsList(bundle);
