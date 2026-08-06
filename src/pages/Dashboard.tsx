@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen } from 'lucide-react';
-import { dbService, isMock } from '../lib/supabase';
+import { dbService } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Playlist } from '../lib/supabase';
+import { openRazorpayCheckout } from '../lib/razorpay';
 import { NoteCard } from '../components/NoteCard';
 import { VideoCard } from '../components/VideoCard';
 
@@ -117,47 +118,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [paying, setPaying] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
-  // Load notes, bundles, playlists, and user purchases
+  // Load notes, bundles, playlists, and user purchases in high-performance batch
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const { data: notesData } = await dbService.getNotes(selectedYear);
-      const activeNotes = notesData || [];
+      const [notesRes, bundlesRes, playlistsRes] = await Promise.all([
+        dbService.getNotes(selectedYear),
+        dbService.getBundles(selectedYear),
+        dbService.getPlaylists(selectedYear)
+      ]);
+
+      const activeNotes = notesRes.data || [];
+      const activeBundles = bundlesRes.data || [];
       setNotes(activeNotes);
-
-      const { data: bundlesData } = await dbService.getBundles(selectedYear);
-      const activeBundles = bundlesData || [];
       setBundles(activeBundles);
-
-      const { data: playlistsData } = await dbService.getPlaylists(selectedYear);
-      setPlaylists(playlistsData || []);
+      setPlaylists(playlistsRes.data || []);
 
       if (user) {
-        // Load note purchase states
-        const owned = await dbService.getPurchasedNotes();
-        setPurchasedIds((owned.data || []).map(n => n.id));
-
-        const detailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
-        for (const note of activeNotes) {
-          const details = await dbService.getPurchaseDetails(note.id);
-          if (details.purchased) {
-            detailsMap[note.id] = { expiresAt: details.expiresAt, daysLeft: details.daysLeft };
-          }
-        }
-        setPurchaseDetailsMap(detailsMap);
-
-        // Load bundle purchase states
-        const ownedBundles: string[] = [];
-        const bDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
-        for (const bundle of activeBundles) {
-          const details = await dbService.isBundlePurchased(bundle.id);
-          if (details.purchased) {
-            ownedBundles.push(bundle.id);
-            bDetailsMap[bundle.id] = { expiresAt: details.expiresAt, daysLeft: details.daysLeft };
-          }
-        }
-        setPurchasedBundleIds(ownedBundles);
-        setBundlePurchaseDetailsMap(bDetailsMap);
+        const purchaseState = await dbService.getAllUserPurchasesState();
+        setPurchasedIds(purchaseState.purchasedNoteIds);
+        setPurchaseDetailsMap(purchaseState.noteDetailsMap);
+        setPurchasedBundleIds(purchaseState.purchasedBundleIds);
+        setBundlePurchaseDetailsMap(purchaseState.bundleDetailsMap);
       } else {
         setPurchasedIds([]);
         setPurchaseDetailsMap({});
@@ -219,81 +201,106 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return matchesSem && matchesSubject;
   });
 
-  // Handle Purchase Triggers
-  const handlePurchaseTrigger = (noteId: string, price: number) => {
+  // Execute Razorpay Checkout Directly
+  const executePurchase = async (targetId: string, price: number, type: 'notes' | 'bundle', title: string) => {
     if (!user) {
       navigate('auth');
       return;
     }
-    const note = notes.find(n => n.id === noteId);
-    setPaymentTarget({ 
-      id: noteId, 
-      price, 
-      type: 'notes', 
-      title: note ? note.title : 'Study Lecture Notes Pack' 
-    });
-  };
 
-  const handleBundlePurchaseTrigger = (bundleId: string, price: number) => {
-    if (!user) {
-      navigate('auth');
-      return;
-    }
-    const bundle = bundles.find(b => b.id === bundleId);
-    setPaymentTarget({ 
-      id: bundleId, 
-      price, 
-      type: 'bundle', 
-      title: bundle ? bundle.title : 'Semester Combo Pack' 
-    });
-  };
-
-  // Simulate Razorpay checkout process (Mock) or handle live Razorpay integration
-  const processCheckout = async (simulateSuccess: boolean) => {
-    if (!paymentTarget || !user) return;
+    setPaymentTarget({ id: targetId, price, type, title });
     setPaying(true);
 
-    if (isMock) {
-      // Mock payment delay
-      setTimeout(async () => {
-        if (simulateSuccess) {
-          let res;
-          if (paymentTarget.type === 'notes') {
-            res = await dbService.purchaseNotes(paymentTarget.id);
-          } else {
-            res = await dbService.purchaseBundle(paymentTarget.id);
-          }
+    const launched = await openRazorpayCheckout({
+      title,
+      price,
+      type,
+      user,
+      onSuccess: async (response) => {
+        const paymentDetails = {
+          paymentId: response.razorpay_payment_id || 'pay_' + Math.random().toString(36).substring(2, 10),
+          orderId: response.razorpay_order_id || '',
+          signature: response.razorpay_signature || ''
+        };
 
-          if (res.success) {
-            setPaymentSuccess(true);
-            await loadDashboardData(); // Refresh all purchases
-          }
+        let res;
+        if (type === 'notes') {
+          res = await dbService.purchaseNotes(targetId, paymentDetails);
+        } else {
+          res = await dbService.purchaseBundle(targetId, paymentDetails);
+        }
+
+        if (res.success) {
+          setPaymentSuccess(true);
+          await loadDashboardData(); // Refresh all purchases
         }
         setPaying(false);
-        // Clear success popup after 2 seconds
+
         setTimeout(() => {
           setPaymentTarget(null);
           setPaymentSuccess(false);
         }, 1800);
-      }, 1200);
-    } else {
-      // Live deployment checkout simulation trigger
-      let res;
-      if (paymentTarget.type === 'notes') {
-        res = await dbService.purchaseNotes(paymentTarget.id);
-      } else {
-        res = await dbService.purchaseBundle(paymentTarget.id);
-      }
-      if (res.success) {
-        setPaymentSuccess(true);
-        await loadDashboardData();
-      }
-      setPaying(false);
-      setTimeout(() => {
+      },
+      onFailure: (err) => {
+        setPaying(false);
         setPaymentTarget(null);
-        setPaymentSuccess(false);
-      }, 1500);
+        if (typeof err === 'string' && err.length > 0) {
+          alert(err);
+        }
+      },
+      onDismiss: () => {
+        setPaying(false);
+        setPaymentTarget(null);
+      }
+    });
+
+    if (!launched) {
+      setPaying(false);
+      setPaymentTarget(null);
     }
+  };
+
+  const handlePurchaseTrigger = (noteId: string, price: number) => {
+    const note = notes.find(n => n.id === noteId);
+    executePurchase(noteId, price, 'notes', note ? note.title : 'Study Lecture Notes Pack');
+  };
+
+  const handleBundlePurchaseTrigger = (bundleId: string, price: number) => {
+    const bundle = bundles.find(b => b.id === bundleId);
+    executePurchase(bundleId, price, 'bundle', bundle ? bundle.title : 'Semester Combo Pack');
+  };
+
+  // Helper to extract clean unique subject names for any bundle
+  const getBundleSubjectsList = (bundle: Bundle): string[] => {
+    if (bundle.subject && bundle.subject.trim().length > 0) {
+      return [bundle.subject.trim()];
+    }
+
+    const subjectsFromNotes = Array.from(
+      new Set(
+        bundle.notesIds
+          .map(noteId => {
+            const noteItem = notes.find(n => n.id === noteId);
+            if (!noteItem) return null;
+            if (noteItem.subject && noteItem.subject.trim().length > 0) {
+              return noteItem.subject.trim();
+            }
+            // Parse subject name from title if subject field is missing
+            const rawTitle = noteItem.title || '';
+            const cleaned = rawTitle.split(' Unit')[0].split(' UNIT')[0].split(' unit')[0].split(' Notes')[0].split(' NOTES')[0].trim();
+            return cleaned.length > 0 ? cleaned : null;
+          })
+          .filter((subj): subj is string => !!subj && subj.length > 0)
+      )
+    );
+
+    if (subjectsFromNotes.length > 0) {
+      return subjectsFromNotes;
+    }
+
+    return getSubjectsForActiveFilter(selectedYear, bundle.semester || selectedSemester)
+      .filter(s => !s.isComingSoon)
+      .map(s => s.name);
   };
 
   return (
@@ -447,7 +454,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 )}
               </div>
               <div className="subject-cards-grid">
-                {getSubjectsForActiveFilter(selectedYear, selectedSemester).map((subject, i) => {
+                {getSubjectsForActiveFilter(selectedYear, selectedSemester)
+                  .filter(subject => selectedSubject === null || subject.name.toLowerCase() === selectedSubject.toLowerCase())
+                  .map((subject, i) => {
                   if (subject.isComingSoon) {
                     return (
                       <div key={i} className="subject-card coming-soon">
@@ -517,11 +526,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     const isPurchased = purchasedBundleIds.includes(bundle.id);
                     const expiry = bundlePurchaseDetailsMap[bundle.id];
 
-                    // Calculate normal bundle value (sum of note prices included)
                     const normalSum = bundle.notesIds.reduce((sum, id) => {
                       const note = notes.find(n => n.id === id);
                       return sum + (note ? note.price : 99);
                     }, 0);
+
+                    const subjectsList = getBundleSubjectsList(bundle);
 
                     return (
                       <div key={bundle.id} className="bundle-banner-card fade-in">
@@ -534,21 +544,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           <p className="bundle-banner-desc">{bundle.description}</p>
                         </div>
 
-                        {/* Column 2: Included Resources */}
+                        {/* Column 2: Subjects Included */}
                         <div className="bundle-banner-includes">
-                          <div className="bundle-banner-includes-title">Resources Included</div>
+                          <div className="bundle-banner-includes-title">Subjects Included</div>
                           <ul className="bundle-banner-includes-list">
-                            {bundle.notesIds.map(noteId => {
-                              const noteItem = notes.find(n => n.id === noteId);
-                              return (
-                                <li key={noteId} className="bundle-banner-includes-item">
-                                  <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {noteItem ? noteItem.title : 'Engineering Lecture Notes'}
-                                  </span>
-                                </li>
-                              );
-                            })}
+                            {subjectsList.map((subjectName, idx) => (
+                              <li key={idx} className="bundle-banner-includes-item">
+                                <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '600' }}>
+                                  {subjectName}
+                                </span>
+                              </li>
+                            ))}
                           </ul>
                         </div>
 
@@ -571,7 +578,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 </button>
                                 {expiry && (
                                   <span style={{ fontSize: '11px', color: 'var(--color-yellow)', fontWeight: '700' }}>
-                                    {expiry.daysLeft !== null && expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`}
+                                    {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`) : '6 Months Validity'}
                                   </span>
                                 )}
                               </div>
@@ -620,6 +627,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       return sum + (note ? note.price : 99);
                     }, 0);
 
+                    const subjectsList = getBundleSubjectsList(bundle);
+
                     return (
                       <div key={bundle.id} className="bundle-banner-card fade-in" style={{ borderColor: 'rgba(96, 165, 250, 0.25)' }}>
                         {/* Column 1: Details */}
@@ -631,21 +640,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           <p className="bundle-banner-desc">{bundle.description}</p>
                         </div>
 
-                        {/* Column 2: Included Resources */}
+                        {/* Column 2: Subjects Included */}
                         <div className="bundle-banner-includes">
-                          <div className="bundle-banner-includes-title">Resources Included</div>
+                          <div className="bundle-banner-includes-title">Subject Included</div>
                           <ul className="bundle-banner-includes-list">
-                            {bundle.notesIds.map(noteId => {
-                              const noteItem = notes.find(n => n.id === noteId);
-                              return (
-                                <li key={noteId} className="bundle-banner-includes-item">
-                                  <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {noteItem ? noteItem.title : 'Engineering Lecture Notes'}
-                                  </span>
-                                </li>
-                              );
-                            })}
+                            {subjectsList.map((subjectName, idx) => (
+                              <li key={idx} className="bundle-banner-includes-item">
+                                <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '600' }}>
+                                  {subjectName} (All Units & PYQ Solutions)
+                                </span>
+                              </li>
+                            ))}
                           </ul>
                         </div>
 
@@ -786,7 +792,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         )}
       </section>
 
-      {/* Razorpay Test Payment Modal Simulator */}
+      {/* Razorpay Gateway Status Modal Overlay */}
       {paymentTarget && (
         <div className="locked-preview-overlay" style={{ background: 'rgba(5, 7, 16, 0.9)', zIndex: 105 }}>
           <div className="auth-card glass-card fade-in" style={{ maxWidth: '420px', padding: '30px' }}>
@@ -800,7 +806,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px', marginBottom: '20px' }}>
                   <img src="/logo.jpg" alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
-                  <span style={{ fontFamily: 'var(--font-heading)', fontWeight: '700' }}>Razorpay Checkout (Sandbox)</span>
+                  <span style={{ fontFamily: 'var(--font-heading)', fontWeight: '700' }}>Razorpay Secure Gateway</span>
                 </div>
 
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)', borderRadius: '10px', padding: '16px', marginBottom: '20px', textAlign: 'left' }}>
@@ -821,18 +827,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button 
                     className="btn-secondary flex-1" 
-                    onClick={() => setPaymentTarget(null)}
-                    disabled={paying}
+                    onClick={() => {
+                      setPaymentTarget(null);
+                      setPaying(false);
+                    }}
                   >
-                    Cancel
+                    Close
                   </button>
                   <button 
                     className="btn-primary flex-1" 
-                    onClick={() => processCheckout(true)}
-                    disabled={paying}
+                    onClick={() => executePurchase(paymentTarget.id, paymentTarget.price, paymentTarget.type, paymentTarget.title)}
                     style={{ justifyContent: 'center' }}
                   >
-                    {paying ? 'Processing...' : 'Pay with UPI/Card'}
+                    {paying ? 'Opening Gateway...' : 'Retry Payment'}
                   </button>
                 </div>
               </div>

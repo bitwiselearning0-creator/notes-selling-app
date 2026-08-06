@@ -58,6 +58,9 @@ export interface Purchase {
   itemType: 'notes' | 'bundle';
   purchasedAt: string;
   expiresAt: string;
+  paymentId?: string;
+  orderId?: string;
+  signature?: string;
 }
 
 export const INITIAL_NOTES: Note[] = [];
@@ -369,42 +372,133 @@ export const dbService = {
     }
   },
 
-  purchaseNotes: async (notesId: string): Promise<{ success: boolean; error: string | null }> => {
+  // Batch purchase status fetcher to prevent N+1 query loading bottlenecks
+  getAllUserPurchasesState: async (): Promise<{
+    purchasedNoteIds: string[];
+    purchasedBundleIds: string[];
+    noteDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }>;
+    bundleDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }>;
+  }> => {
+    if (!currentUser) {
+      return { purchasedNoteIds: [], purchasedBundleIds: [], noteDetailsMap: {}, bundleDetailsMap: {} };
+    }
+
+    const now = new Date();
+    let allPurchases: Purchase[] = [];
+    let allBundles: Bundle[] = [];
+
+    if (!isMock && supabase) {
+      try {
+        const [purchasesRes, bundlesRes] = await Promise.all([
+          supabase.from('purchases').select('*').eq('userId', currentUser.id).gt('expiresAt', now.toISOString()),
+          supabase.from('bundles').select('*')
+        ]);
+        allPurchases = purchasesRes.data || [];
+        allBundles = bundlesRes.data || [];
+      } catch (err) {
+        console.warn('Error fetching DB purchases in batch:', err);
+        allPurchases = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
+        allBundles = mockBundles;
+      }
+    } else {
+      allPurchases = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
+      allBundles = mockBundles;
+    }
+
+    // Combine local cached purchases
+    const localMap = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+    const localUserPurchases = localMap[currentUser.id] || [];
+    for (const lp of localUserPurchases) {
+      if (!allPurchases.some(p => p.itemId === lp.itemId && p.itemType === lp.itemType)) {
+        allPurchases.push(lp);
+      }
+    }
+
+    const noteDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
+    const bundleDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
+    const purchasedNoteIdsSet = new Set<string>();
+    const purchasedBundleIdsSet = new Set<string>();
+
+    for (const p of allPurchases) {
+      const expDate = new Date(p.expiresAt);
+      if (expDate <= now) continue;
+
+      const diffTime = expDate.getTime() - now.getTime();
+      const daysLeft = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+      if (p.itemType === 'notes') {
+        purchasedNoteIdsSet.add(p.itemId);
+        noteDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
+      } else if (p.itemType === 'bundle') {
+        purchasedBundleIdsSet.add(p.itemId);
+        bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
+
+        const bObj = allBundles.find(b => b.id === p.itemId);
+        if (bObj && Array.isArray(bObj.notesIds)) {
+          for (const nid of bObj.notesIds) {
+            purchasedNoteIdsSet.add(nid);
+            if (!noteDetailsMap[nid]) {
+              noteDetailsMap[nid] = { expiresAt: p.expiresAt, daysLeft };
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      purchasedNoteIds: Array.from(purchasedNoteIdsSet),
+      purchasedBundleIds: Array.from(purchasedBundleIdsSet),
+      noteDetailsMap,
+      bundleDetailsMap
+    };
+  },
+
+  purchaseNotes: async (notesId: string, paymentDetails?: { paymentId?: string; orderId?: string; signature?: string }): Promise<{ success: boolean; error: string | null }> => {
     if (!currentUser) return { success: false, error: 'You must be logged in to buy notes.' };
     
     const purchasedAt = new Date();
     const expiresAt = new Date();
     expiresAt.setMonth(purchasedAt.getMonth() + 6); // Exactly 6-month validity
 
+    const newPurchase: Purchase = {
+      id: 'purch_' + Math.random().toString(36).substring(2, 11),
+      userId: currentUser.id,
+      itemId: notesId,
+      itemType: 'notes',
+      purchasedAt: purchasedAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      paymentId: paymentDetails?.paymentId || '',
+      orderId: paymentDetails?.orderId || '',
+      signature: paymentDetails?.signature || ''
+    };
+
+    // Always record purchase in local cache so user access is immediate and guaranteed
+    mockPurchasesV2 = mockPurchasesV2.filter(p => !(p.itemId === notesId && p.itemType === 'notes'));
+    mockPurchasesV2.push(newPurchase);
+    setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
+
+    const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+    storedMapV2[currentUser.id] = mockPurchasesV2;
+    setStoredData('bw_mock_purchases_map_v2', storedMapV2);
+
     if (!isMock && supabase) {
-      const { error } = await supabase.from('purchases').insert([{
-        userId: currentUser.id,
-        itemId: notesId,
-        itemType: 'notes',
-        purchasedAt: purchasedAt.toISOString(),
-        expiresAt: expiresAt.toISOString()
-      }]);
-      return { success: !error, error: error ? error.message : null };
-    } else {
-      const newPurchase: Purchase = {
-        id: 'purch_' + Math.random().toString(36).substr(2, 9),
-        userId: currentUser.id,
-        itemId: notesId,
-        itemType: 'notes',
-        purchasedAt: purchasedAt.toISOString(),
-        expiresAt: expiresAt.toISOString()
-      };
-
-      mockPurchasesV2 = mockPurchasesV2.filter(p => !(p.itemId === notesId && p.itemType === 'notes'));
-      mockPurchasesV2.push(newPurchase);
-      setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
-
-      const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-      storedMapV2[currentUser.id] = mockPurchasesV2;
-      setStoredData('bw_mock_purchases_map_v2', storedMapV2);
-
-      return { success: true, error: null };
+      try {
+        await supabase.from('purchases').insert([{
+          userId: currentUser.id,
+          itemId: notesId,
+          itemType: 'notes',
+          purchasedAt: purchasedAt.toISOString(),
+          expiresAt: expiresAt.toISOString(),
+          paymentId: paymentDetails?.paymentId || '',
+          orderId: paymentDetails?.orderId || '',
+          signature: paymentDetails?.signature || ''
+        }]);
+      } catch (e) {
+        console.warn('Supabase DB purchase insert warning:', e);
+      }
     }
+
+    return { success: true, error: null };
   },
 
   getPurchasedNotes: async (): Promise<{ data: Note[]; error: string | null }> => {
@@ -453,7 +547,7 @@ export const dbService = {
   },
 
   addBundle: async (bundle: Omit<Bundle, 'id'>): Promise<{ data: Bundle | null; error: string | null }> => {
-    const newBundle = { ...bundle, id: 'bundle_' + Math.random().toString(36).substr(2, 9) };
+    const newBundle = { ...bundle, id: 'bundle_' + Math.random().toString(36).substring(2, 11) };
     if (!isMock && supabase) {
       const { data, error } = await supabase.from('bundles').insert([newBundle]).select().single();
       return { data, error: error ? error.message : null };
@@ -464,42 +558,52 @@ export const dbService = {
     }
   },
 
-  purchaseBundle: async (bundleId: string): Promise<{ success: boolean; error: string | null }> => {
+  purchaseBundle: async (bundleId: string, paymentDetails?: { paymentId?: string; orderId?: string; signature?: string }): Promise<{ success: boolean; error: string | null }> => {
     if (!currentUser) return { success: false, error: 'You must be logged in to buy bundles.' };
 
     const purchasedAt = new Date();
     const expiresAt = new Date();
     expiresAt.setMonth(purchasedAt.getMonth() + 6); // 6-month validity
 
+    const newPurchase: Purchase = {
+      id: 'purch_' + Math.random().toString(36).substring(2, 11),
+      userId: currentUser.id,
+      itemId: bundleId,
+      itemType: 'bundle',
+      purchasedAt: purchasedAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      paymentId: paymentDetails?.paymentId || '',
+      orderId: paymentDetails?.orderId || '',
+      signature: paymentDetails?.signature || ''
+    };
+
+    // Always record purchase in local cache so user access is immediate and guaranteed
+    mockPurchasesV2 = mockPurchasesV2.filter(p => !(p.itemId === bundleId && p.itemType === 'bundle'));
+    mockPurchasesV2.push(newPurchase);
+    setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
+
+    const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+    storedMapV2[currentUser.id] = mockPurchasesV2;
+    setStoredData('bw_mock_purchases_map_v2', storedMapV2);
+
     if (!isMock && supabase) {
-      const { error } = await supabase.from('purchases').insert([{
-        userId: currentUser.id,
-        itemId: bundleId,
-        itemType: 'bundle',
-        purchasedAt: purchasedAt.toISOString(),
-        expiresAt: expiresAt.toISOString()
-      }]);
-      return { success: !error, error: error ? error.message : null };
-    } else {
-      const newPurchase: Purchase = {
-        id: 'purch_' + Math.random().toString(36).substr(2, 9),
-        userId: currentUser.id,
-        itemId: bundleId,
-        itemType: 'bundle',
-        purchasedAt: purchasedAt.toISOString(),
-        expiresAt: expiresAt.toISOString()
-      };
-
-      mockPurchasesV2 = mockPurchasesV2.filter(p => !(p.itemId === bundleId && p.itemType === 'bundle'));
-      mockPurchasesV2.push(newPurchase);
-      setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
-
-      const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-      storedMapV2[currentUser.id] = mockPurchasesV2;
-      setStoredData('bw_mock_purchases_map_v2', storedMapV2);
-
-      return { success: true, error: null };
+      try {
+        await supabase.from('purchases').insert([{
+          userId: currentUser.id,
+          itemId: bundleId,
+          itemType: 'bundle',
+          purchasedAt: purchasedAt.toISOString(),
+          expiresAt: expiresAt.toISOString(),
+          paymentId: paymentDetails?.paymentId || '',
+          orderId: paymentDetails?.orderId || '',
+          signature: paymentDetails?.signature || ''
+        }]);
+      } catch (e) {
+        console.warn('Supabase DB purchase insert warning:', e);
+      }
     }
+
+    return { success: true, error: null };
   },
 
   isBundlePurchased: async (bundleId: string): Promise<{ purchased: boolean; expiresAt: string | null; daysLeft: number | null }> => {

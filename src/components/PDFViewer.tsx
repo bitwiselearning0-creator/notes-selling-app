@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, ShieldAlert, Lock, Loader2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, Lock, Loader2, AlertTriangle } from 'lucide-react';
 import type { Note } from '../lib/supabase';
 
 interface PDFViewerProps {
@@ -206,6 +206,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     };
   }, []);
 
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [jumpPageInput, setJumpPageInput] = useState<string>('');
+  const lastScrollTopRef = useRef<number>(0);
+
   // Calculate pages on scroll dynamically
   const totalPages = isUnlocked ? (pdfDoc ? pdfDoc.numPages : note.pagesCount) : Math.min(2, pdfDoc ? pdfDoc.numPages : 2);
 
@@ -214,29 +218,90 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     const scrollTop = target.scrollTop;
     const scrollHeight = target.scrollHeight - target.clientHeight;
     
-    if (scrollHeight <= 0) return;
-    
-    // Estimate current page by finding scroll percentage
-    const percentage = scrollTop / scrollHeight;
-    const page = Math.min(totalPages, Math.max(1, Math.round(percentage * (totalPages - 1)) + 1));
-    setScrollPage(page);
+    if (scrollHeight > 0) {
+      // Estimate current page by finding scroll percentage
+      const percentage = scrollTop / scrollHeight;
+      const page = Math.min(totalPages, Math.max(1, Math.round(percentage * (totalPages - 1)) + 1));
+      setScrollPage(page);
+    }
+
+    // Auto-hide header & footer when scrolling down, show when scrolling up
+    const diff = scrollTop - lastScrollTopRef.current;
+    if (Math.abs(diff) > 8) {
+      if (diff > 0 && scrollTop > 40) {
+        setControlsVisible(false);
+      } else if (diff < 0) {
+        setControlsVisible(true);
+      }
+      lastScrollTopRef.current = scrollTop;
+    }
+  };
+
+  const handleJumpToPage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const target = parseInt(jumpPageInput, 10);
+    if (isNaN(target) || target < 1 || target > totalPages) {
+      alert(`Please enter a page number between 1 and ${totalPages}`);
+      return;
+    }
+    setScrollPage(target);
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const targetCanvas = container.querySelector(`[data-page="${target}"]`);
+      if (targetCanvas) {
+        targetCanvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        const targetScroll = ((target - 1) / Math.max(1, totalPages - 1)) * (container.scrollHeight - container.clientHeight);
+        container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+      }
+    }
+    setJumpPageInput('');
+    setControlsVisible(true);
+  };
+
+  const toggleControls = () => {
+    setControlsVisible(prev => !prev);
   };
 
   return (
-    <div className="pdf-viewer-container fade-in" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none', display: 'flex', flexDirection: 'column', gap: '14px', margin: isAppMode ? '0' : '10px 0 20px 0', height: isAppMode ? 'calc(100vh - 80px)' : 'auto' }}>
-      {/* Premium Header Bar */}
-      <div className="viewer-header glass-card" style={{ 
+    <div 
+      className="pdf-viewer-container fade-in" 
+      onClick={toggleControls}
+      style={{ 
+        userSelect: 'none', 
+        WebkitUserSelect: 'none', 
+        MozUserSelect: 'none', 
+        msUserSelect: 'none', 
         display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', 
-        padding: isAppMode ? '8px 12px' : '16px 24px', 
-        borderRadius: '16px', 
-        border: '1px solid var(--glass-border)', 
-        background: 'rgba(10, 17, 43, 0.7)',
-        backdropFilter: 'blur(15px)',
-        WebkitBackdropFilter: 'blur(15px)',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)'
-      }}>
+        flexDirection: 'column', 
+        gap: '14px', 
+        margin: isAppMode ? '0' : '10px 0 20px 0', 
+        height: isAppMode ? 'calc(100vh - 80px)' : 'auto',
+        position: 'relative'
+      }}
+    >
+      {/* Premium Header Bar */}
+      <div 
+        className="viewer-header glass-card" 
+        onClick={(e) => e.stopPropagation()}
+        style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          padding: isAppMode ? '8px 12px' : '16px 24px', 
+          borderRadius: '16px', 
+          border: '1px solid var(--glass-border)', 
+          background: 'rgba(10, 17, 43, 0.85)',
+          backdropFilter: 'blur(15px)',
+          WebkitBackdropFilter: 'blur(15px)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+          transform: controlsVisible ? 'translateY(0)' : 'translateY(-120%)',
+          opacity: controlsVisible ? 1 : 0,
+          transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
+          pointerEvents: controlsVisible ? 'auto' : 'none',
+          zIndex: 30
+        }}
+      >
         <button className="btn-secondary" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '10px', fontWeight: '600' }}>
           <ChevronLeft size={16} /> Back
         </button>
@@ -266,25 +331,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         </div>
       </div>
 
-      {/* Security alert notification banner */}
-      <div className="security-banner" style={{
-        background: 'rgba(239, 68, 68, 0.08)',
-        border: '1.5px solid rgba(239, 68, 68, 0.25)',
-        padding: '10px 20px',
-        borderRadius: '12px',
-        fontSize: isAppMode ? '10px' : '13px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '10px',
-        color: '#f87171',
-        fontWeight: '600',
-        boxShadow: '0 4px 12px rgba(239, 68, 68, 0.05)',
-        margin: '0 4px'
-      }}>
-        <ShieldAlert size={16} style={{ color: '#ef4444' }} />
-        <span>Secure Document Viewer: Text copy, download, inspect, and screenshots are strictly monitored & blocked.</span>
-      </div>
+
 
       {/* Main Workspace Layout */}
       <div className="viewer-workspace" style={{
@@ -377,7 +424,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                 const isSecondPageLocked = !isUnlocked && pageNum === 2;
 
                 return (
-                  <div key={idx} style={{ position: 'relative', width: '100%' }}>
+                  <div key={idx} data-page={pageNum} style={{ position: 'relative', width: '100%' }}>
                     <CanvasPage 
                       pageNumber={pageNum} 
                       pdfDoc={pdfDoc} 
@@ -433,34 +480,79 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         )}
       </div>
 
-      {/* Floating Pill Page Indicator Bar */}
+      {/* Floating Pill Page Indicator & Page Jump Bar */}
       {pdfjsLoaded && !loadError && (
-        <div className="viewer-footer glass-card" style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '12px 24px',
-          borderRadius: '16px',
-          border: '1px solid var(--glass-border)',
-          background: 'rgba(10, 17, 43, 0.85)',
-          backdropFilter: 'blur(15px)',
-          WebkitBackdropFilter: 'blur(15px)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
-          gap: '20px'
-        }}>
-          <span className="page-counter" style={{ fontSize: '14px', color: 'var(--color-muted)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            Viewing Page <strong style={{ color: 'var(--color-white)', fontSize: '18px' }}>{scrollPage}</strong> of <strong style={{ color: 'var(--color-white)', fontSize: '18px' }}>{totalPages}</strong> 
-            {isUnlocked ? (
-              <span className="locked-tag" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.25)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                ✦ Full Access
-              </span>
-            ) : (
-              <span className="locked-tag" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--color-yellow)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Preview Limit
+        <div 
+          className="viewer-footer glass-card" 
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '12px 24px',
+            borderRadius: '16px',
+            border: '1px solid var(--glass-border)',
+            background: 'rgba(10, 17, 43, 0.85)',
+            backdropFilter: 'blur(15px)',
+            WebkitBackdropFilter: 'blur(15px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+            gap: '16px',
+            flexWrap: 'wrap',
+            transform: controlsVisible ? 'translateY(0)' : 'translateY(120%)',
+            opacity: controlsVisible ? 1 : 0,
+            transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
+            pointerEvents: controlsVisible ? 'auto' : 'none',
+            zIndex: 30
+          }}
+        >
+          {/* Page Jump Direct Input Form */}
+          <form onSubmit={handleJumpToPage} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '13px', color: 'var(--color-muted)', fontWeight: '600' }}>
+              Jump to Page
+            </span>
+            <input 
+              type="number"
+              min={1}
+              max={totalPages}
+              placeholder={String(scrollPage)}
+              value={jumpPageInput}
+              onChange={(e) => setJumpPageInput(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '54px',
+                padding: '4px 8px',
+                borderRadius: '8px',
+                border: '1px solid var(--glass-border)',
+                background: 'rgba(255, 255, 255, 0.1)',
+                color: '#ffffff',
+                textAlign: 'center',
+                fontSize: '14px',
+                fontWeight: '700',
+                outline: 'none'
+              }}
+            />
+            <span style={{ fontSize: '13px', color: 'var(--color-muted)', fontWeight: '600' }}>
+              / <strong style={{ color: 'var(--color-white)', fontSize: '15px' }}>{totalPages}</strong>
+            </span>
+            <button 
+              type="submit" 
+              className="btn-secondary" 
+              style={{ padding: '4px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700' }}
+            >
+              Go
+            </button>
+          </form>
+
+          {isUnlocked ? (
+            <span className="locked-tag" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.25)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              ✦ Full Access
+            </span>
+          ) : (
+            <span className="locked-tag" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--color-yellow)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Preview Limit
             </span>
           )}
-        </span>
-      </div>
+        </div>
       )}
     </div>
   );

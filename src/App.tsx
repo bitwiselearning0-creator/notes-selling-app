@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './pages/LandingPage';
 import { Auth } from './pages/Auth';
@@ -11,6 +12,7 @@ import { PDFViewer } from './components/PDFViewer';
 import { Profile } from './pages/Profile';
 import { dbService } from './lib/supabase';
 import type { UserProfile, Note } from './lib/supabase';
+import { openRazorpayCheckout } from './lib/razorpay';
 import { BookOpen, Library, ShieldCheck, User } from 'lucide-react';
 
 function App() {
@@ -198,12 +200,107 @@ function App() {
     window.location.hash = '#home';
   };
 
+  // Hardware / Phone Back Button Handler & History stack listener
+  useEffect(() => {
+    let backListener: any = null;
+
+    const handleBackAction = () => {
+      // 1. If reading note viewer is open, close PDF viewer
+      if (currentPage === 'viewer' || readingNote !== null) {
+        setReadingNote(null);
+        if (currentUser) {
+          window.location.hash = '#catalog';
+        } else {
+          window.location.hash = '#home';
+        }
+        return true;
+      }
+
+      // 2. If on a sub-view (auth, library, profile, admin), navigate back to catalog/home
+      const hash = window.location.hash.split('?')[0];
+      if (hash === '#library' || hash === '#profile' || hash === '#login' || hash === '#admin-login' || hash === '#admin') {
+        if (isAppMode) {
+          window.location.hash = '#catalog';
+        } else {
+          window.location.hash = '#home';
+        }
+        return true;
+      }
+
+      // 3. Root page reached in app mode -> minimize app cleanly
+      if (isAppMode) {
+        CapacitorApp.minimizeApp().catch(() => {});
+        return true;
+      }
+
+      return false;
+    };
+
+    // Global browser popstate handler for back button
+    const handlePopState = () => {
+      handleBackAction();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    // Capacitor hardware back button event for Android app
+    CapacitorApp.addListener('backButton', (event) => {
+      const handled = handleBackAction();
+      if (!handled && event.canGoBack) {
+        window.history.back();
+      }
+    }).then(listener => {
+      backListener = listener;
+    }).catch(() => {});
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (backListener && typeof backListener.remove === 'function') {
+        backListener.remove();
+      }
+    };
+  }, [currentPage, readingNote, currentUser, isAppMode]);
+
   // Navigates to PDF viewer securely checking if the notes are purchased
   const handleReadNote = async (note: Note) => {
-    setReadingNote(note);
     const unlocked = await dbService.isNotesPurchased(note.id);
-    setReadingNoteUnlocked(unlocked || note.price === 0);
+    const isFree = note.price === 0;
+
+    if (!unlocked && !isFree) {
+      // Free preview disabled: prompt user to unlock note directly
+      if (!currentUser) {
+        navigate('auth');
+        return;
+      }
+      openRazorpayCheckout({
+        title: note.title,
+        price: note.price,
+        type: 'notes',
+        user: currentUser,
+        onSuccess: async (response) => {
+          const { success } = await dbService.purchaseNotes(note.id, {
+            paymentId: response.razorpay_payment_id,
+            orderId: response.razorpay_order_id,
+            signature: response.razorpay_signature
+          });
+          if (success) {
+            setReadingNote(note);
+            setReadingNoteUnlocked(true);
+            setCurrentPage('viewer');
+            window.history.pushState({ page: 'viewer' }, '');
+          }
+        },
+        onFailure: (err) => {
+          if (typeof err === 'string' && err.length > 0) alert(err);
+        }
+      });
+      return;
+    }
+
+    setReadingNote(note);
+    setReadingNoteUnlocked(true);
     setCurrentPage('viewer');
+    window.history.pushState({ page: 'viewer' }, '');
 
     // Fetch full note payload (with previewUrl) in background to optimize dashboard loading times
     dbService.getNoteById(note.id).then(({ data: fullNote }) => {
@@ -219,11 +316,28 @@ function App() {
       window.location.hash = '#login';
       return;
     }
-    // Set readingNoteUnlocked to true (simulating successful Razorpay webhook trigger)
-    const { success } = await dbService.purchaseNotes(readingNote.id);
-    if (success) {
-      setReadingNoteUnlocked(true);
-    }
+    
+    await openRazorpayCheckout({
+      title: readingNote.title,
+      price: readingNote.price,
+      type: 'notes',
+      user: currentUser,
+      onSuccess: async (response) => {
+        const { success } = await dbService.purchaseNotes(readingNote.id, {
+          paymentId: response.razorpay_payment_id,
+          orderId: response.razorpay_order_id,
+          signature: response.razorpay_signature
+        });
+        if (success) {
+          setReadingNoteUnlocked(true);
+        }
+      },
+      onFailure: (err) => {
+        if (typeof err === 'string' && err.length > 0) {
+          alert(err);
+        }
+      }
+    });
   };
 
   // Dynamically toggle body class for app-mode specific styles
