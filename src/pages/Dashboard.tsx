@@ -279,76 +279,78 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="blob blob-3"></div>
       </div>
 
-      {/* Premium Welcome Header Card */}
-      <div className="glass-card welcome-dashboard-card" style={{
-        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.45) 100%)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        borderRadius: '20px',
-        padding: '24px',
-        marginBottom: '28px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '20px',
-        textAlign: 'left',
-        boxShadow: '0 12px 30px rgba(0,0,0,0.4)',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        {/* Glow decoration */}
-        <div style={{
-          position: 'absolute',
-          top: '-50px',
-          right: '-50px',
-          width: '120px',
-          height: '120px',
-          background: 'radial-gradient(circle, rgba(96, 165, 250, 0.1) 0%, transparent 70%)',
-          pointerEvents: 'none'
-        }} />
-
-        {/* User avatar/icon with soft ring */}
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(96, 165, 250, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%)',
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
+      {/* Premium Welcome Header Card (Only visible on main catalog page) */}
+      {selectedSubject === null && (
+        <div className="glass-card welcome-dashboard-card" style={{
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.45) 100%)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '20px',
+          padding: '24px',
+          marginBottom: '28px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--color-blue-light)',
-          border: '1px solid rgba(96, 165, 250, 0.3)',
-          flexShrink: 0,
-          boxShadow: '0 0 15px rgba(96, 165, 250, 0.1)'
+          gap: '20px',
+          textAlign: 'left',
+          boxShadow: '0 12px 30px rgba(0,0,0,0.4)',
+          position: 'relative',
+          overflow: 'hidden'
         }}>
-          <User size={28} />
-        </div>
+          {/* Glow decoration */}
+          <div style={{
+            position: 'absolute',
+            top: '-50px',
+            right: '-50px',
+            width: '120px',
+            height: '120px',
+            background: 'radial-gradient(circle, rgba(96, 165, 250, 0.1) 0%, transparent 70%)',
+            pointerEvents: 'none'
+          }} />
 
-        {/* Welcome Text */}
-        <div style={{ flexGrow: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--color-muted)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              Academic Portal
-            </span>
-            <span style={{
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
-              borderRadius: '100px',
-              padding: '2px 8px',
-              fontSize: '10px',
-              color: '#34d399',
-              fontWeight: '700',
-              letterSpacing: '0.02em'
-            }}>
-              SECURE
-            </span>
+          {/* User avatar/icon with soft ring */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(96, 165, 250, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%)',
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--color-blue-light)',
+            border: '1px solid rgba(96, 165, 250, 0.3)',
+            flexShrink: 0,
+            boxShadow: '0 0 15px rgba(96, 165, 250, 0.1)'
+          }}>
+            <User size={28} />
           </div>
-          <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-white)', margin: '6px 0 2px 0', letterSpacing: '-0.01em' }}>
-            {user ? `Hello, ${user.name.split(' ')[0]}! 👋` : 'Welcome to Catalog'}
-          </h2>
-          <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: '13px', lineHeight: '1.4' }}>
-            {user ? 'Ready to master your syllabus and ace your examinations?' : 'Select your year, filter by semester, and unlock study resources.'}
-          </p>
+
+          {/* Welcome Text */}
+          <div style={{ flexGrow: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--color-muted)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                Academic Portal
+              </span>
+              <span style={{
+                background: 'rgba(16, 185, 129, 0.08)',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+                borderRadius: '100px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                color: '#34d399',
+                fontWeight: '700',
+                letterSpacing: '0.02em'
+              }}>
+                SECURE
+              </span>
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-white)', margin: '6px 0 2px 0', letterSpacing: '-0.01em' }}>
+              {user ? `Hello, ${user.name.split(' ')[0]}! 👋` : 'Welcome to Catalog'}
+            </h2>
+            <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: '13px', lineHeight: '1.4' }}>
+              {user ? 'Ready to master your syllabus and ace your examinations?' : 'Select your year, filter by semester, and unlock study resources.'}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Dedicated Inside Subject Detail View */}
       {selectedSubject ? (
