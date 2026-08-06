@@ -450,6 +450,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       year: bundleYear,
       semester: Number(bundleSemester),
       notesIds: noteIdsToInclude,
+      subjects: selectedSubjects,
       type: 'semester' as const
     };
 

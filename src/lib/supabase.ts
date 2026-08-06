@@ -47,6 +47,7 @@ export interface Bundle {
   year: '1st Year' | '2nd Year' | '3rd Year' | '4th Year';
   semester: number;
   notesIds: string[]; // IDs of notes included in this bundle
+  subjects?: string[]; // Subject names included in this bundle
   type?: 'semester' | 'subject';
   subject?: string;
 }
@@ -138,7 +139,48 @@ export const INITIAL_PLAYLISTS: Playlist[] = [
     semester: 3
   }
 ];
-export const INITIAL_BUNDLES: Bundle[] = [];
+export const INITIAL_BUNDLES: Bundle[] = [
+  {
+    id: 'bundle_sem4_combo',
+    title: 'B.TECH SEMESTER 4 COMPLETE COMBO BUNDLE',
+    description: 'Complete Semester 4 combo including all subjects with syllabus-based, exam-oriented notes, important concepts, diagrams, solved examples, and AKTU-focused content.',
+    price: 299,
+    originalPrice: 499,
+    year: '2nd Year',
+    semester: 4,
+    notesIds: [],
+    subjects: [
+      'Operating System',
+      'Theory of Automata and Formal Languages',
+      'Object Oriented Programming with Java',
+      'Math IV',
+      'Technical Communication',
+      'UHV',
+      'Energy Science and Engineering'
+    ],
+    type: 'semester'
+  },
+  {
+    id: 'bundle_sem3_combo',
+    title: 'B.TECH SEMESTER 3 COMPLETE COMBO BUNDLE',
+    description: 'Complete Semester 3 combo including all subjects with syllabus-based notes and solved PYQs.',
+    price: 299,
+    originalPrice: 499,
+    year: '2nd Year',
+    semester: 3,
+    notesIds: [],
+    subjects: [
+      'Data Structure',
+      'Computer Organization & Architecture',
+      'Discrete Structures & Theory of Logic',
+      'Math IV',
+      'Technical Communication',
+      'UHV',
+      'Energy Science and Engineering'
+    ],
+    type: 'semester'
+  }
+];
 
 // ==========================================
 // LOCAL STORAGE PERSISTENCE ENGINE (MOCK DB)

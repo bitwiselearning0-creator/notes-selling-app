@@ -750,6 +750,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           return sum + (note ? note.price : 99);
                         }, 0);
 
+                        const getBundleSubjectsList = (b: Bundle): string[] => {
+                          if (b.subjects && b.subjects.length > 0) {
+                            return b.subjects;
+                          }
+                          const uniqueSubjsFromNotes = Array.from(
+                            new Set(
+                              b.notesIds
+                                .map(id => notes.find(n => n.id === id)?.subject)
+                                .filter((s): s is string => !!s)
+                            )
+                          );
+                          if (uniqueSubjsFromNotes.length > 0) {
+                            return uniqueSubjsFromNotes;
+                          }
+                          return getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
+                        };
+
+                        const includedSubjectsList = getBundleSubjectsList(bundle);
+
                         return (
                           <div key={bundle.id} className="bundle-banner-card fade-in">
                             {/* Column 1: Details */}
@@ -761,21 +780,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
                               <p className="bundle-banner-desc">{bundle.description}</p>
                             </div>
 
-                            {/* Column 2: Included Resources */}
+                            {/* Column 2: Included Subjects */}
                             <div className="bundle-banner-includes">
-                              <div className="bundle-banner-includes-title">Resources Included</div>
+                              <div className="bundle-banner-includes-title">Subjects Included ({includedSubjectsList.length} Subjects)</div>
                               <ul className="bundle-banner-includes-list">
-                                {bundle.notesIds.map(noteId => {
-                                  const noteItem = notes.find(n => n.id === noteId);
-                                  return (
-                                    <li key={noteId} className="bundle-banner-includes-item">
-                                      <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {noteItem ? noteItem.title : 'Engineering Lecture Notes'}
-                                      </span>
-                                    </li>
-                                  );
-                                })}
+                                {includedSubjectsList.map((subjName, idx) => (
+                                  <li key={idx} className="bundle-banner-includes-item">
+                                    <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      {subjName}
+                                    </span>
+                                  </li>
+                                ))}
                               </ul>
                             </div>
 
