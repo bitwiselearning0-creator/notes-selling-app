@@ -270,10 +270,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
     executePurchase(bundleId, price, 'bundle', bundle ? bundle.title : 'Semester Combo Pack');
   };
 
+  // Robust cleaner to normalize subject titles to short subject names (e.g. Operating System, JAVA, TAFL, DSTL)
+  const cleanSubjectName = (raw: string): string => {
+    if (!raw) return '';
+    let str = raw.trim();
+
+    // Strip pipe details e.g. "| AKTU BCS401" or "| BASIC CONCEPTS..."
+    if (str.includes('|')) {
+      str = str.split('|')[0].trim();
+    }
+
+    // Strip " Unit X...", " UNIT X...", " unit X...", " Complete Notes", " PYQs"
+    const unitRegex = /\s+(unit|notes|pyqs|solutions|complete|aktu|bcs\d+|kcs\d+).*/i;
+    str = str.replace(unitRegex, '').trim();
+
+    const upper = str.toUpperCase();
+    if (upper.includes('OPERATING SYSTEM')) return 'Operating System (OS)';
+    if (upper.includes('TAFL') || upper.includes('AUTOMATA')) return 'Theory of Automata & Formal Languages (TAFL)';
+    if (upper.includes('JAVA') || upper.includes('OBJECT ORIENTED PROGRAMMING')) return 'Object Oriented Programming with Java (JAVA)';
+    if (upper.includes('DATA STRUCTURE')) return 'Data Structures (DS)';
+    if (upper.includes('COMPUTER ORGANIZATION') || upper.includes('COA')) return 'Computer Organization & Architecture (COA)';
+    if (upper.includes('DISCRETE') || upper.includes('DSTL')) return 'Discrete Structures & Theory of Logic (DSTL)';
+    if (upper.includes('WEB TECH')) return 'Web Technology (WT)';
+    if (upper.includes('DATABASE') || upper.includes('DBMS')) return 'Database Management System (DBMS)';
+    if (upper.includes('COMPILER')) return 'Compiler Design (CD)';
+    if (upper.includes('SOFTWARE ENGINEERING')) return 'Software Engineering (SE)';
+    if (upper.includes('COMPUTER NETWORKS')) return 'Computer Networks (CN)';
+
+    return str.length > 0 ? str : raw;
+  };
+
   // Helper to extract clean unique subject names for any bundle
   const getBundleSubjectsList = (bundle: Bundle): string[] => {
     if (bundle.subject && bundle.subject.trim().length > 0) {
-      return [bundle.subject.trim()];
+      return [cleanSubjectName(bundle.subject)];
     }
 
     const subjectsFromNotes = Array.from(
@@ -282,13 +312,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
           .map(noteId => {
             const noteItem = notes.find(n => n.id === noteId);
             if (!noteItem) return null;
-            if (noteItem.subject && noteItem.subject.trim().length > 0) {
-              return noteItem.subject.trim();
+            const cleanedSubj = cleanSubjectName(noteItem.subject || '');
+            if (cleanedSubj && cleanedSubj.length > 0 && !cleanedSubj.toLowerCase().includes('unit')) {
+              return cleanedSubj;
             }
-            // Parse subject name from title if subject field is missing
-            const rawTitle = noteItem.title || '';
-            const cleaned = rawTitle.split(' Unit')[0].split(' UNIT')[0].split(' unit')[0].split(' Notes')[0].split(' NOTES')[0].trim();
-            return cleaned.length > 0 ? cleaned : null;
+            return cleanSubjectName(noteItem.title || '');
           })
           .filter((subj): subj is string => !!subj && subj.length > 0)
       )
@@ -300,7 +328,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     return getSubjectsForActiveFilter(selectedYear, bundle.semester || selectedSemester)
       .filter(s => !s.isComingSoon)
-      .map(s => s.name);
+      .map(s => cleanSubjectName(s.name));
   };
 
   return (
