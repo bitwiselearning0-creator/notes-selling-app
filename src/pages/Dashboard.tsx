@@ -441,6 +441,61 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </button>
           </div>
 
+          {/* Semester Combo Bundles Section (Inside Subject View) */}
+          {bundles.filter(b => (b.type === 'semester' || !b.type) && (selectedSemester === null || b.semester === selectedSemester)).map(bundle => {
+            const isPurchased = purchasedBundleIds.includes(bundle.id);
+            const expiry = bundlePurchaseDetailsMap[bundle.id];
+            const normalSum = bundle.notesIds.reduce((sum, id) => {
+              const note = notes.find(n => n.id === id);
+              return sum + (note ? note.price : 99);
+            }, 0);
+
+            return (
+              <div key={bundle.id} className="bundle-banner-card fade-in" style={{ marginBottom: '24px' }}>
+                <div>
+                  <div className="bundle-banner-badge">
+                    {isPurchased ? 'Unlocked Semester Combo' : '🔥 Complete Semester Discount Combo'}
+                  </div>
+                  <h4 className="bundle-banner-title">{bundle.title}</h4>
+                  <p className="bundle-banner-desc">{bundle.description}</p>
+                </div>
+                <div className="bundle-banner-includes">
+                  <div className="bundle-banner-includes-title">Includes All Subjects</div>
+                  <ul className="bundle-banner-includes-list">
+                    <li className="bundle-banner-includes-item">
+                      <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                      <span>All Subjects & Units in Semester {bundle.semester}</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="bundle-banner-checkout">
+                  <div className="bundle-banner-price-box">
+                    {!isPurchased && (
+                      <span className="bundle-banner-original-price">₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}</span>
+                    )}
+                    <span className="bundle-banner-price">₹{bundle.price}</span>
+                  </div>
+                  {user ? (
+                    isPurchased ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                        <button className="btn-secondary w-full" style={{ pointerEvents: 'none', opacity: 0.8 }}>Active & Unlocked</button>
+                        {expiry && (
+                          <span style={{ fontSize: '11px', color: 'var(--color-yellow)', fontWeight: '700' }}>
+                            {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`) : '6 Months Validity'}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <button className="btn-primary w-full" onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}>Unlock Semester Combo</button>
+                    )
+                  ) : (
+                    <button className="btn-primary w-full" onClick={() => navigate('auth')}>Sign In to Unlock</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
           {/* Subject All-In-One Bundle Card (if any exists for this subject) */}
           {bundles.filter(b => b.type === 'subject' && b.subject?.toLowerCase() === selectedSubject.toLowerCase()).map(bundle => {
             const isPurchased = purchasedBundleIds.includes(bundle.id);
@@ -694,198 +749,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                       );
                     })}
-                  </div>
-                </div>
-              )}
-
-              {/* Semester Combo Bundles Section */}
-              {bundles.filter(b => (b.type === 'semester' || !b.type) && (selectedSemester === null || b.semester === selectedSemester)).length > 0 && (
-                <div className="bundles-container">
-                  <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '4px' }} className="yellow-accent">
-                    Semester Combo Packs (6 Months Validity)
-                  </h3>
-                  <p style={{ color: 'var(--color-muted)', fontSize: '13px', marginBottom: '20px' }}>
-                    Save more by unlocking all study notes for your active semester at a discounted combo rate.
-                  </p>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '40px' }}>
-                    {bundles
-                      .filter(b => (b.type === 'semester' || !b.type) && (selectedSemester === null || b.semester === selectedSemester))
-                      .map(bundle => {
-                        const isPurchased = purchasedBundleIds.includes(bundle.id);
-                        const expiry = bundlePurchaseDetailsMap[bundle.id];
-
-                        const normalSum = bundle.notesIds.reduce((sum, id) => {
-                          const note = notes.find(n => n.id === id);
-                          return sum + (note ? note.price : 99);
-                        }, 0);
-
-                        return (
-                          <div key={bundle.id} className="bundle-banner-card fade-in">
-                            {/* Column 1: Details */}
-                            <div>
-                              <div className="bundle-banner-badge">
-                                {isPurchased ? 'Unlocked Combo Pack' : '🔥 Semester Discount Combo'}
-                              </div>
-                              <h4 className="bundle-banner-title">{bundle.title}</h4>
-                              <p className="bundle-banner-desc">{bundle.description}</p>
-                            </div>
-
-                            {/* Column 2: Included Resources */}
-                            <div className="bundle-banner-includes">
-                              <div className="bundle-banner-includes-title">Resources Included</div>
-                              <ul className="bundle-banner-includes-list">
-                                {bundle.notesIds.map(noteId => {
-                                  const noteItem = notes.find(n => n.id === noteId);
-                                  return (
-                                    <li key={noteId} className="bundle-banner-includes-item">
-                                      <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {noteItem ? noteItem.title : 'Engineering Lecture Notes'}
-                                      </span>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            </div>
-
-                            {/* Column 3: Price & Actions */}
-                            <div className="bundle-banner-checkout">
-                              <div className="bundle-banner-price-box">
-                                {!isPurchased && (
-                                  <span className="bundle-banner-original-price">
-                                    ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
-                                  </span>
-                                )}
-                                <span className="bundle-banner-price">₹{bundle.price}</span>
-                              </div>
-
-                              {user ? (
-                                isPurchased ? (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
-                                    <button className="btn-secondary w-full" style={{ pointerEvents: 'none', opacity: 0.8, justifyContent: 'center' }}>
-                                      Active & Unlocked
-                                    </button>
-                                    {expiry && (
-                                      <span style={{ fontSize: '11px', color: 'var(--color-yellow)', fontWeight: '700' }}>
-                                        {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`) : '6 Months Validity'}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <button 
-                                    className="btn-primary w-full" 
-                                    style={{ justifyContent: 'center' }}
-                                    onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}
-                                  >
-                                    Unlock Combo
-                                  </button>
-                                )
-                              ) : (
-                                <button className="btn-primary w-full" style={{ justifyContent: 'center' }} onClick={() => navigate('auth')}>
-                                  Sign In to Unlock
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
-
-              {/* Subject Study Bundles Section */}
-              {bundles.filter(b => b.type === 'subject' && (selectedSemester === null || b.semester === selectedSemester)).length > 0 && (
-                <div className="bundles-container">
-                  <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '4px' }} className="blue-accent">
-                    Subject Study Bundles (6 Months Validity)
-                  </h3>
-                  <p style={{ color: 'var(--color-muted)', fontSize: '13px', marginBottom: '20px' }}>
-                    Unlock all units, PYQs, and solutions of this specific subject at a discounted rate.
-                  </p>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '40px' }}>
-                    {bundles
-                      .filter(b => b.type === 'subject' && (selectedSemester === null || b.semester === selectedSemester))
-                      .map(bundle => {
-                        const isPurchased = purchasedBundleIds.includes(bundle.id);
-                        const expiry = bundlePurchaseDetailsMap[bundle.id];
-
-                        const normalSum = bundle.notesIds.reduce((sum, id) => {
-                          const note = notes.find(n => n.id === id);
-                          return sum + (note ? note.price : 99);
-                        }, 0);
-
-                        return (
-                          <div key={bundle.id} className="bundle-banner-card fade-in" style={{ borderColor: 'rgba(96, 165, 250, 0.25)' }}>
-                            {/* Column 1: Details */}
-                            <div>
-                              <div className="bundle-banner-badge" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-                                {isPurchased ? 'Unlocked Subject Bundle' : '⚡ Subject All-In-One Pack'}
-                              </div>
-                              <h4 className="bundle-banner-title">{bundle.title}</h4>
-                              <p className="bundle-banner-desc">{bundle.description}</p>
-                            </div>
-
-                            {/* Column 2: Included Resources */}
-                            <div className="bundle-banner-includes">
-                              <div className="bundle-banner-includes-title">Resources Included</div>
-                              <ul className="bundle-banner-includes-list">
-                                {bundle.notesIds.map(noteId => {
-                                  const noteItem = notes.find(n => n.id === noteId);
-                                  return (
-                                    <li key={noteId} className="bundle-banner-includes-item">
-                                      <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {noteItem ? noteItem.title : 'Engineering Lecture Notes'}
-                                      </span>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            </div>
-
-                            {/* Column 3: Price & Actions */}
-                            <div className="bundle-banner-checkout">
-                              <div className="bundle-banner-price-box">
-                                {!isPurchased && (
-                                  <span className="bundle-banner-original-price">
-                                    ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
-                                  </span>
-                                )}
-                                <span className="bundle-banner-price">₹{bundle.price}</span>
-                              </div>
-
-                              {user ? (
-                                isPurchased ? (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
-                                    <button className="btn-secondary w-full" style={{ pointerEvents: 'none', opacity: 0.8, justifyContent: 'center' }}>
-                                      Active & Unlocked
-                                    </button>
-                                    {expiry && (
-                                      <span style={{ fontSize: '11px', color: 'var(--color-yellow)', fontWeight: '700' }}>
-                                        {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`) : '6 Months Validity'}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <button 
-                                    className="btn-primary w-full" 
-                                    style={{ justifyContent: 'center' }}
-                                    onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}
-                                  >
-                                    Unlock Combo
-                                  </button>
-                                )
-                              ) : (
-                                <button className="btn-primary w-full" style={{ justifyContent: 'center' }} onClick={() => navigate('auth')}>
-                                  Sign In to Unlock
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
                   </div>
                 </div>
               )}
