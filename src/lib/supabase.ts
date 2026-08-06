@@ -64,7 +64,62 @@ export interface Purchase {
 }
 
 export const INITIAL_NOTES: Note[] = [];
-export const INITIAL_PLAYLISTS: Playlist[] = [];
+export const INITIAL_PLAYLISTS: Playlist[] = [
+  {
+    id: 'pl_os_1',
+    playlistId: 'PLxCzCOWd7aiGz9donHRrE9I3Mwn6X58XM',
+    title: 'Operating System Full Course - Concepts & Solutions',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=80',
+    subject: 'Operating System',
+    year: '2nd Year',
+    semester: 4
+  },
+  {
+    id: 'pl_tafl_1',
+    playlistId: 'PLxCzCOWd7aiFM9MoE5283EMx9A57gCZ-u',
+    title: 'Theory of Automata & Formal Languages (TAFL) Full Course',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80',
+    subject: 'TAFL',
+    year: '2nd Year',
+    semester: 4
+  },
+  {
+    id: 'pl_java_1',
+    playlistId: 'PLBlnK6fEyqRjKA_NuK9mHmlk0dZzuP1P5',
+    title: 'JAVA Programming & OOP Concepts (AKTU Syllabus)',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&auto=format&fit=crop&q=80',
+    subject: 'JAVA',
+    year: '2nd Year',
+    semester: 4
+  },
+  {
+    id: 'pl_dstl_1',
+    playlistId: 'PLxCzCOWd7aiH2wduVbmM0L81i-Z755f1a',
+    title: 'Discrete Structures & Theory of Logic (DSTL) AKTU',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=600&auto=format&fit=crop&q=80',
+    subject: 'DSTL',
+    year: '2nd Year',
+    semester: 3
+  },
+  {
+    id: 'pl_ds_1',
+    playlistId: 'PLxCzCOWd7aiEep5E2Cg-Z7E78eHw9C78L',
+    title: 'Data Structures & Algorithms (DS) AKTU Complete Course',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=80',
+    subject: 'Data Structure',
+    year: '2nd Year',
+    semester: 3
+  },
+  {
+    id: 'pl_phy_1',
+    playlistId: 'PLxCzCOWd7aiF8HkYJk_5qQ10h3lZ9y0W4',
+    title: 'Engineering Physics Full Course - AKTU 1st Year',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&auto=format&fit=crop&q=80',
+    subject: 'Engineering Physics',
+    year: '1st Year',
+    semester: 1
+  }
+];
 export const INITIAL_BUNDLES: Bundle[] = [];
 
 // ==========================================

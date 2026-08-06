@@ -7,7 +7,11 @@ interface VideoCardProps {
 }
 
 export const VideoCard: React.FC<VideoCardProps> = ({ playlist }) => {
-  const watchUrl = `https://www.youtube.com/playlist?list=${playlist.playlistId}`;
+  const watchUrl = playlist.playlistId.startsWith('http')
+    ? playlist.playlistId
+    : playlist.playlistId.startsWith('search_')
+      ? `https://www.youtube.com/results?search_query=AKTU+${encodeURIComponent(playlist.subject)}+Full+Course+Playlist`
+      : `https://www.youtube.com/playlist?list=${playlist.playlistId}`;
 
   return (
     <div className="video-card glass-card">

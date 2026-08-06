@@ -197,8 +197,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Filter playlists based on semester & subject selection
   const filteredPlaylists = playlists.filter(p => {
     const matchesSem = selectedSemester === null || p.semester === selectedSemester;
-    const matchesSubject = selectedSubject === null || p.subject.toLowerCase() === selectedSubject.toLowerCase();
-    return matchesSem && matchesSubject;
+    if (selectedSubject) {
+      const subLower = selectedSubject.toLowerCase();
+      const pSubLower = p.subject.toLowerCase();
+      return pSubLower === subLower || pSubLower.includes(subLower) || subLower.includes(pSubLower);
+    }
+    return matchesSem;
   });
 
   // Execute Razorpay Checkout Directly
@@ -561,24 +565,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
           )}
 
           {/* Video Solutions / Playlists Section */}
-          {filteredPlaylists.length > 0 && (
-            <section style={{ marginTop: '40px', paddingTop: '30px', borderTop: '1px solid var(--glass-border)' }}>
-              <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700' }} className="yellow-accent">
-                  {selectedSubject} - Video Lectures & Course Playlists
-                </h3>
-                <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '20px' }}>
-                  Learn complex topics step-by-step through synced YouTube course playlists.
-                </p>
-              </div>
-              
-              <div className="video-grid">
-                {filteredPlaylists.map((p) => (
+          <section style={{ marginTop: '40px', paddingTop: '30px', borderTop: '1px solid var(--glass-border)' }}>
+            <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+              <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700' }} className="yellow-accent">
+                {selectedSubject} - Video Lectures & YouTube Course Playlists
+              </h3>
+              <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '20px' }}>
+                Learn complex topics step-by-step through synced YouTube course playlists.
+              </p>
+            </div>
+            
+            <div className="video-grid">
+              {filteredPlaylists.length > 0 ? (
+                filteredPlaylists.map((p) => (
                   <VideoCard key={p.id} playlist={p} />
-                ))}
-              </div>
-            </section>
-          )}
+                ))
+              ) : (
+                <VideoCard 
+                  playlist={{
+                    id: `pl_default_${selectedSubject.toLowerCase().replace(/\s+/g, '_')}`,
+                    playlistId: `search_${encodeURIComponent(selectedSubject)}`,
+                    title: `${selectedSubject} Full Course - Video Lectures & Solutions`,
+                    thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80',
+                    subject: selectedSubject,
+                    year: selectedYear,
+                    semester: selectedSemester || 4
+                  }} 
+                />
+              )}
+            </div>
+          </section>
         </div>
       ) : (
         /* Catalog Main View (When no subject is tapped) */
