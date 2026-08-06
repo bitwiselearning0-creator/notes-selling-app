@@ -155,6 +155,8 @@ export const INITIAL_BUNDLES: Bundle[] = [
       'Object Oriented Programming with Java',
       'Math IV',
       'Technical Communication',
+      'Cyber Security',
+      'Python Programming',
       'UHV',
       'Energy Science and Engineering'
     ],
@@ -175,6 +177,8 @@ export const INITIAL_BUNDLES: Bundle[] = [
       'Discrete Structures & Theory of Logic',
       'Math IV',
       'Technical Communication',
+      'Cyber Security',
+      'Python Programming',
       'UHV',
       'Energy Science and Engineering'
     ],

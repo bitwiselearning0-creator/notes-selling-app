@@ -21,7 +21,7 @@ const getPredefinedSubjects = (year: string, sem: number): string[] => {
   if (year === '2nd Year') {
     const sem3 = ['Data Structure', 'Computer Organization & Architecture', 'Discrete Structures & Theory of Logic'];
     const sem4 = ['Operating System', 'Theory of Automata and Formal Languages', 'Object Oriented Programming with Java'];
-    const common = ['Math IV', 'Technical Communication', 'UHV', 'Energy Science and Engineering'];
+    const common = ['Math IV', 'Technical Communication', 'Cyber Security', 'Python Programming', 'UHV', 'Energy Science and Engineering'];
     if (sem === 3) return [...sem3, ...common];
     if (sem === 4) return [...sem4, ...common];
     return [...sem3, ...sem4, ...common];

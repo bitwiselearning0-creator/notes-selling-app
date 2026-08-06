@@ -41,6 +41,8 @@ const getSubjectsForActiveFilter = (
     const common: SubjectItem[] = [
       { name: 'Math IV', semester: 'Common' },
       { name: 'Technical Communication', semester: 'Common' },
+      { name: 'Cyber Security', semester: 'Common' },
+      { name: 'Python Programming', semester: 'Common' },
       { name: 'UHV', semester: 'Common' },
       { name: 'Energy Science and Engineering', semester: 'Common' }
     ];
