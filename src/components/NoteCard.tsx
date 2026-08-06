@@ -95,12 +95,20 @@ export const NoteCard: React.FC<NoteCardProps> = ({
               {note.type === 'pyqs' ? 'Read PYQ Solutions' : 'Read Notes'}
             </button>
           ) : (
-            <button 
-              className="btn-primary w-full" 
-              onClick={() => onPurchase(note.id, note.price)}
-            >
-              Unlock ₹{note.price}
-            </button>
+            <div className="action-buttons-group">
+              <button 
+                className="btn-secondary" 
+                onClick={() => onRead(note)} // In locked state, reading will open the preview mode (e.g. first 2 pages)
+              >
+                Free Preview
+              </button>
+              <button 
+                className="btn-primary flex-1" 
+                onClick={() => onPurchase(note.id, note.price)}
+              >
+                Unlock ₹{note.price}
+              </button>
+            </div>
           )
         ) : (
           <button className="btn-primary w-full" onClick={onNavigateToAuth}>
