@@ -118,6 +118,24 @@ export const INITIAL_PLAYLISTS: Playlist[] = [
     subject: 'Engineering Physics',
     year: '1st Year',
     semester: 1
+  },
+  {
+    id: 'pl_math4_1',
+    playlistId: 'PLxCzCOWd7aiEca6I1g69xTng91_knhL-d',
+    title: 'Maths IV (Engineering Mathematics 4) AKTU Full Course',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=600&auto=format&fit=crop&q=80',
+    subject: 'Math IV',
+    year: '2nd Year',
+    semester: 4
+  },
+  {
+    id: 'pl_coa_1',
+    playlistId: 'PLxCzCOWd7aiHMonh3G6QNKq53C6oNXGrX',
+    title: 'Computer Organization & Architecture (COA) AKTU Full Course',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80',
+    subject: 'Computer Organization & Architecture',
+    year: '2nd Year',
+    semester: 3
   }
 ];
 export const INITIAL_BUNDLES: Bundle[] = [];

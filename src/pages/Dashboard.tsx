@@ -200,7 +200,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (selectedSubject) {
       const subLower = selectedSubject.toLowerCase();
       const pSubLower = p.subject.toLowerCase();
-      return pSubLower === subLower || pSubLower.includes(subLower) || subLower.includes(pSubLower);
+
+      const isMath4Match = (subLower.includes('math') && (subLower.includes('4') || subLower.includes('iv'))) &&
+                           (pSubLower.includes('math') && (pSubLower.includes('4') || pSubLower.includes('iv')));
+      const isCoaMatch = (subLower.includes('coa') || subLower.includes('computer organization')) &&
+                         (pSubLower.includes('coa') || pSubLower.includes('computer organization'));
+
+      const matchesSubject = pSubLower === subLower || 
+                             pSubLower.includes(subLower) || 
+                             subLower.includes(pSubLower) ||
+                             isMath4Match ||
+                             isCoaMatch;
+
+      return matchesSubject;
     }
     return matchesSem;
   });
