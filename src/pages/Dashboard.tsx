@@ -270,67 +270,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     executePurchase(bundleId, price, 'bundle', bundle ? bundle.title : 'Semester Combo Pack');
   };
 
-  // Robust cleaner to normalize subject titles to short subject names (e.g. Operating System, JAVA, TAFL, DSTL)
-  const cleanSubjectName = (raw: string): string => {
-    if (!raw) return '';
-    let str = raw.trim();
-
-    // Strip pipe details e.g. "| AKTU BCS401" or "| BASIC CONCEPTS..."
-    if (str.includes('|')) {
-      str = str.split('|')[0].trim();
-    }
-
-    // Strip " Unit X...", " UNIT X...", " unit X...", " Complete Notes", " PYQs"
-    const unitRegex = /\s+(unit|notes|pyqs|solutions|complete|aktu|bcs\d+|kcs\d+).*/i;
-    str = str.replace(unitRegex, '').trim();
-
-    const upper = str.toUpperCase();
-    if (upper.includes('OPERATING SYSTEM')) return 'Operating System (OS)';
-    if (upper.includes('TAFL') || upper.includes('AUTOMATA')) return 'Theory of Automata & Formal Languages (TAFL)';
-    if (upper.includes('JAVA') || upper.includes('OBJECT ORIENTED PROGRAMMING')) return 'Object Oriented Programming with Java (JAVA)';
-    if (upper.includes('DATA STRUCTURE')) return 'Data Structures (DS)';
-    if (upper.includes('COMPUTER ORGANIZATION') || upper.includes('COA')) return 'Computer Organization & Architecture (COA)';
-    if (upper.includes('DISCRETE') || upper.includes('DSTL')) return 'Discrete Structures & Theory of Logic (DSTL)';
-    if (upper.includes('WEB TECH')) return 'Web Technology (WT)';
-    if (upper.includes('DATABASE') || upper.includes('DBMS')) return 'Database Management System (DBMS)';
-    if (upper.includes('COMPILER')) return 'Compiler Design (CD)';
-    if (upper.includes('SOFTWARE ENGINEERING')) return 'Software Engineering (SE)';
-    if (upper.includes('COMPUTER NETWORKS')) return 'Computer Networks (CN)';
-
-    return str.length > 0 ? str : raw;
-  };
-
-  // Helper to extract clean unique subject names for any bundle
-  const getBundleSubjectsList = (bundle: Bundle): string[] => {
-    if (bundle.subject && bundle.subject.trim().length > 0) {
-      return [cleanSubjectName(bundle.subject)];
-    }
-
-    const subjectsFromNotes = Array.from(
-      new Set(
-        bundle.notesIds
-          .map(noteId => {
-            const noteItem = notes.find(n => n.id === noteId);
-            if (!noteItem) return null;
-            const cleanedSubj = cleanSubjectName(noteItem.subject || '');
-            if (cleanedSubj && cleanedSubj.length > 0 && !cleanedSubj.toLowerCase().includes('unit')) {
-              return cleanedSubj;
-            }
-            return cleanSubjectName(noteItem.title || '');
-          })
-          .filter((subj): subj is string => !!subj && subj.length > 0)
-      )
-    );
-
-    if (subjectsFromNotes.length > 0) {
-      return subjectsFromNotes;
-    }
-
-    return getSubjectsForActiveFilter(selectedYear, bundle.semester || selectedSemester)
-      .filter(s => !s.isComingSoon)
-      .map(s => cleanSubjectName(s.name));
-  };
-
   return (
     <div className="dashboard-container container fade-in">
       {/* Background blobs */}
@@ -482,9 +421,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 )}
               </div>
               <div className="subject-cards-grid">
-                {getSubjectsForActiveFilter(selectedYear, selectedSemester)
-                  .filter(subject => selectedSubject === null || subject.name.toLowerCase() === selectedSubject.toLowerCase())
-                  .map((subject, i) => {
+                {getSubjectsForActiveFilter(selectedYear, selectedSemester).map((subject, i) => {
                   if (subject.isComingSoon) {
                     return (
                       <div key={i} className="subject-card coming-soon">
@@ -559,8 +496,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       return sum + (note ? note.price : 99);
                     }, 0);
 
-                    const subjectsList = getBundleSubjectsList(bundle);
-
                     return (
                       <div key={bundle.id} className="bundle-banner-card fade-in">
                         {/* Column 1: Details */}
@@ -572,18 +507,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           <p className="bundle-banner-desc">{bundle.description}</p>
                         </div>
 
-                        {/* Column 2: Subjects Included */}
+                        {/* Column 2: Included Resources */}
                         <div className="bundle-banner-includes">
-                          <div className="bundle-banner-includes-title">Subjects Included</div>
+                          <div className="bundle-banner-includes-title">Resources Included</div>
                           <ul className="bundle-banner-includes-list">
-                            {subjectsList.map((subjectName, idx) => (
-                              <li key={idx} className="bundle-banner-includes-item">
-                                <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '600' }}>
-                                  {subjectName}
-                                </span>
-                              </li>
-                            ))}
+                            {bundle.notesIds.map(noteId => {
+                              const noteItem = notes.find(n => n.id === noteId);
+                              return (
+                                <li key={noteId} className="bundle-banner-includes-item">
+                                  <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {noteItem ? noteItem.title : 'Engineering Lecture Notes'}
+                                  </span>
+                                </li>
+                              );
+                            })}
                           </ul>
                         </div>
 
@@ -655,8 +593,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       return sum + (note ? note.price : 99);
                     }, 0);
 
-                    const subjectsList = getBundleSubjectsList(bundle);
-
                     return (
                       <div key={bundle.id} className="bundle-banner-card fade-in" style={{ borderColor: 'rgba(96, 165, 250, 0.25)' }}>
                         {/* Column 1: Details */}
@@ -668,18 +604,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           <p className="bundle-banner-desc">{bundle.description}</p>
                         </div>
 
-                        {/* Column 2: Subjects Included */}
+                        {/* Column 2: Included Resources */}
                         <div className="bundle-banner-includes">
-                          <div className="bundle-banner-includes-title">Subject Included</div>
+                          <div className="bundle-banner-includes-title">Resources Included</div>
                           <ul className="bundle-banner-includes-list">
-                            {subjectsList.map((subjectName, idx) => (
-                              <li key={idx} className="bundle-banner-includes-item">
-                                <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '600' }}>
-                                  {subjectName} (All Units & PYQ Solutions)
-                                </span>
-                              </li>
-                            ))}
+                            {bundle.notesIds.map(noteId => {
+                              const noteItem = notes.find(n => n.id === noteId);
+                              return (
+                                <li key={noteId} className="bundle-banner-includes-item">
+                                  <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {noteItem ? noteItem.title : 'Engineering Lecture Notes'}
+                                  </span>
+                                </li>
+                              );
+                            })}
                           </ul>
                         </div>
 
