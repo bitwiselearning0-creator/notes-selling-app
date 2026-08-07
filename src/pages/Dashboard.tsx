@@ -753,23 +753,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         }, 0);
 
                         const getBundleSubjectsList = (b: Bundle): string[] => {
-                          // 1. If b.subjects was explicitly selected when creating combo, return b.subjects ONLY
-                          if (b.subjects && Array.isArray(b.subjects) && b.subjects.length > 0) {
+                          if (b.subjects && Array.isArray(b.subjects) && b.subjects.length >= 5) {
                             return b.subjects;
                           }
-                          // 2. If b.subjects is missing, derive unique subjects from notes
-                          const uniqueSubjsFromNotes = Array.from(
-                            new Set(
-                              b.notesIds
-                                .map(id => notes.find(n => n.id === id)?.subject)
-                                .filter((s): s is string => !!s)
-                            )
-                          );
-                          if (uniqueSubjsFromNotes.length > 0) {
-                            return uniqueSubjsFromNotes;
+                          const baseSubjects = getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
+                          const extraSubjects = (b.subjects && Array.isArray(b.subjects)) ? b.subjects : [];
+                          const notesSubjects = b.notesIds
+                            .map(id => notes.find(n => n.id === id)?.subject)
+                            .filter((s): s is string => !!s);
+
+                          const combined = Array.from(new Set([...baseSubjects, ...extraSubjects, ...notesSubjects]));
+                          if (!combined.some(s => s.toLowerCase().includes('pyq'))) {
+                            combined.push('PYQs & Past Solved Papers');
                           }
-                          // 3. Default fallback
-                          return getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
+                          return combined;
                         };
 
                         const includedSubjectsList = getBundleSubjectsList(bundle);

@@ -155,8 +155,11 @@ export const INITIAL_BUNDLES: Bundle[] = [
       'Object Oriented Programming with Java',
       'Math IV',
       'Technical Communication',
+      'Cyber Security',
+      'Python Programming',
       'UHV',
-      'Energy Science and Engineering'
+      'Energy Science and Engineering',
+      'PYQs & Past Solved Papers'
     ],
     type: 'semester'
   },
@@ -175,8 +178,11 @@ export const INITIAL_BUNDLES: Bundle[] = [
       'Discrete Structures & Theory of Logic',
       'Math IV',
       'Technical Communication',
+      'Cyber Security',
+      'Python Programming',
       'UHV',
-      'Energy Science and Engineering'
+      'Energy Science and Engineering',
+      'PYQs & Past Solved Papers'
     ],
     type: 'semester'
   }
