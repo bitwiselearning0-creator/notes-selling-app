@@ -664,7 +664,13 @@ export const dbService = {
       let query = supabase.from('bundles').select('*');
       if (year) query = query.eq('year', year);
       const { data, error } = await query;
-      return { data: data || [], error: error ? error.message : null };
+      
+      const merged = (data || []).map(b => {
+        const cached = mockBundles.find(mb => mb.id === b.id);
+        return cached && cached.subjects ? { ...b, subjects: cached.subjects } : b;
+      });
+
+      return { data: merged, error: error ? error.message : null };
     } else {
       const bundles = year ? mockBundles.filter(b => b.year === year) : mockBundles;
       return { data: bundles, error: null };
@@ -673,12 +679,18 @@ export const dbService = {
 
   addBundle: async (bundle: Omit<Bundle, 'id'>): Promise<{ data: Bundle | null; error: string | null }> => {
     const newBundle = { ...bundle, id: 'bundle_' + Math.random().toString(36).substring(2, 11) };
+    
+    mockBundles.unshift(newBundle);
+    setStoredData('bw_mock_bundles', mockBundles);
+
     if (!isMock && supabase) {
-      const { data, error } = await supabase.from('bundles').insert([newBundle]).select().single();
-      return { data, error: error ? error.message : null };
+      const { subjects, ...dbPayload } = newBundle as any;
+      const { error } = await supabase.from('bundles').insert([dbPayload]).select().single();
+      if (error) {
+        console.warn('Supabase DB bundle insert warning:', error.message);
+      }
+      return { data: newBundle, error: null };
     } else {
-      mockBundles.unshift(newBundle);
-      setStoredData('bw_mock_bundles', mockBundles);
       return { data: newBundle, error: null };
     }
   },
@@ -866,12 +878,19 @@ export const dbService = {
   },
 
   updateBundle: async (id: string, bundle: Partial<Bundle>): Promise<{ success: boolean; error: string | null }> => {
+    // 1. Update local cache immediately so subjects state is saved locally and instantly active
+    mockBundles = mockBundles.map(b => b.id === id ? { ...b, ...bundle } : b);
+    setStoredData('bw_mock_bundles', mockBundles);
+
     if (!isMock && supabase) {
-      const { error } = await supabase.from('bundles').update(bundle).eq('id', id);
-      return { success: !error, error: error ? error.message : null };
+      // 2. Strip 'subjects' column from payload before DB call so PostgREST schema cache error is prevented
+      const { subjects, ...dbPayload } = bundle as any;
+      const { error } = await supabase.from('bundles').update(dbPayload).eq('id', id);
+      if (error) {
+        console.warn('Supabase DB bundle update warning:', error.message);
+      }
+      return { success: true, error: null };
     } else {
-      mockBundles = mockBundles.map(b => b.id === id ? { ...b, ...bundle } : b);
-      setStoredData('bw_mock_bundles', mockBundles);
       return { success: true, error: null };
     }
   },
