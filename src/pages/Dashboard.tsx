@@ -753,20 +753,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         }, 0);
 
                         const getBundleSubjectsList = (b: Bundle): string[] => {
-                          if (b.subjects && Array.isArray(b.subjects) && b.subjects.length >= 5) {
-                            return b.subjects;
-                          }
-                          const baseSubjects = getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
-                          const extraSubjects = (b.subjects && Array.isArray(b.subjects)) ? b.subjects : [];
-                          const notesSubjects = b.notesIds
-                            .map(id => notes.find(n => n.id === id)?.subject)
-                            .filter((s): s is string => !!s);
+                          const items: string[] = [];
 
-                          const combined = Array.from(new Set([...baseSubjects, ...extraSubjects, ...notesSubjects]));
-                          if (!combined.some(s => s.toLowerCase().includes('pyq'))) {
-                            combined.push('PYQs & Past Solved Papers');
+                          // 1. Include exact subjects selected for this semester combo in Admin Panel
+                          if (b.subjects && Array.isArray(b.subjects) && b.subjects.length > 0) {
+                            b.subjects.forEach(sub => {
+                              if (!items.includes(sub)) {
+                                items.push(sub);
+                              }
+                            });
                           }
-                          return combined;
+
+                          // 2. Include exact selected PYQs or notes from notesIds
+                          if (b.notesIds && Array.isArray(b.notesIds)) {
+                            b.notesIds.forEach(id => {
+                              const noteItem = notes.find(n => n.id === id);
+                              if (noteItem) {
+                                if (noteItem.type === 'pyqs') {
+                                  const pyqTitle = noteItem.title || `${noteItem.subject} PYQs`;
+                                  if (!items.includes(pyqTitle)) {
+                                    items.push(pyqTitle);
+                                  }
+                                } else if (noteItem.subject && !items.includes(noteItem.subject)) {
+                                  items.push(noteItem.subject);
+                                }
+                              }
+                            });
+                          }
+
+                          // Fallback only if no subjects or notesIds exist at all
+                          if (items.length === 0) {
+                            return getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
+                          }
+
+                          return items;
                         };
 
                         const includedSubjectsList = getBundleSubjectsList(bundle);
