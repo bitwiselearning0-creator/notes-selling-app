@@ -265,8 +265,8 @@ function App() {
           </div>
         </div>
       )}
-      {/* Navigation Header (Hidden in App Mode) */}
-      {!isAppMode && (
+      {/* Navigation Header (Hidden in App Mode or Viewer Mode) */}
+      {!isAppMode && currentPage !== 'viewer' && (
         <Navbar 
           user={currentUser} 
           onLogout={handleLogout} 
@@ -351,7 +351,7 @@ function App() {
         )}
 
         {/* App Mode Glowing Card Footer */}
-        {isAppMode && (
+        {isAppMode && currentPage !== 'viewer' && (
           <div className="app-glowing-footer" style={{ padding: '0 16px 24px 16px', marginTop: 'auto', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
             <div className="glass-card" style={{
               padding: '10px 14px',
@@ -368,22 +368,14 @@ function App() {
               gap: '4px',
               margin: '20px auto 0 auto'
             }}>
-              <span>Proudly Designed & Developed with ❤️ by</span>
-              <a 
-                href="https://www.instagram.com/hackwithsaket/" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                style={{ color: 'var(--color-yellow)', fontWeight: '700', textDecoration: 'none' }}
-              >
-                Saket Choudhary
-              </a>
+              <span>Bitwise Learning Academic Reader Engine</span>
             </div>
           </div>
         )}
       </main>
 
-      {/* Footer Section (Hidden in App Mode) */}
-      {!isAppMode && (
+      {/* Footer Section (Hidden in App Mode or Viewer Mode) */}
+      {!isAppMode && currentPage !== 'viewer' && (
         <footer className="footer">
           <div className="container">
             <div className="footer-row">
@@ -443,17 +435,6 @@ function App() {
 
             <div className="footer-bottom" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
               <p>&copy; {new Date().getFullYear()} Bitwise Learning. All rights reserved. Created for BTech Learners.</p>
-              <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>Proudly Designed & Developed with ❤️ by</span>
-                <a 
-                  href="https://www.instagram.com/hackwithsaket/" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  style={{ color: 'var(--color-yellow)', fontWeight: '700', textDecoration: 'none' }}
-                >
-                  Saket Choudhary
-                </a>
-              </p>
             </div>
           </div>
         </footer>
