@@ -158,8 +158,7 @@ export const INITIAL_BUNDLES: Bundle[] = [
       'Cyber Security',
       'Python Programming',
       'UHV',
-      'Energy Science and Engineering',
-      'PYQs & Past Solved Papers'
+      'Energy Science and Engineering'
     ],
     type: 'semester'
   },
@@ -181,8 +180,7 @@ export const INITIAL_BUNDLES: Bundle[] = [
       'Cyber Security',
       'Python Programming',
       'UHV',
-      'Energy Science and Engineering',
-      'PYQs & Past Solved Papers'
+      'Energy Science and Engineering'
     ],
     type: 'semester'
   }
