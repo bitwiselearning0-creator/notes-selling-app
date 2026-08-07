@@ -209,10 +209,7 @@ export interface UserProfile {
 // Global Auth & DB state in Mock Mode
 let mockUsers = getStoredData<UserProfile[]>('bw_mock_users', []);
 let mockPurchasesV2 = getStoredData<Purchase[]>('bw_mock_purchases_v2', []);
-let mockBundles = getStoredData<Bundle[]>('bw_mock_bundles', INITIAL_BUNDLES).map(b => {
-  const init = INITIAL_BUNDLES.find(ib => ib.id === b.id);
-  return init ? { ...b, subjects: init.subjects } : b;
-});
+let mockBundles = getStoredData<Bundle[]>('bw_mock_bundles', INITIAL_BUNDLES);
 let currentUser = getStoredData<UserProfile | null>('bw_mock_current_user', null);
 let mockNotes = getStoredData<Note[]>('bw_mock_notes', INITIAL_NOTES);
 let mockPlaylists = getStoredData<Playlist[]>('bw_mock_playlists', INITIAL_PLAYLISTS);
