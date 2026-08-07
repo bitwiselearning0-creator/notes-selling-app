@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, Lock, Loader2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Lock, Loader2, AlertTriangle } from 'lucide-react';
 import type { Note } from '../lib/supabase';
 
 interface PDFViewerProps {
@@ -106,6 +106,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   const [rotation, setRotation] = useState(0);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [scrollPage, setScrollPage] = useState(1);
+  const [jumpPageInput, setJumpPageInput] = useState<string>('1');
   const [pdfjsLoaded, setPdfjsLoaded] = useState(false);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [loadingDoc, setLoadingDoc] = useState(false);
@@ -114,6 +115,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollTopRef = useRef<number>(0);
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // 1. Load PDF.js from CDN dynamically
   useEffect(() => {
@@ -189,6 +191,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     loadDocument();
   }, [pdfjsLoaded, pdfUrl]);
 
+  // Sync jumpPageInput with active scroll page
+  useEffect(() => {
+    setJumpPageInput(scrollPage.toString());
+  }, [scrollPage]);
+
   // 4. Anti-copying and anti-printing bindings
   useEffect(() => {
     const preventSelection = (e: Event) => {
@@ -210,10 +217,29 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     };
   }, []);
 
-  // Calculate pages count
+  // Calculate total pages count
   const totalPages = isUnlocked ? (pdfDoc ? pdfDoc.numPages : note.pagesCount) : Math.min(2, pdfDoc ? pdfDoc.numPages : 2);
 
-  // 5. Handle scroll position: Page Counter & Auto-Hide/Show Header-Footer Controls
+  // 5. Jump directly to specific page number function
+  const handleJumpToPage = (targetNum?: number) => {
+    const pageToJump = targetNum !== undefined ? targetNum : parseInt(jumpPageInput, 10);
+    if (isNaN(pageToJump)) return;
+    
+    const validPage = Math.min(totalPages, Math.max(1, pageToJump));
+    setScrollPage(validPage);
+    setJumpPageInput(validPage.toString());
+
+    const targetEl = pageRefs.current[validPage - 1];
+    if (targetEl && scrollContainerRef.current) {
+      const topPos = targetEl.offsetTop - 85;
+      scrollContainerRef.current.scrollTo({
+        top: topPos,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  // 6. Handle scroll position: Page Counter & Auto-Hide/Show Header-Footer Controls
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     const scrollTop = target.scrollTop;
@@ -297,7 +323,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         </button>
         
         <div className="viewer-title-area" style={{ textAlign: 'center', flexGrow: 1, padding: '0 12px' }}>
-          <h2 className="viewer-title" style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '350px', margin: 0 }}>
+          <h2 className="viewer-title" style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '300px', margin: 0 }}>
             {note.title}
           </h2>
           <span className="viewer-subtitle" style={{ fontSize: '10px', color: isUnlocked ? '#22c55e' : 'var(--color-yellow)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginTop: '2px' }}>
@@ -305,38 +331,153 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           </span>
         </div>
 
-        {/* Working Zoom In & Zoom Out Controls */}
-        <div className="viewer-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button 
-            className="btn-icon" 
-            onClick={() => setZoom(z => Math.max(55, z - 15))} 
-            title="Zoom Out" 
-            style={{ width: '36px', height: '36px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-white)', cursor: 'pointer', transition: 'all 0.2s ease' }}
-          >
-            <ZoomOut size={16} />
-          </button>
-          
-          <span className="zoom-text" style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-white)', minWidth: '42px', textAlign: 'center' }}>
-            {zoom}%
-          </span>
-          
-          <button 
-            className="btn-icon" 
-            onClick={() => setZoom(z => Math.min(200, z + 15))} 
-            title="Zoom In" 
-            style={{ width: '36px', height: '36px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-white)', cursor: 'pointer', transition: 'all 0.2s ease' }}
-          >
-            <ZoomIn size={16} />
-          </button>
+        {/* Page Jump & Zoom Controls Container */}
+        <div className="viewer-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Direct Page Jump Input Widget */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            background: 'rgba(255, 255, 255, 0.06)',
+            border: '1px solid var(--glass-border)',
+            padding: '4px 8px',
+            borderRadius: '10px'
+          }}>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleJumpToPage(scrollPage - 1);
+              }}
+              disabled={scrollPage <= 1}
+              title="Previous Page"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: scrollPage <= 1 ? 'rgba(255,255,255,0.2)' : 'var(--color-white)',
+                cursor: scrollPage <= 1 ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '2px'
+              }}
+            >
+              <ChevronLeft size={14} />
+            </button>
 
-          <button 
-            className="btn-icon" 
-            onClick={() => setRotation(r => (r + 90) % 360)} 
-            title="Rotate Page" 
-            style={{ width: '36px', height: '36px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-muted)', cursor: 'pointer', transition: 'all 0.2s ease' }}
-          >
-            <RotateCw size={16} />
-          </button>
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>Pg</span>
+            
+            <input 
+              type="number"
+              min={1}
+              max={totalPages}
+              value={jumpPageInput}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setJumpPageInput(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                  handleJumpToPage();
+                }
+              }}
+              onFocus={(e) => e.target.select()}
+              style={{
+                width: '38px',
+                background: 'rgba(0, 0, 0, 0.5)',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
+                borderRadius: '6px',
+                color: 'var(--color-white)',
+                fontSize: '12px',
+                fontWeight: '700',
+                textAlign: 'center',
+                padding: '2px 2px',
+                outline: 'none'
+              }}
+            />
+
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>/ {totalPages}</span>
+
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleJumpToPage();
+              }}
+              title="Jump to Page"
+              style={{
+                background: 'var(--color-yellow)',
+                color: '#000',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '3px 8px',
+                fontSize: '11px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              Go
+            </button>
+
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleJumpToPage(scrollPage + 1);
+              }}
+              disabled={scrollPage >= totalPages}
+              title="Next Page"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: scrollPage >= totalPages ? 'rgba(255,255,255,0.2)' : 'var(--color-white)',
+                cursor: scrollPage >= totalPages ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '2px'
+              }}
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+
+          {/* Zoom In & Zoom Out Controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button 
+              className="btn-icon" 
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoom(z => Math.max(55, z - 15));
+              }} 
+              title="Zoom Out" 
+              style={{ width: '34px', height: '34px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-white)', cursor: 'pointer', transition: 'all 0.2s ease' }}
+            >
+              <ZoomOut size={15} />
+            </button>
+            
+            <span className="zoom-text" style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-white)', minWidth: '38px', textAlign: 'center' }}>
+              {zoom}%
+            </span>
+            
+            <button 
+              className="btn-icon" 
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoom(z => Math.min(200, z + 15));
+              }} 
+              title="Zoom In" 
+              style={{ width: '34px', height: '34px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-white)', cursor: 'pointer', transition: 'all 0.2s ease' }}
+            >
+              <ZoomIn size={15} />
+            </button>
+
+            <button 
+              className="btn-icon" 
+              onClick={(e) => {
+                e.stopPropagation();
+                setRotation(r => (r + 90) % 360);
+              }} 
+              title="Rotate Page" 
+              style={{ width: '34px', height: '34px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-muted)', cursor: 'pointer', transition: 'all 0.2s ease' }}
+            >
+              <RotateCw size={15} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -416,7 +557,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               const isSecondPageLocked = !isUnlocked && pageNum === 2;
 
               return (
-                <div key={idx} style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                <div 
+                  key={idx} 
+                  ref={el => { pageRefs.current[idx] = el; }}
+                  style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}
+                >
                   <CanvasPage 
                     pageNumber={pageNum} 
                     pdfDoc={pdfDoc} 
@@ -480,7 +625,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         )}
       </div>
 
-      {/* Floating Pill Page Indicator Bar (Auto-hides on scroll) */}
+      {/* Floating Pill Page Indicator & Jump Bar (Auto-hides on scroll) */}
       {pdfjsLoaded && !loadError && (
         <div 
           className="viewer-footer glass-card" 
@@ -496,28 +641,71 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '10px 20px',
+            padding: '8px 18px',
             borderRadius: '16px',
             border: '1px solid var(--glass-border)',
             background: 'rgba(10, 17, 43, 0.88)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-            gap: '16px'
+            gap: '12px'
           }}
         >
-          <span className="page-counter" style={{ fontSize: '13px', color: 'var(--color-muted)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            Viewing Page <strong style={{ color: 'var(--color-white)', fontSize: '16px' }}>{scrollPage}</strong> of <strong style={{ color: 'var(--color-white)', fontSize: '16px' }}>{totalPages}</strong> 
-            {isUnlocked ? (
-              <span className="locked-tag" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.25)', padding: '3px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                ✦ Full Access
-              </span>
-            ) : (
-              <span className="locked-tag" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--color-yellow)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '3px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Preview Limit
-              </span>
-            )}
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleJumpToPage(scrollPage - 1);
+            }}
+            disabled={scrollPage <= 1}
+            title="Previous Page"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '8px',
+              color: scrollPage <= 1 ? 'rgba(255,255,255,0.2)' : 'var(--color-white)',
+              cursor: scrollPage <= 1 ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '5px'
+            }}
+          >
+            <ChevronLeft size={16} />
+          </button>
+
+          <span className="page-counter" style={{ fontSize: '13px', color: 'var(--color-muted)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            Page <strong style={{ color: 'var(--color-white)', fontSize: '16px' }}>{scrollPage}</strong> of <strong style={{ color: 'var(--color-white)', fontSize: '16px' }}>{totalPages}</strong> 
           </span>
+
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleJumpToPage(scrollPage + 1);
+            }}
+            disabled={scrollPage >= totalPages}
+            title="Next Page"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '8px',
+              color: scrollPage >= totalPages ? 'rgba(255,255,255,0.2)' : 'var(--color-white)',
+              cursor: scrollPage >= totalPages ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '5px'
+            }}
+          >
+            <ChevronRight size={16} />
+          </button>
+
+          {isUnlocked ? (
+            <span className="locked-tag" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.25)', padding: '3px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              ✦ Full Access
+            </span>
+          ) : (
+            <span className="locked-tag" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--color-yellow)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '3px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Preview Limit
+            </span>
+          )}
         </div>
       )}
     </div>
