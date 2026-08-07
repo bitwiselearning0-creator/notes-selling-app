@@ -198,6 +198,45 @@ const setStoredData = <T>(key: string, value: T): void => {
   localStorage.setItem(key, JSON.stringify(value));
 };
 
+export const encodeBundleDescription = (desc: string, subjects?: string[]): string => {
+  if (!subjects || subjects.length === 0) return desc || '';
+  const cleanDesc = (desc || '').replace(/\s*<!--SUBJECTS:.*?-->/s, '').trim();
+  const marker = `\n<!--SUBJECTS:${JSON.stringify(subjects)}-->`;
+  return cleanDesc + marker;
+};
+
+export const decodeBundleFromDb = (b: Bundle): Bundle => {
+  if (!b) return b;
+  let subjects = b.subjects;
+  let description = b.description || '';
+
+  const match = description.match(/<!--SUBJECTS:(.*?)-->/s);
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        subjects = parsed;
+      }
+    } catch (e) {
+      console.warn('Error parsing subjects from bundle description:', e);
+    }
+    description = description.replace(/\s*<!--SUBJECTS:.*?-->/s, '').trim();
+  }
+
+  if (!subjects || subjects.length === 0) {
+    const init = INITIAL_BUNDLES.find(ib => ib.id === b.id);
+    if (init && init.subjects) {
+      subjects = init.subjects;
+    }
+  }
+
+  return {
+    ...b,
+    description,
+    subjects: subjects || []
+  };
+};
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -665,15 +704,19 @@ export const dbService = {
       if (year) query = query.eq('year', year);
       const { data, error } = await query;
       
-      const merged = (data || []).map(b => {
+      const processed = (data || []).map(b => {
+        const decoded = decodeBundleFromDb(b);
         const cached = mockBundles.find(mb => mb.id === b.id);
-        return cached && cached.subjects ? { ...b, subjects: cached.subjects } : b;
+        if (cached && cached.subjects && cached.subjects.length > 0) {
+          return { ...decoded, subjects: cached.subjects };
+        }
+        return decoded;
       });
 
-      return { data: merged, error: error ? error.message : null };
+      return { data: processed, error: error ? error.message : null };
     } else {
       const bundles = year ? mockBundles.filter(b => b.year === year) : mockBundles;
-      return { data: bundles, error: null };
+      return { data: bundles.map(decodeBundleFromDb), error: null };
     }
   },
 
@@ -685,6 +728,7 @@ export const dbService = {
 
     if (!isMock && supabase) {
       const { subjects, ...dbPayload } = newBundle as any;
+      dbPayload.description = encodeBundleDescription(dbPayload.description || '', subjects);
       const { error } = await supabase.from('bundles').insert([dbPayload]).select().single();
       if (error) {
         console.warn('Supabase DB bundle insert warning:', error.message);
@@ -883,8 +927,11 @@ export const dbService = {
     setStoredData('bw_mock_bundles', mockBundles);
 
     if (!isMock && supabase) {
-      // 2. Strip 'subjects' column from payload before DB call so PostgREST schema cache error is prevented
+      // 2. Strip 'subjects' column from payload & encode into description before DB call
       const { subjects, ...dbPayload } = bundle as any;
+      if (dbPayload.description || subjects) {
+        dbPayload.description = encodeBundleDescription(dbPayload.description || '', subjects || bundle.subjects);
+      }
       const { error } = await supabase.from('bundles').update(dbPayload).eq('id', id);
       if (error) {
         console.warn('Supabase DB bundle update warning:', error.message);
