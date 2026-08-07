@@ -28,6 +28,13 @@ function App() {
 
   // Check user session on mount & handle hash routing (e.g. #admin)
   useEffect(() => {
+    // 0. Cache buster for App Mode to clear stale cached state from yesterday
+    const BUILD_VERSION = 'v2_2026_08_07';
+    if (localStorage.getItem('bw_build_ver') !== BUILD_VERSION) {
+      localStorage.setItem('bw_build_ver', BUILD_VERSION);
+      localStorage.removeItem('bw_mock_bundles');
+    }
+
     // 1. Session check
     const user = dbService.getCurrentUser();
     if (user) {
