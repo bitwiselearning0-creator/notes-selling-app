@@ -368,7 +368,15 @@ function App() {
               gap: '4px',
               margin: '20px auto 0 auto'
             }}>
-              <span>Bitwise Learning Academic Reader Engine</span>
+              <span>Proudly Designed & Developed with ❤️ by</span>
+              <a 
+                href="https://www.instagram.com/hackwithsaket/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                style={{ color: 'var(--color-yellow)', fontWeight: '700', textDecoration: 'none' }}
+              >
+                Saket Choudhary
+              </a>
             </div>
           </div>
         )}
@@ -435,6 +443,17 @@ function App() {
 
             <div className="footer-bottom" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
               <p>&copy; {new Date().getFullYear()} Bitwise Learning. All rights reserved. Created for BTech Learners.</p>
+              <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>Proudly Designed & Developed with ❤️ by</span>
+                <a 
+                  href="https://www.instagram.com/hackwithsaket/" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  style={{ color: 'var(--color-yellow)', fontWeight: '700', textDecoration: 'none' }}
+                >
+                  Saket Choudhary
+                </a>
+              </p>
             </div>
           </div>
         </footer>
