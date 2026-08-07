@@ -159,6 +159,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
     loadDashboardData();
   }, [selectedYear, user]);
 
+  // Handle physical/browser back button for Dashboard Subject Detail View and Search
+  useEffect(() => {
+    const handlePopState = () => {
+      if (selectedSubject !== null) {
+        setSelectedSubject(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (searchQuery.trim() !== '') {
+        setSearchQuery('');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [selectedSubject, searchQuery]);
+
   // Determine semesters in active year
   const getSemestersForYear = () => {
     switch (selectedYear) {

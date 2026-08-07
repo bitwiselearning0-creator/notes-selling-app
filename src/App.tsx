@@ -12,6 +12,7 @@ import { Profile } from './pages/Profile';
 import { dbService } from './lib/supabase';
 import type { UserProfile, Note } from './lib/supabase';
 import { BookOpen, Library, ShieldCheck, User } from 'lucide-react';
+import { App as CapApp } from '@capacitor/app';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<string>('landing');
@@ -25,6 +26,49 @@ function App() {
   const [readingNoteUnlocked, setReadingNoteUnlocked] = useState(false);
   const [isAppMode, setIsAppMode] = useState(false);
   const [blackout, setBlackout] = useState(false);
+  const [previousPage, setPreviousPage] = useState<string>('dashboard');
+
+  // Unified single-step back navigation handler
+  const handleBackNavigation = () => {
+    if (currentPage === 'viewer' || readingNote !== null) {
+      setReadingNote(null);
+      setCurrentPage(previousPage || 'dashboard');
+      return true;
+    }
+    if (isAppMode && (currentPage === 'library' || currentPage === 'profile')) {
+      setCurrentPage('dashboard');
+      window.location.hash = '#catalog';
+      return true;
+    }
+    return false;
+  };
+
+  // Hardware back button and browser popstate listener
+  useEffect(() => {
+    let capListener: any = null;
+    try {
+      capListener = CapApp.addListener('backButton', () => {
+        const handled = handleBackNavigation();
+        if (!handled && (window as any).Capacitor) {
+          CapApp.minimizeApp();
+        }
+      });
+    } catch (e) {
+      // Ignored outside Capacitor container
+    }
+
+    const handlePopState = () => {
+      handleBackNavigation();
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      if (capListener && typeof capListener.remove === 'function') {
+        capListener.remove();
+      }
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [currentPage, readingNote, previousPage, isAppMode]);
 
   // Check user session on mount & handle hash routing (e.g. #admin)
   useEffect(() => {
@@ -204,8 +248,6 @@ function App() {
     setCurrentUser(null);
     window.location.hash = '#home';
   };
-
-  const [previousPage, setPreviousPage] = useState<string>('dashboard');
 
   // Navigates to PDF viewer securely checking if the notes are purchased
   const handleReadNote = async (note: Note) => {
