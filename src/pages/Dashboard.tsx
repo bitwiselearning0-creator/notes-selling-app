@@ -753,23 +753,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         }, 0);
 
                         const getBundleSubjectsList = (b: Bundle): string[] => {
-                          // 1. Return ONLY the exact subjects selected during combo creation in Admin Panel
+                          // 1. Return strictly every subject added in the Admin Panel for this bundle
                           if (b.subjects && Array.isArray(b.subjects) && b.subjects.length > 0) {
-                            return b.subjects.filter(sub => sub && !sub.toLowerCase().includes('pyq'));
+                            return b.subjects;
                           }
 
-                          // 2. Fallback for older objects: extract subjects from notesIds
+                          // 2. Fallback for older bundle objects without subjects array: extract unique subjects from notesIds
                           if (b.notesIds && Array.isArray(b.notesIds) && b.notesIds.length > 0) {
                             const fromNotes = b.notesIds
                               .map(id => notes.find(n => n.id === id)?.subject)
-                              .filter((s): s is string => !!s && !s.toLowerCase().includes('pyq'));
+                              .filter((s): s is string => !!s);
                             const uniqueFromNotes = Array.from(new Set(fromNotes));
                             if (uniqueFromNotes.length > 0) {
                               return uniqueFromNotes;
                             }
                           }
 
-                          // 3. Fallback only if no subjects or notes attached
+                          // 3. Absolute fallback only if no subjects or notes attached
                           return getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
                         };
 
