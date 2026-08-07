@@ -755,24 +755,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         const getBundleSubjectsList = (b: Bundle): string[] => {
                           const items: string[] = [];
 
-                          // 1. Include exact subjects selected for this semester combo in Admin Panel
+                          // 1. Include subject names selected for this semester combo
                           if (b.subjects && Array.isArray(b.subjects) && b.subjects.length > 0) {
                             b.subjects.forEach(sub => {
-                              if (!items.includes(sub)) {
+                              if (sub && !items.includes(sub)) {
                                 items.push(sub);
                               }
                             });
                           }
 
-                          // 2. Include exact selected PYQs or notes from notesIds
+                          // 2. Extract subject names (never file titles) from notesIds if present
                           if (b.notesIds && Array.isArray(b.notesIds)) {
                             b.notesIds.forEach(id => {
                               const noteItem = notes.find(n => n.id === id);
                               if (noteItem) {
                                 if (noteItem.type === 'pyqs') {
-                                  const pyqTitle = noteItem.title || `${noteItem.subject} PYQs`;
-                                  if (!items.includes(pyqTitle)) {
-                                    items.push(pyqTitle);
+                                  if (!items.includes('PYQs & Past Solved Papers')) {
+                                    items.push('PYQs & Past Solved Papers');
                                   }
                                 } else if (noteItem.subject && !items.includes(noteItem.subject)) {
                                   items.push(noteItem.subject);
@@ -781,9 +780,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             });
                           }
 
-                          // Fallback only if no subjects or notesIds exist at all
-                          if (items.length === 0) {
-                            return getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
+                          // 3. Fallback to all base subjects if list is empty or short
+                          if (items.length < 3) {
+                            const baseSubjects = getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
+                            baseSubjects.forEach(sub => {
+                              if (!items.includes(sub)) {
+                                items.push(sub);
+                              }
+                            });
+                            if (!items.some(s => s.toLowerCase().includes('pyq'))) {
+                              items.push('PYQs & Past Solved Papers');
+                            }
                           }
 
                           return items;
