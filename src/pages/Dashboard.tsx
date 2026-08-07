@@ -653,6 +653,87 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <Loader2 className="animate-spin" size={24} color="var(--color-blue-light)" />
               <span>Loading catalog materials...</span>
             </div>
+          ) : searchQuery.trim() ? (
+            /* Live Search Results View */
+            <div className="search-results-container fade-in" style={{ marginBottom: '40px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '700' }} className="blue-accent">
+                  Search Results for "{searchQuery}"
+                </h3>
+                <button 
+                  className="btn-secondary"
+                  style={{ fontSize: '12px', padding: '4px 12px' }}
+                  onClick={() => setSearchQuery('')}
+                >
+                  Clear Search
+                </button>
+              </div>
+
+              {/* Matching Subject Cards */}
+              {getSubjectsForActiveFilter(selectedYear, selectedSemester)
+                .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase().trim())).length > 0 && (
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700' }}>
+                      Matching Subjects:
+                    </div>
+                    <div className="subject-cards-grid">
+                      {getSubjectsForActiveFilter(selectedYear, selectedSemester)
+                        .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase().trim()))
+                        .map((subject, i) => {
+                          const subjectNotesCount = notes.filter(n => n.subject.toLowerCase() === subject.name.toLowerCase() && n.type !== 'pyqs').length;
+                          const subjectPyqsCount = notes.filter(n => n.subject.toLowerCase() === subject.name.toLowerCase() && n.type === 'pyqs').length;
+                          const subjectVideosCount = playlists.filter(p => p.subject.toLowerCase() === subject.name.toLowerCase()).length;
+
+                          return (
+                            <div 
+                              key={i} 
+                              className="subject-card"
+                              style={{ cursor: 'pointer', touchAction: 'manipulation' }}
+                              onClick={() => {
+                                setSelectedSubject(subject.name);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                            >
+                              <div className="subject-card-top">
+                                <div className="subject-card-icon-box"><BookOpen size={16} /></div>
+                                <span className="subject-card-badge">{typeof subject.semester === 'number' ? `Sem ${subject.semester}` : subject.semester}</span>
+                              </div>
+                              <div className="subject-card-name" title={subject.name}>{subject.name}</div>
+                              <div className="subject-card-stats">{subjectNotesCount} Notes • {subjectPyqsCount} PYQs {subjectVideosCount > 0 ? `• ${subjectVideosCount} Videos` : ''}</div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+              {/* Matching Notes & PYQs */}
+              {filteredNotes.length > 0 ? (
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700' }}>
+                    Matching Study Notes & PYQ Papers ({filteredNotes.length}):
+                  </div>
+                  <div className="notes-grid">
+                    {filteredNotes.map(note => (
+                      <NoteCard 
+                        key={note.id}
+                        note={note}
+                        isPurchased={purchasedIds.includes(note.id)}
+                        isLoggedIn={!!user}
+                        onPurchase={handlePurchaseTrigger}
+                        onRead={onReadNote}
+                        onNavigateToAuth={() => navigate('auth')}
+                        purchaseDetails={purchaseDetailsMap[note.id]}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="empty-state glass-card" style={{ padding: '30px 20px', borderRadius: '16px', border: '1px dashed var(--glass-border)', background: 'rgba(255,255,255,0.01)' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--color-muted)' }}>No study notes or subjects match "{searchQuery}". Try searching with another keyword.</span>
+                </div>
+              )}
+            </div>
           ) : (
             <>
               {/* Subject Cards Grid */}
