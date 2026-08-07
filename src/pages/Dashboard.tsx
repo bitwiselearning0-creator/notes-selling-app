@@ -753,33 +753,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         }, 0);
 
                         const getBundleSubjectsList = (b: Bundle): string[] => {
-                          const items: string[] = [];
-
-                          // 1. Include ONLY subjects explicitly selected for this semester combo in Admin Panel
+                          // 1. Return ONLY the exact subjects selected during combo creation in Admin Panel
                           if (b.subjects && Array.isArray(b.subjects) && b.subjects.length > 0) {
-                            b.subjects.forEach(sub => {
-                              if (sub && !sub.toLowerCase().includes('pyq') && !items.includes(sub)) {
-                                items.push(sub);
-                              }
-                            });
+                            return b.subjects.filter(sub => sub && !sub.toLowerCase().includes('pyq'));
                           }
 
-                          // 2. Extract subject names from notesIds (excluding PYQs)
-                          if (items.length === 0 && b.notesIds && Array.isArray(b.notesIds)) {
-                            b.notesIds.forEach(id => {
-                              const noteItem = notes.find(n => n.id === id);
-                              if (noteItem && noteItem.type !== 'pyqs' && noteItem.subject && !items.includes(noteItem.subject)) {
-                                items.push(noteItem.subject);
-                              }
-                            });
+                          // 2. Fallback for older objects: extract subjects from notesIds
+                          if (b.notesIds && Array.isArray(b.notesIds) && b.notesIds.length > 0) {
+                            const fromNotes = b.notesIds
+                              .map(id => notes.find(n => n.id === id)?.subject)
+                              .filter((s): s is string => !!s && !s.toLowerCase().includes('pyq'));
+                            const uniqueFromNotes = Array.from(new Set(fromNotes));
+                            if (uniqueFromNotes.length > 0) {
+                              return uniqueFromNotes;
+                            }
                           }
 
-                          // 3. Fallback to base semester subjects if no subjects exist
-                          if (items.length === 0) {
-                            return getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
-                          }
-
-                          return items;
+                          // 3. Fallback only if no subjects or notes attached
+                          return getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
                         };
 
                         const includedSubjectsList = getBundleSubjectsList(bundle);
