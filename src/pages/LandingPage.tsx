@@ -245,8 +245,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate, setSelectedY
               <CheckCircle2 style={{ color: 'var(--color-success)' }} size={24} />
             </div>
             <div>
-              <h4 style={{ fontSize: '18px', marginBottom: '8px' }}>Lifetime Library Access</h4>
-              <p style={{ color: 'var(--color-muted)', fontSize: '14px' }}>Once unlocked, you will get lifetime access to revision folders, subject updates, and exam alerts.</p>
+              <h4 style={{ fontSize: '18px', marginBottom: '8px' }}>6 Months Library Access</h4>
+              <p style={{ color: 'var(--color-muted)', fontSize: '14px' }}>Once unlocked, you will get 6 months full access to revision folders, subject updates, and exam alerts.</p>
             </div>
           </div>
         </div>
