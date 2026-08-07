@@ -571,6 +571,11 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
     ...notes.filter(n => n.year === bundleYear && n.semester === Number(bundleSemester)).map(n => n.subject)
   ]));
 
+  const availableSubjectsForEditingBundle = editingBundle ? Array.from(new Set([
+    ...getPredefinedSubjects(editingBundle.year, editingBundle.semester),
+    ...notes.filter(n => n.year === editingBundle.year && n.semester === Number(editingBundle.semester)).map(n => n.subject)
+  ])) : [];
+
   // Filter notes available for selection in the subject bundle
   const availableNotesForSubjBundle = notes.filter(
     n => n.year === subjBundleYear && n.semester === Number(subjBundleSemester) && n.subject.toLowerCase() === subjBundleSubject.toLowerCase()
@@ -1774,36 +1779,93 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                 />
               </div>
 
-              <div className="form-group">
-                <label>Manage Included Notes</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                  {notes
-                    .filter(n => n.year === editingBundle.year && n.semester === editingBundle.semester)
-                    .map(note => (
-                      <label key={note.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--color-white)', cursor: 'pointer', textTransform: 'none', fontWeight: '500' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={editingBundle.notesIds.includes(note.id)}
-                          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setEditingBundle({
-                                ...editingBundle,
-                                notesIds: [...editingBundle.notesIds, note.id]
-                              });
-                            } else {
-                              setEditingBundle({
-                                ...editingBundle,
-                                notesIds: editingBundle.notesIds.filter(id => id !== note.id)
-                              });
-                            }
-                          }}
-                        />
-                        <span>{note.title} <strong style={{ color: note.type === 'pyqs' ? '#60a5fa' : '#34d399', fontSize: '10px' }}>({note.type === 'pyqs' ? 'PYQ' : 'Notes'})</strong></span>
-                      </label>
-                    ))}
+              {/* For Semester Combos: Manage Included Subjects */}
+              {(editingBundle.type === 'semester' || !editingBundle.type) ? (
+                <div className="form-group">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <label style={{ margin: 0 }}>Manage Included Subjects (filtered by Year/Sem)</label>
+                    {availableSubjectsForEditingBundle.length > 0 && (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          type="button" 
+                          onClick={() => setEditingBundle({ ...editingBundle, subjects: [...availableSubjectsForEditingBundle] })}
+                          style={{ fontSize: '11px', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--color-yellow)', border: '1px solid var(--color-yellow)', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontWeight: '700' }}
+                        >
+                          Select All ({availableSubjectsForEditingBundle.length})
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => setEditingBundle({ ...editingBundle, subjects: [] })}
+                          style={{ fontSize: '11px', background: 'rgba(255,255,255,0.05)', color: 'var(--color-muted)', border: '1px solid var(--glass-border)', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer' }}
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                    {availableSubjectsForEditingBundle.map((subject, idx) => {
+                      const currentSubjects = editingBundle.subjects || [];
+                      const isChecked = currentSubjects.includes(subject);
+                      return (
+                        <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--color-white)', cursor: 'pointer', textTransform: 'none', fontWeight: '500' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditingBundle({
+                                  ...editingBundle,
+                                  subjects: [...currentSubjects, subject]
+                                });
+                              } else {
+                                setEditingBundle({
+                                  ...editingBundle,
+                                  subjects: currentSubjects.filter(s => s !== subject)
+                                });
+                              }
+                            }}
+                          />
+                          <span>{subject}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* For Subject Bundles: Manage Included Notes */
+                <div className="form-group">
+                  <label>Manage Included Notes</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                    {notes
+                      .filter(n => n.year === editingBundle.year && n.semester === editingBundle.semester)
+                      .map(note => (
+                        <label key={note.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--color-white)', cursor: 'pointer', textTransform: 'none', fontWeight: '500' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={editingBundle.notesIds.includes(note.id)}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditingBundle({
+                                  ...editingBundle,
+                                  notesIds: [...editingBundle.notesIds, note.id]
+                                });
+                              } else {
+                                setEditingBundle({
+                                  ...editingBundle,
+                                  notesIds: editingBundle.notesIds.filter(id => id !== note.id)
+                                });
+                              }
+                            }}
+                          />
+                          <span>{note.title} <strong style={{ color: note.type === 'pyqs' ? '#60a5fa' : '#34d399', fontSize: '10px' }}>({note.type === 'pyqs' ? 'PYQ' : 'Notes'})</strong></span>
+                        </label>
+                      ))}
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
