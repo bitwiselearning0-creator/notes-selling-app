@@ -205,8 +205,11 @@ function App() {
     window.location.hash = '#home';
   };
 
+  const [previousPage, setPreviousPage] = useState<string>('dashboard');
+
   // Navigates to PDF viewer securely checking if the notes are purchased
   const handleReadNote = async (note: Note) => {
+    setPreviousPage(currentPage);
     setReadingNote(note);
     const unlocked = await dbService.isNotesPurchased(note.id);
     setReadingNoteUnlocked(unlocked || note.price === 0);
@@ -345,7 +348,7 @@ function App() {
             isUnlocked={readingNoteUnlocked}
             onBack={() => {
               setReadingNote(null);
-              setCurrentPage('dashboard');
+              setCurrentPage(previousPage || 'dashboard');
             }}
             onUnlock={handleUnlockInViewer}
           />

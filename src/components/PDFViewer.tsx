@@ -321,6 +321,77 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         </button>
       )}
 
+      {/* Floating Zoom Controls Widget for Mobile App Mode */}
+      {!controlsVisible && (
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '16px',
+            zIndex: 1000001,
+            background: 'rgba(10, 17, 43, 0.88)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '30px',
+            padding: '6px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.6)'
+          }}
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoom(z => Math.max(60, z - 15));
+            }}
+            style={{
+              background: 'rgba(255,255,255,0.08)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '30px',
+              height: '30px',
+              color: 'var(--color-white)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+            title="Zoom Out"
+          >
+            <ZoomOut size={15} />
+          </button>
+
+          <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-white)', minWidth: '36px', textAlign: 'center' }}>
+            {zoom}%
+          </span>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoom(z => Math.min(220, z + 15));
+            }}
+            style={{
+              background: 'rgba(255,255,255,0.08)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '30px',
+              height: '30px',
+              color: 'var(--color-white)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+            title="Zoom In"
+          >
+            <ZoomIn size={15} />
+          </button>
+        </div>
+      )}
+
       {/* Premium Header Bar (Auto-hides on scroll) */}
       <div 
         className="viewer-header glass-card" 
