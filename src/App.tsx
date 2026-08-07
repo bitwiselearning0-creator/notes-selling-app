@@ -467,8 +467,8 @@ function App() {
         </footer>
       )}
 
-      {/* Bottom Navigation Tabs (App Mode Only) */}
-      {isAppMode && currentUser && (
+      {/* Bottom Navigation Tabs (App Mode Only, Hidden in Viewer Mode) */}
+      {isAppMode && currentUser && currentPage !== 'viewer' && (
         <div style={{
           position: 'fixed',
           bottom: 0,
