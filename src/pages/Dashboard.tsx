@@ -753,14 +753,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         }, 0);
 
                         const getBundleSubjectsList = (b: Bundle): string[] => {
+                          // 1. If b.subjects was explicitly selected when creating combo, return b.subjects ONLY
                           if (b.subjects && Array.isArray(b.subjects) && b.subjects.length > 0) {
                             return b.subjects;
                           }
-                          // Always return all configured subjects for this semester & year
-                          const allSemSubjects = getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
-                          if (allSemSubjects.length > 0) {
-                            return allSemSubjects;
-                          }
+                          // 2. If b.subjects is missing, derive unique subjects from notes
                           const uniqueSubjsFromNotes = Array.from(
                             new Set(
                               b.notesIds
@@ -768,7 +765,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 .filter((s): s is string => !!s)
                             )
                           );
-                          return uniqueSubjsFromNotes;
+                          if (uniqueSubjsFromNotes.length > 0) {
+                            return uniqueSubjsFromNotes;
+                          }
+                          // 3. Default fallback
+                          return getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
                         };
 
                         const includedSubjectsList = getBundleSubjectsList(bundle);
