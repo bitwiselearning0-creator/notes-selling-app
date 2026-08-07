@@ -6,7 +6,8 @@ import {
 import { dbService } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Purchase, Playlist } from '../lib/supabase';
 
-const getPredefinedSubjects = (year: string, sem: number): string[] => {
+const getPredefinedSubjects = (year: string, sem: number | string): string[] => {
+  const sNum = Number(sem);
   if (year === '1st Year') {
     return [
       'Engineering Physics',
@@ -22,8 +23,8 @@ const getPredefinedSubjects = (year: string, sem: number): string[] => {
     const sem3 = ['Data Structure', 'Computer Organization & Architecture', 'Discrete Structures & Theory of Logic'];
     const sem4 = ['Operating System', 'Theory of Automata and Formal Languages', 'Object Oriented Programming with Java'];
     const common = ['Math IV', 'Technical Communication', 'Cyber Security', 'Python Programming', 'UHV', 'Energy Science and Engineering'];
-    if (sem === 3) return [...sem3, ...common];
-    if (sem === 4) return [...sem4, ...common];
+    if (sNum === 3) return [...sem3, ...common];
+    if (sNum === 4) return [...sem4, ...common];
     return [...sem3, ...sem4, ...common];
   }
   if (year === '3rd Year') {
@@ -45,9 +46,16 @@ const getPredefinedSubjects = (year: string, sem: number): string[] => {
       'Software Project Management (SPM)'
     ];
     const common = ['Constitution of India (COI)', 'Essence of Indian Traditional Knowledge (EITK)'];
-    if (sem === 5) return [...sem5, ...common];
-    if (sem === 6) return [...sem6, ...common];
+    if (sNum === 5) return [...sem5, ...common];
+    if (sNum === 6) return [...sem6, ...common];
     return [...sem5, ...sem6, ...common];
+  }
+  if (year === '4th Year') {
+    const sem7 = ['Cloud Computing', 'Machine Learning', 'Information Security'];
+    const sem8 = ['Deep Learning', 'Internet of Things (IoT)'];
+    if (sNum === 7) return sem7;
+    if (sNum === 8) return sem8;
+    return [...sem7, ...sem8];
   }
   return [];
 };
@@ -1035,7 +1043,27 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                     {/* Selected Subjects Checkbox list */}
                     <div className="form-group">
-                      <label>Select Included Subjects (filtered by Year/Sem)</label>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <label style={{ margin: 0 }}>Select Included Subjects (filtered by Year/Sem)</label>
+                        {availableSubjectsForBundle.length > 0 && (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              type="button" 
+                              onClick={() => setSelectedSubjects([...availableSubjectsForBundle])}
+                              style={{ fontSize: '11px', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--color-yellow)', border: '1px solid var(--color-yellow)', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontWeight: '700' }}
+                            >
+                              Select All ({availableSubjectsForBundle.length})
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => setSelectedSubjects([])}
+                              style={{ fontSize: '11px', background: 'rgba(255,255,255,0.05)', color: 'var(--color-muted)', border: '1px solid var(--glass-border)', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer' }}
+                            >
+                              Clear All
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       {availableSubjectsForBundle.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
                           {availableSubjectsForBundle.map((subject, idx) => (
