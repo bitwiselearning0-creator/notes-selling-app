@@ -753,24 +753,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         }, 0);
 
                         const getBundleSubjectsList = (b: Bundle): string[] => {
-                          // 1. Return strictly and only the subjects selected in the Admin Panel for this bundle
-                          if (b.subjects && Array.isArray(b.subjects) && b.subjects.length > 0) {
-                            return b.subjects;
+                          if (b.subjects && Array.isArray(b.subjects) && b.subjects.length >= 3) {
+                            return b.subjects.filter(s => s && !s.toLowerCase().includes('pyq'));
                           }
 
-                          // 2. Fallback for older bundle objects without subjects array: extract unique subjects from notesIds
-                          if (b.notesIds && Array.isArray(b.notesIds) && b.notesIds.length > 0) {
-                            const fromNotes = b.notesIds
-                              .map(id => notes.find(n => n.id === id)?.subject)
-                              .filter((s): s is string => !!s);
-                            const uniqueFromNotes = Array.from(new Set(fromNotes));
-                            if (uniqueFromNotes.length > 0) {
-                              return uniqueFromNotes;
-                            }
-                          }
+                          const allSemSubjects = getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
+                          const existing = (b.subjects && Array.isArray(b.subjects)) ? b.subjects : [];
+                          
+                          const combined = Array.from(new Set([...existing, ...allSemSubjects]))
+                            .filter(s => s && !s.toLowerCase().includes('pyq'));
 
-                          // 3. Fallback only if no subjects or notes attached
-                          return getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
+                          return combined;
                         };
 
                         const includedSubjectsList = getBundleSubjectsList(bundle);
