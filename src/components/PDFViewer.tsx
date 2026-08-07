@@ -111,7 +111,9 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [controlsVisible, setControlsVisible] = useState(true);
+  const [controlsVisible, setControlsVisible] = useState(() => {
+    return typeof window !== 'undefined' && window.innerWidth > 768;
+  });
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollTopRef = useRef<number>(0);
@@ -289,6 +291,36 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         WebkitUserSelect: 'none'
       }}
     >
+      {/* Compact Floating Back Button when top navbar is hidden */}
+      {!controlsVisible && (
+        <button 
+          onClick={onBack}
+          style={{
+            position: 'fixed',
+            top: '12px',
+            left: '12px',
+            zIndex: 1000001,
+            background: 'rgba(10, 17, 43, 0.75)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid var(--glass-border)',
+            color: 'var(--color-white)',
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+          title="Back to Catalog"
+        >
+          <ChevronLeft size={20} />
+        </button>
+      )}
+
       {/* Premium Header Bar (Auto-hides on scroll) */}
       <div 
         className="viewer-header glass-card" 
