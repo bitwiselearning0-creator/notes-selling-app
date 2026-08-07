@@ -350,30 +350,31 @@ function App() {
           />
         )}
 
-        {/* App Mode Glowing Card Footer */}
-        {isAppMode && currentPage !== 'viewer' && (
-          <div className="app-glowing-footer" style={{ padding: '0 16px 24px 16px', marginTop: 'auto', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
+        {/* App Mode Glowing Card Footer (Hidden in Profile or Viewer Mode) */}
+        {isAppMode && currentPage !== 'viewer' && currentPage !== 'profile' && (
+          <div className="app-glowing-footer" style={{ padding: '0 16px 16px 16px', marginTop: 'auto', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
             <div className="glass-card" style={{
-              padding: '10px 14px',
-              borderRadius: '10px',
-              background: 'rgba(13, 22, 47, 0.45)',
-              border: '1.5px solid rgba(96, 165, 250, 0.22)',
-              boxShadow: '0 0 15px rgba(37, 99, 235, 0.15)',
-              fontSize: '11px',
+              padding: '4px 10px',
+              borderRadius: '12px',
+              background: 'rgba(13, 22, 47, 0.35)',
+              border: '1px solid rgba(96, 165, 250, 0.15)',
+              boxShadow: '0 0 10px rgba(37, 99, 235, 0.1)',
+              fontSize: '10px',
               color: 'var(--color-muted)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexWrap: 'wrap',
-              gap: '4px',
-              margin: '20px auto 0 auto'
+              gap: '3px',
+              margin: '12px auto 0 auto',
+              opacity: 0.85
             }}>
-              <span>Proudly Designed & Developed with ❤️ by</span>
+              <span>Designed with ❤️ by</span>
               <a 
                 href="https://www.instagram.com/hackwithsaket/" 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                style={{ color: 'var(--color-yellow)', fontWeight: '700', textDecoration: 'none' }}
+                style={{ color: 'var(--color-yellow)', fontWeight: '600', textDecoration: 'none' }}
               >
                 Saket Choudhary
               </a>
@@ -382,8 +383,8 @@ function App() {
         )}
       </main>
 
-      {/* Footer Section (Hidden in App Mode or Viewer Mode) */}
-      {!isAppMode && currentPage !== 'viewer' && (
+      {/* Footer Section (Hidden in App Mode, Profile Mode, or Viewer Mode) */}
+      {!isAppMode && currentPage !== 'viewer' && currentPage !== 'profile' && (
         <footer className="footer">
           <div className="container">
             <div className="footer-row">
@@ -441,15 +442,15 @@ function App() {
               </div>
             </div>
 
-            <div className="footer-bottom" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
+            <div className="footer-bottom" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
               <p>&copy; {new Date().getFullYear()} Bitwise Learning. All rights reserved. Created for BTech Learners.</p>
-              <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>Proudly Designed & Developed with ❤️ by</span>
+              <p style={{ fontSize: '10px', color: 'var(--color-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px', opacity: 0.85 }}>
+                <span>Designed with ❤️ by</span>
                 <a 
                   href="https://www.instagram.com/hackwithsaket/" 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  style={{ color: 'var(--color-yellow)', fontWeight: '700', textDecoration: 'none' }}
+                  style={{ color: 'var(--color-yellow)', fontWeight: '600', textDecoration: 'none' }}
                 >
                   Saket Choudhary
                 </a>
