@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft } from 'lucide-react';
+import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight } from 'lucide-react';
 import { dbService } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Playlist } from '../lib/supabase';
 import { openRazorpayCheckout } from '../lib/razorpay';
@@ -694,6 +694,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div 
                           key={i} 
                           className="subject-card"
+                          style={{ cursor: 'pointer', touchAction: 'manipulation' }}
                           onClick={() => {
                             setSelectedSubject(subject.name);
                             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -779,11 +780,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                               <div className="bundle-banner-includes-title">Subjects Included ({includedSubjectsList.length} Subjects)</div>
                               <ul className="bundle-banner-includes-list">
                                 {includedSubjectsList.map((subjName, idx) => (
-                                  <li key={idx} className="bundle-banner-includes-item">
+                                  <li 
+                                    key={idx} 
+                                    className="bundle-banner-includes-item"
+                                    style={{ cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center' }}
+                                    onClick={() => {
+                                      setSelectedSubject(subjName);
+                                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                    title={`Tap to open ${subjName} notes & resources`}
+                                  >
                                     <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '600' }}>
                                       {subjName}
                                     </span>
+                                    <ArrowRight size={10} style={{ color: 'var(--color-yellow)', marginLeft: 'auto', opacity: 0.8, flexShrink: 0 }} />
                                   </li>
                                 ))}
                               </ul>
