@@ -90,9 +90,15 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, navigate, curren
           ) : (
             user ? (
               <div className="user-profile-widget">
-                <span className="user-name">
-                  <User size={14} className="user-icon" /> {user.name}
-                </span>
+                <button 
+                  className={`nav-link-btn ${currentPage === 'profile' ? 'active' : ''}`}
+                  onClick={() => handleNavClick('profile')}
+                  title="View My Profile"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                >
+                  <User size={15} className="user-icon" />
+                  <span>{user.name}</span>
+                </button>
                 <button className="btn-secondary" onClick={onLogout}>
                   <LogOut size={16} /> Logout
                 </button>
@@ -139,6 +145,15 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, navigate, curren
               onClick={() => handleNavClick('library')}
             >
               <Library size={16} style={{ marginRight: '8px' }} /> My Library
+            </button>
+          )}
+
+          {user && (
+            <button 
+              className={`mobile-link-btn ${currentPage === 'profile' ? 'active' : ''}`}
+              onClick={() => handleNavClick('profile')}
+            >
+              <User size={16} style={{ marginRight: '8px' }} /> My Profile
             </button>
           )}
 
