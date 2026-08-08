@@ -55,6 +55,15 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, navigate, curren
               </button>
             )}
 
+            {user && (
+              <button 
+                className={`nav-link-btn ${currentPage === 'profile' ? 'active' : ''}`}
+                onClick={() => handleNavClick('profile')}
+              >
+                <User size={16} /> My Profile
+              </button>
+            )}
+
             {user?.role === 'admin' && (
               <button 
                 className={`nav-link-btn ${currentPage === 'admin' ? 'active' : ''}`}

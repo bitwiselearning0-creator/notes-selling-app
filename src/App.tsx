@@ -86,11 +86,11 @@ function App() {
     }
 
     // 2. Platform detection check (URL parameter/hash or native platform)
-    localStorage.removeItem('bw_platform_mode'); // Clear legacy lock-in cache
     const searchParams = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
-    const hasAppParam = searchParams.get('platform') === 'app' || hash.includes('platform=app') || window.location.href.includes('platform=app') || !!(window as any).Capacitor;
-    const isApp = hasAppParam;
+    const isNativeCapacitor = !!(window as any).Capacitor && typeof (window as any).Capacitor.isNativePlatform === 'function' && (window as any).Capacitor.isNativePlatform();
+    const hasAppParam = searchParams.get('platform') === 'app' || hash.includes('platform=app');
+    const isApp = isNativeCapacitor || hasAppParam;
     setIsAppMode(isApp);
 
     // 3. Enforce authentication gateway for app-mode on startup
