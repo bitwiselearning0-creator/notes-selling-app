@@ -19,14 +19,14 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, navigate, curren
   };
 
   return (
-    <nav className="navbar" style={{ padding: isAppMode ? '10px 0' : '14px 0' }}>
+    <nav className="navbar">
       <div className="container nav-container">
         {/* Logo and Branding */}
         <div className="nav-logo" onClick={() => handleNavClick(isAppMode ? 'dashboard' : 'landing')}>
-          <div className="logo-img-wrapper" style={{ width: isAppMode ? '34px' : '42px', height: isAppMode ? '34px' : '42px' }}>
+          <div className="logo-img-wrapper" style={isAppMode ? { width: '34px', height: '34px' } : undefined}>
             <img src="/logo.jpg" alt="Bitwise Learning Logo" className="logo-img" />
           </div>
-          <span className="logo-text" style={{ fontSize: isAppMode ? '14px' : '16px' }}>BITWISE LEARNING</span>
+          <span className="logo-text" style={isAppMode ? { fontSize: '14px' } : undefined}>BITWISE LEARNING</span>
         </div>
 
         {/* Regular Desktop Navigation */}
