@@ -10,6 +10,18 @@ export const isMock = !supabaseUrl || !supabaseAnonKey;
 // Initialize Supabase client if keys are present
 export const supabase = !isMock ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
+// Helper to generate valid 36-character PostgreSQL UUIDs
+export const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 // ==========================================
 // REAL-WORLD BTECH ENGINEERING NOTES DATASET
 // ==========================================
@@ -380,15 +392,20 @@ export const dbService = {
           data: { active_session_id: newSessionId }
         });
 
-        // 2. Real-time PostgreSQL DB Upsert in purchases table (Guaranteed 100% uncached cross-browser sync across Firefox, Safari, Chrome, WebView)
-        await supabase.from('purchases').upsert({
-          id: 'sess_' + userId,
-          userId: userId,
-          noteId: 'session_tracker',
-          bundleId: newSessionId,
-          createdAt: new Date().toISOString(),
-          expiresAt: '2099-01-01T00:00:00.000Z'
-        });
+        // 2. Real-time PostgreSQL DB Sync (using valid UUID id)
+        const { data: existing } = await supabase.from('purchases').select('id').eq('userId', userId).eq('noteId', 'session_tracker').maybeSingle();
+        if (existing) {
+          await supabase.from('purchases').update({ bundleId: newSessionId, createdAt: new Date().toISOString() }).eq('id', existing.id);
+        } else {
+          await supabase.from('purchases').insert([{
+            id: generateUUID(),
+            userId: userId,
+            noteId: 'session_tracker',
+            bundleId: newSessionId,
+            createdAt: new Date().toISOString(),
+            expiresAt: '2099-01-01T00:00:00.000Z'
+          }]);
+        }
       } catch (err) {
         console.warn('Could not sync session_id to Supabase DB:', err);
       }
@@ -404,8 +421,8 @@ export const dbService = {
 
     if (!isMock && supabase) {
       try {
-        // Engine 1: Direct PostgreSQL DB Query from purchases table (Uncached Live DB Query across Firefox, Safari, Chrome, Edge, WebView)
-        const { data } = await supabase.from('purchases').select('bundleId').eq('id', 'sess_' + userId).single();
+        // Engine 1: Direct PostgreSQL DB Query from purchases table by userId & noteId
+        const { data } = await supabase.from('purchases').select('bundleId').eq('userId', userId).eq('noteId', 'session_tracker').maybeSingle();
         if (data && data.bundleId) {
           activeSessionId = data.bundleId;
         }
@@ -413,7 +430,7 @@ export const dbService = {
         console.warn('Error querying purchases DB session:', err);
       }
 
-      // Engine 2: Fallback to Supabase Auth endpoint if DB record didn't return session
+      // Engine 2: Fallback to Supabase Auth endpoint
       if (!activeSessionId) {
         try {
           const { data: sessionData } = await supabase.auth.getSession();
@@ -729,7 +746,7 @@ export const dbService = {
     expiresAt.setMonth(purchasedAt.getMonth() + 6); // Exactly 6-month validity
 
     const newPurchase: Purchase = {
-      id: 'purch_' + Math.random().toString(36).substring(2, 11),
+      id: generateUUID(),
       userId: currentUser.id,
       itemId: notesId,
       itemType: 'notes',
@@ -851,7 +868,7 @@ export const dbService = {
     expiresAt.setMonth(purchasedAt.getMonth() + 6); // 6-month validity
 
     const newPurchase: Purchase = {
-      id: 'purch_' + Math.random().toString(36).substring(2, 11),
+      id: generateUUID(),
       userId: currentUser.id,
       itemId: bundleId,
       itemType: 'bundle',
@@ -1090,7 +1107,7 @@ export const dbService = {
     expiresAt.setMonth(purchasedAt.getMonth() + months);
 
     const newPurchase: Purchase = {
-      id: 'purch_' + Math.random().toString(36).substr(2, 9),
+      id: generateUUID(),
       userId,
       itemId,
       itemType,
@@ -1144,7 +1161,8 @@ export const dbService = {
     if (!isMock && supabase) {
       const { data, error } = await supabase.from('purchases').select('*');
       if (error) return { data: [], error: error.message };
-      return { data: data || [], error: null };
+      const filtered = (data || []).filter(p => p.noteId !== 'session_tracker' && p.itemId !== 'session_tracker');
+      return { data: filtered, error: null };
     } else {
       const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
       const allPurchs: Purchase[] = [];
