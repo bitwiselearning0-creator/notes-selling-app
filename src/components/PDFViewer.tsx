@@ -471,13 +471,14 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '4px',
+            gap: '6px',
             background: 'rgba(255, 255, 255, 0.05)',
             border: '1px solid var(--glass-border)',
-            padding: '3px 8px',
+            padding: '3px 10px',
             borderRadius: '20px',
             height: '34px',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            whiteSpace: 'nowrap'
           }}>
             <button 
               onClick={(e) => {
@@ -491,18 +492,19 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                 border: 'none',
                 color: scrollPage <= 1 ? 'rgba(255,255,255,0.2)' : 'var(--color-white)',
                 cursor: scrollPage <= 1 ? 'not-allowed' : 'pointer',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '2px',
-                width: '20px',
-                height: '20px'
+                padding: '0',
+                width: '18px',
+                height: '18px',
+                flexShrink: 0
               }}
             >
               <ChevronLeft size={14} />
             </button>
 
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>Pg</span>
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600', whiteSpace: 'nowrap', lineHeight: 1 }}>Pg</span>
             
             <input 
               type="number"
@@ -519,7 +521,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               }}
               onFocus={(e) => e.target.select()}
               style={{
-                width: '32px',
+                width: '36px',
                 height: '24px',
                 background: 'rgba(0, 0, 0, 0.6)',
                 border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -530,11 +532,16 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                 textAlign: 'center',
                 padding: '0',
                 outline: 'none',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                lineHeight: '24px',
+                display: 'inline-block',
+                verticalAlign: 'middle'
               }}
             />
 
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>/ {totalPages}</span>
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+              / {totalPages}
+            </span>
 
             <button 
               onClick={(e) => {
@@ -553,7 +560,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                 cursor: 'pointer',
                 height: '22px',
                 display: 'inline-flex',
-                alignItems: 'center'
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 1,
+                flexShrink: 0
               }}
             >
               Go
@@ -571,12 +581,13 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                 border: 'none',
                 color: scrollPage >= totalPages ? 'rgba(255,255,255,0.2)' : 'var(--color-white)',
                 cursor: scrollPage >= totalPages ? 'not-allowed' : 'pointer',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '2px',
-                width: '20px',
-                height: '20px'
+                padding: '0',
+                width: '18px',
+                height: '18px',
+                flexShrink: 0
               }}
             >
               <ChevronRight size={14} />
