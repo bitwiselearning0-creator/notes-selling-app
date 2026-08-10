@@ -420,6 +420,10 @@ export const dbService = {
   },
 
   verifyDeviceSession: async (userId: string): Promise<{ valid: boolean }> => {
+    // If device is offline, skip network session ping so offline reading is never blocked
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return { valid: true };
+    }
     const localSessionId = localStorage.getItem('bw_device_session_id') || sessionStorage.getItem('bw_device_session_id');
     if (!localSessionId) return { valid: true };
 
@@ -508,12 +512,51 @@ export const dbService = {
     }
   },
 
+  // --- OFFLINE CACHING SERVICE (APP MODE ONLY) ---
+  saveNoteForOffline: (note: Note) => {
+    if (!note || !note.id) return;
+    try {
+      localStorage.setItem(`bw_offline_note_${note.id}`, JSON.stringify(note));
+      const index = getStoredData<string[]>('bw_offline_notes_index', []);
+      if (!index.includes(note.id)) {
+        index.push(note.id);
+        setStoredData('bw_offline_notes_index', index);
+      }
+    } catch (err) {
+      console.warn('Could not save note for offline reading:', err);
+    }
+  },
+
+  getOfflineNote: (noteId: string): Note | null => {
+    try {
+      const data = localStorage.getItem(`bw_offline_note_${noteId}`);
+      if (data) return JSON.parse(data);
+    } catch (err) {}
+    return null;
+  },
+
+  getOfflineNotesIndex: (): string[] => {
+    return getStoredData<string[]>('bw_offline_notes_index', []);
+  },
+
   getNoteById: async (id: string): Promise<{ data: Note | null; error: string | null }> => {
+    // Check local offline note cache first
+    const offlineNote = dbService.getOfflineNote(id);
+    if (offlineNote) {
+      return { data: offlineNote, error: null };
+    }
+
     if (!isMock && supabase) {
       const { data, error } = await supabase.from('notes').select('*').eq('id', id).single();
+      if (data) {
+        dbService.saveNoteForOffline(data);
+      }
       return { data, error: error ? error.message : null };
     } else {
       const note = mockNotes.find(n => n.id === id) || null;
+      if (note) {
+        dbService.saveNoteForOffline(note);
+      }
       return { data: note, error: null };
     }
   },
@@ -597,6 +640,14 @@ export const dbService = {
     if (!currentUser) return { purchased: false, expiresAt: null, daysLeft: null };
     if (currentUser.role === 'admin') return { purchased: true, expiresAt: null, daysLeft: null };
 
+    // Offline check: If device is offline and note is cached locally, report unlocked!
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const offlineIndex = dbService.getOfflineNotesIndex();
+      if (offlineIndex.includes(notesId) || dbService.getOfflineNote(notesId)) {
+        return { purchased: true, expiresAt: '2099-01-01T00:00:00.000Z', daysLeft: 180 };
+      }
+    }
+
     const now = new Date();
 
     if (!isMock && supabase) {
@@ -678,6 +729,21 @@ export const dbService = {
   }> => {
     if (!currentUser) {
       return { purchasedNoteIds: [], purchasedBundleIds: [], noteDetailsMap: {}, bundleDetailsMap: {} };
+    }
+
+    // Offline check: If device is offline, return cached offline note IDs!
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const offlineIndex = dbService.getOfflineNotesIndex();
+      const noteDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
+      for (const nid of offlineIndex) {
+        noteDetailsMap[nid] = { expiresAt: '2099-01-01T00:00:00.000Z', daysLeft: 180 };
+      }
+      return {
+        purchasedNoteIds: offlineIndex,
+        purchasedBundleIds: [],
+        noteDetailsMap,
+        bundleDetailsMap: {}
+      };
     }
 
     const now = new Date();

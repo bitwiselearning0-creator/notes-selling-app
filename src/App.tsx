@@ -27,6 +27,19 @@ function App() {
   const [isAppMode, setIsAppMode] = useState(false);
   const [blackout, setBlackout] = useState(false);
   const [previousPage, setPreviousPage] = useState<string>('dashboard');
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  // Network offline listener for App Mode
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Unified single-step back navigation handler
   const handleBackNavigation = () => {
@@ -276,15 +289,31 @@ function App() {
   // Navigates to PDF viewer securely checking if the notes are purchased
   const handleReadNote = async (note: Note) => {
     setPreviousPage(currentPage);
+    
+    // Check if device is offline and cached note exists
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const cached = dbService.getOfflineNote(note.id);
+      if (cached) {
+        setReadingNote(cached);
+        setReadingNoteUnlocked(true);
+        setCurrentPage('viewer');
+        return;
+      }
+    }
+
     setReadingNote(note);
     const unlocked = await dbService.isNotesPurchased(note.id);
     setReadingNoteUnlocked(unlocked || note.price === 0);
     setCurrentPage('viewer');
 
-    // Fetch full note payload (with previewUrl) in background to optimize dashboard loading times
+    // Fetch full note payload (with previewUrl) in background
     dbService.getNoteById(note.id).then(({ data: fullNote }) => {
       if (fullNote) {
         setReadingNote(fullNote);
+        // Auto-cache note for offline reading in App Mode
+        if (isAppMode && (unlocked || note.price === 0)) {
+          dbService.saveNoteForOffline(fullNote);
+        }
       }
     });
   };
@@ -319,6 +348,33 @@ function App() {
 
   return (
     <>
+      {/* Offline Mode Banner for App Mode */}
+      {isAppMode && !isOnline && (
+        <div style={{
+          position: 'fixed',
+          top: '10px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 10000002,
+          background: 'rgba(245, 158, 11, 0.95)',
+          color: '#000',
+          padding: '4px 16px',
+          borderRadius: '20px',
+          fontSize: '11px',
+          fontWeight: '700',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)'
+        }}>
+          <span>⚡ Offline Mode</span>
+          <span style={{ opacity: 0.5 }}>•</span>
+          <span>Reading Saved Notes</span>
+        </div>
+      )}
+
       {blackout && (
         <div style={{
           position: 'fixed',
