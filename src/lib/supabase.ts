@@ -217,6 +217,20 @@ export const encodeBundleDescription = (desc: string, subjects?: string[]): stri
   return cleanDesc + marker;
 };
 
+// Safely parse notesIds from DB — could be a JSON string, a comma-separated string, or already an array
+const safeParseBundleNotesIds = (notesIds: any): string[] => {
+  if (Array.isArray(notesIds)) return notesIds;
+  if (typeof notesIds === 'string') {
+    try {
+      const parsed = JSON.parse(notesIds);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (_) {}
+    // Fallback: comma-separated
+    if (notesIds.includes(',')) return notesIds.split(',').map((s: string) => s.trim()).filter(Boolean);
+  }
+  return [];
+};
+
 export const decodeBundleFromDb = (b: Bundle): Bundle => {
   if (!b) return b;
   let subjects = b.subjects;
@@ -681,7 +695,8 @@ export const dbService = {
         if (dbBundles) {
           for (const bp of bundlePurchases) {
             const bundle = dbBundles.find(b => b.id === bp.itemId);
-            if (bundle && bundle.notesIds.includes(notesId)) {
+            const bundleNoteIds = bundle ? safeParseBundleNotesIds(bundle.notesIds) : [];
+            if (bundle && bundleNoteIds.includes(notesId)) {
               const expDate = new Date(bp.expiresAt);
               const diffTime = expDate.getTime() - now.getTime();
               const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -757,7 +772,8 @@ export const dbService = {
           supabase.from('bundles').select('*')
         ]);
         allPurchases = (purchasesRes.data || []).filter(p => p.itemId !== 'session_tracker');
-        allBundles = bundlesRes.data || [];
+        // Decode bundles so notesIds is always a proper array
+        allBundles = (bundlesRes.data || []).map(b => ({ ...b, notesIds: safeParseBundleNotesIds(b.notesIds) }));
       } catch (err) {
         console.warn('Error fetching DB purchases in batch:', err);
         allPurchases = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
