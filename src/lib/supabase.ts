@@ -367,6 +367,7 @@ export const dbService = {
   registerDeviceSession: async (userId: string): Promise<string> => {
     const newSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     localStorage.setItem('bw_device_session_id', newSessionId);
+    sessionStorage.setItem('bw_device_session_id', newSessionId);
 
     const sessionsMap = getStoredData<Record<string, string>>('bw_active_sessions_map', {});
     sessionsMap[userId] = newSessionId;
@@ -374,42 +375,80 @@ export const dbService = {
 
     if (!isMock && supabase) {
       try {
+        // 1. Update Supabase Auth user_metadata
         await supabase.auth.updateUser({
           data: { active_session_id: newSessionId }
         });
+
+        // 2. Dual Sync: Update DB profiles table for uncached PostgreSQL DB cross-browser sync (Firefox, Safari, Chrome, WebView)
+        const { data: profile } = await supabase.from('profiles').select('phone').eq('id', userId).single();
+        if (profile) {
+          const rawPhone = (profile.phone || '').replace(/\s*<!--SESS:.*?-->/g, '').trim();
+          const updatedPhone = `${rawPhone} <!--SESS:${newSessionId}-->`;
+          await supabase.from('profiles').update({ phone: updatedPhone }).eq('id', userId);
+        }
       } catch (err) {
-        console.warn('Could not update Supabase auth user_metadata active_session_id:', err);
+        console.warn('Could not sync session_id to Supabase:', err);
       }
     }
     return newSessionId;
   },
 
   verifyDeviceSession: async (userId: string): Promise<{ valid: boolean }> => {
-    const localSessionId = localStorage.getItem('bw_device_session_id');
+    const localSessionId = localStorage.getItem('bw_device_session_id') || sessionStorage.getItem('bw_device_session_id');
     if (!localSessionId) return { valid: true };
 
     let activeSessionId: string | null = null;
+
     if (!isMock && supabase) {
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
-        if (token) {
-          // Bypasses local client in-memory cache to fetch fresh user_metadata live from Supabase cloud server
-          const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
-            headers: {
-              'apikey': supabaseAnonKey,
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          if (res.ok) {
-            const userJson = await res.json();
-            if (userJson?.user_metadata?.active_session_id) {
-              activeSessionId = userJson.user_metadata.active_session_id;
-            }
+        // Engine 1: Direct PostgreSQL DB Query (Uncached Live DB Query across Firefox, Safari, Chrome, Edge, WebView)
+        const { data: profile } = await supabase.from('profiles').select('phone').eq('id', userId).single();
+        if (profile && profile.phone) {
+          const match = profile.phone.match(/<!--SESS:(.*?)-->/);
+          if (match && match[1]) {
+            activeSessionId = match[1];
           }
         }
       } catch (err) {
-        console.warn('Error fetching uncached live session from Supabase:', err);
+        console.warn('Error querying profiles DB session:', err);
+      }
+
+      // Engine 2: Fallback to Supabase Auth endpoint if DB profile didn't return session
+      if (!activeSessionId) {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          let token = sessionData?.session?.access_token;
+          if (!token) {
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && key.includes('auth-token')) {
+                try {
+                  const parsed = JSON.parse(localStorage.getItem(key) || '{}');
+                  token = parsed?.access_token || parsed?.currentSession?.access_token;
+                  if (token) break;
+                } catch (e) {}
+              }
+            }
+          }
+          if (token) {
+            const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+              method: 'GET',
+              mode: 'cors',
+              cache: 'no-store',
+              headers: {
+                'apikey': supabaseAnonKey,
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            if (res.ok) {
+              const userJson = await res.json();
+              if (userJson?.user_metadata?.active_session_id) {
+                activeSessionId = userJson.user_metadata.active_session_id;
+              }
+            }
+          }
+        } catch (e) {}
       }
     }
 

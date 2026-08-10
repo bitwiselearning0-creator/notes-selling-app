@@ -87,7 +87,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, navigate }) =>
             <Phone size={18} style={{ color: 'var(--color-muted)' }} />
             <div style={{ textAlign: 'left' }}>
               <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.05em' }}>Phone Number</div>
-              <div style={{ fontSize: '14px', color: 'var(--color-white)', marginTop: '2px' }}>+91 {user.phone || 'Not Provided'}</div>
+              <div style={{ fontSize: '14px', color: 'var(--color-white)', marginTop: '2px' }}>+91 {(user.phone || '').replace(/\s*<!--SESS:.*?-->/g, '').trim() || 'Not Provided'}</div>
             </div>
           </div>
         </div>
