@@ -662,77 +662,19 @@ export const dbService = {
       }
     }
 
-    const now = new Date();
-
-    if (!isMock && supabase) {
-      // 1. Check direct notes purchase
-      const { data: directPurchase } = await supabase
-        .from('purchases')
-        .select('*')
-        .eq('userId', currentUser.id)
-        .eq('itemId', notesId)
-        .eq('itemType', 'notes')
-        .gt('expiresAt', now.toISOString())
-        .maybeSingle();
-
-      if (directPurchase) {
-        const expDate = new Date(directPurchase.expiresAt);
-        const diffTime = expDate.getTime() - now.getTime();
-        const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return { purchased: true, expiresAt: directPurchase.expiresAt, daysLeft };
-      }
-
-      // 2. Check if part of purchased semester combo bundle
-      const { data: bundlePurchases } = await supabase
-        .from('purchases')
-        .select('*')
-        .eq('userId', currentUser.id)
-        .eq('itemType', 'bundle')
-        .gt('expiresAt', now.toISOString());
-
-      if (bundlePurchases && bundlePurchases.length > 0) {
-        const { data: dbBundles } = await supabase.from('bundles').select('*');
-        if (dbBundles) {
-          for (const bp of bundlePurchases) {
-            const bundle = dbBundles.find(b => b.id === bp.itemId);
-            const bundleNoteIds = bundle ? safeParseBundleNotesIds(bundle.notesIds) : [];
-            if (bundle && bundleNoteIds.includes(notesId)) {
-              const expDate = new Date(bp.expiresAt);
-              const diffTime = expDate.getTime() - now.getTime();
-              const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-              return { purchased: true, expiresAt: bp.expiresAt, daysLeft };
-            }
-          }
-        }
-      }
-      return { purchased: false, expiresAt: null, daysLeft: null };
-    } else {
-      // Mock logic
-      const direct = mockPurchasesV2.find(p => p.itemId === notesId && p.itemType === 'notes');
-      if (direct) {
-        const expDate = new Date(direct.expiresAt);
-        if (expDate > now) {
-          const diffTime = expDate.getTime() - now.getTime();
-          const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return { purchased: true, expiresAt: direct.expiresAt, daysLeft };
-        }
-      }
-
-      const bundlePurchases = mockPurchasesV2.filter(p => p.itemType === 'bundle');
-      for (const bp of bundlePurchases) {
-        const expDate = new Date(bp.expiresAt);
-        if (expDate > now) {
-          const bundle = mockBundles.find(b => b.id === bp.itemId);
-          if (bundle && bundle.notesIds.includes(notesId)) {
-            const diffTime = expDate.getTime() - now.getTime();
-            const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return { purchased: true, expiresAt: bp.expiresAt, daysLeft };
-          }
-        }
-      }
-
-      return { purchased: false, expiresAt: null, daysLeft: null };
+    // Use the single unified batch query (checks DB + local cache + bundles with safe notesIds parsing)
+    const { purchasedNoteIds, noteDetailsMap } = await dbService.getAllUserPurchasesState();
+    
+    if (purchasedNoteIds.includes(notesId)) {
+      const details = noteDetailsMap[notesId];
+      return {
+        purchased: true,
+        expiresAt: details?.expiresAt || null,
+        daysLeft: details?.daysLeft || null
+      };
     }
+
+    return { purchased: false, expiresAt: null, daysLeft: null };
   },
 
   // Batch purchase status fetcher to prevent N+1 query loading bottlenecks
