@@ -392,17 +392,23 @@ export const dbService = {
           data: { active_session_id: newSessionId }
         });
 
-        // 2. Real-time PostgreSQL DB Sync (using valid UUID id)
-        const { data: existing } = await supabase.from('purchases').select('id').eq('userId', userId).eq('noteId', 'session_tracker').maybeSingle();
+        // 2. Real-time PostgreSQL DB Sync (using valid schema columns: itemId & itemType)
+        const { data: existing } = await supabase
+          .from('purchases')
+          .select('id')
+          .eq('userId', userId)
+          .eq('itemId', 'session_tracker')
+          .maybeSingle();
+
         if (existing) {
-          await supabase.from('purchases').update({ bundleId: newSessionId, createdAt: new Date().toISOString() }).eq('id', existing.id);
+          await supabase.from('purchases').update({ itemType: newSessionId, purchasedAt: new Date().toISOString() }).eq('id', existing.id);
         } else {
           await supabase.from('purchases').insert([{
             id: generateUUID(),
             userId: userId,
-            noteId: 'session_tracker',
-            bundleId: newSessionId,
-            createdAt: new Date().toISOString(),
+            itemId: 'session_tracker',
+            itemType: newSessionId,
+            purchasedAt: new Date().toISOString(),
             expiresAt: '2099-01-01T00:00:00.000Z'
           }]);
         }
@@ -421,10 +427,16 @@ export const dbService = {
 
     if (!isMock && supabase) {
       try {
-        // Engine 1: Direct PostgreSQL DB Query from purchases table by userId & noteId
-        const { data } = await supabase.from('purchases').select('bundleId').eq('userId', userId).eq('noteId', 'session_tracker').maybeSingle();
-        if (data && data.bundleId) {
-          activeSessionId = data.bundleId;
+        // Engine 1: Direct PostgreSQL DB Query from purchases table by userId & itemId = 'session_tracker'
+        const { data } = await supabase
+          .from('purchases')
+          .select('itemType')
+          .eq('userId', userId)
+          .eq('itemId', 'session_tracker')
+          .maybeSingle();
+
+        if (data && data.itemType) {
+          activeSessionId = data.itemType;
         }
       } catch (err) {
         console.warn('Error querying purchases DB session:', err);
@@ -678,7 +690,7 @@ export const dbService = {
           supabase.from('purchases').select('*').eq('userId', currentUser.id).gt('expiresAt', now.toISOString()),
           supabase.from('bundles').select('*')
         ]);
-        allPurchases = (purchasesRes.data || []).filter(p => p.noteId !== 'session_tracker');
+        allPurchases = (purchasesRes.data || []).filter(p => p.itemId !== 'session_tracker');
         allBundles = bundlesRes.data || [];
       } catch (err) {
         console.warn('Error fetching DB purchases in batch:', err);
