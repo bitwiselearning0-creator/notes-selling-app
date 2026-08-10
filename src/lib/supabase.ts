@@ -391,12 +391,25 @@ export const dbService = {
     let activeSessionId: string | null = null;
     if (!isMock && supabase) {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && user.user_metadata && user.user_metadata.active_session_id) {
-          activeSessionId = user.user_metadata.active_session_id;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        if (token) {
+          // Bypasses local client in-memory cache to fetch fresh user_metadata live from Supabase cloud server
+          const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+            headers: {
+              'apikey': supabaseAnonKey,
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (res.ok) {
+            const userJson = await res.json();
+            if (userJson?.user_metadata?.active_session_id) {
+              activeSessionId = userJson.user_metadata.active_session_id;
+            }
+          }
         }
       } catch (err) {
-        // Fallback to local map
+        console.warn('Error fetching uncached live session from Supabase:', err);
       }
     }
 
