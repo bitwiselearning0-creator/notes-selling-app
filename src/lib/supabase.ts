@@ -243,6 +243,7 @@ export interface UserProfile {
   email: string;
   phone: string;
   role: 'student' | 'admin';
+  session_id?: string;
 }
 
 // Global Auth & DB state in Mock Mode
@@ -271,6 +272,7 @@ export const dbService = {
         if (dbError) return { data: null, error: dbError.message };
         currentUser = profile;
         setStoredData('bw_mock_current_user', currentUser);
+        await dbService.registerDeviceSession(profile.id);
         return { data: profile, error: null };
       }
       return { data: null, error: 'Signup failed. Please try again.' };
@@ -293,6 +295,7 @@ export const dbService = {
       // Auto login after signup
       currentUser = newProfile;
       setStoredData('bw_mock_current_user', currentUser);
+      await dbService.registerDeviceSession(newProfile.id);
       return { data: newProfile, error: null };
     }
   },
@@ -306,15 +309,14 @@ export const dbService = {
         if (dbError) return { data: null, error: dbError.message };
         currentUser = profile;
         setStoredData('bw_mock_current_user', currentUser);
+        await dbService.registerDeviceSession(profile.id);
         return { data: profile, error: null };
       }
       return { data: null, error: 'Login failed. Invalid credentials.' };
     } else {
       // Mock Login
-      // For testing purposes, we automatically login if name/email matches. In real development, we just check email
       const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
       if (!user) {
-        // If it's a first time login and it's the admin email, auto-create the admin!
         if (email.toLowerCase() === 'bitwiselearning0@gmail.com') {
           const adminUser: UserProfile = {
             id: 'admin_bitwise',
@@ -327,12 +329,14 @@ export const dbService = {
           setStoredData('bw_mock_users', mockUsers);
           currentUser = adminUser;
           setStoredData('bw_mock_current_user', currentUser);
+          await dbService.registerDeviceSession(adminUser.id);
           return { data: adminUser, error: null };
         }
         return { data: null, error: 'User not registered. Please register first.' };
       }
       currentUser = user;
       setStoredData('bw_mock_current_user', currentUser);
+      await dbService.registerDeviceSession(user.id);
       
       // Load user purchases
       const storedPurchasesV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
@@ -344,6 +348,7 @@ export const dbService = {
   },
 
   signOut: async (): Promise<{ error: string | null }> => {
+    localStorage.removeItem('bw_device_session_id');
     if (!isMock && supabase) {
       const { error } = await supabase.auth.signOut();
       currentUser = null;
@@ -356,6 +361,52 @@ export const dbService = {
       setStoredData('bw_mock_purchases_v2', []);
       return { error: null };
     }
+  },
+
+  // --- SINGLE DEVICE CONCURRENT SESSION ENFORCEMENT ---
+  registerDeviceSession: async (userId: string): Promise<string> => {
+    const newSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('bw_device_session_id', newSessionId);
+
+    const sessionsMap = getStoredData<Record<string, string>>('bw_active_sessions_map', {});
+    sessionsMap[userId] = newSessionId;
+    setStoredData('bw_active_sessions_map', sessionsMap);
+
+    if (!isMock && supabase) {
+      try {
+        await supabase.from('profiles').update({ session_id: newSessionId }).eq('id', userId);
+      } catch (err) {
+        console.warn('Could not update Supabase session_id:', err);
+      }
+    }
+    return newSessionId;
+  },
+
+  verifyDeviceSession: async (userId: string): Promise<{ valid: boolean }> => {
+    const localSessionId = localStorage.getItem('bw_device_session_id');
+    if (!localSessionId) return { valid: true };
+
+    let activeSessionId: string | null = null;
+    if (!isMock && supabase) {
+      try {
+        const { data } = await supabase.from('profiles').select('session_id').eq('id', userId).single();
+        if (data && data.session_id) {
+          activeSessionId = data.session_id;
+        }
+      } catch (err) {
+        // Fallback to local map
+      }
+    }
+
+    if (!activeSessionId) {
+      const sessionsMap = getStoredData<Record<string, string>>('bw_active_sessions_map', {});
+      activeSessionId = sessionsMap[userId] || null;
+    }
+
+    if (activeSessionId && activeSessionId !== localSessionId) {
+      return { valid: false };
+    }
+    return { valid: true };
   },
 
   getCurrentUser: (): UserProfile | null => {

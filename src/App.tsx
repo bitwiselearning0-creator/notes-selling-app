@@ -213,6 +213,30 @@ function App() {
     };
   }, []);
 
+  // Periodic & Event-driven Single Device Concurrent Session Enforcement
+  useEffect(() => {
+    if (!currentUser || currentUser.role === 'admin') return;
+
+    let isTerminated = false;
+
+    const checkSingleDeviceSession = async () => {
+      if (isTerminated) return;
+      const { valid } = await dbService.verifyDeviceSession(currentUser.id);
+      if (!valid) {
+        isTerminated = true;
+        await dbService.signOut();
+        setCurrentUser(null);
+        setCurrentPage('auth');
+        window.location.hash = '#login';
+        alert('⚠️ Session Terminated: Your account was logged in on another device. Only 1 active device is allowed at a time.');
+      }
+    };
+
+    checkSingleDeviceSession();
+    const interval = setInterval(checkSingleDeviceSession, 4000);
+    return () => clearInterval(interval);
+  }, [currentUser, currentPage]);
+
   // Custom navigate wrapper to sync hash and views
   const navigate = (page: string) => {
     if (page === 'landing') {
