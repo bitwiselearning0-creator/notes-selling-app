@@ -374,9 +374,11 @@ export const dbService = {
 
     if (!isMock && supabase) {
       try {
-        await supabase.from('profiles').update({ session_id: newSessionId }).eq('id', userId);
+        await supabase.auth.updateUser({
+          data: { active_session_id: newSessionId }
+        });
       } catch (err) {
-        console.warn('Could not update Supabase session_id:', err);
+        console.warn('Could not update Supabase auth user_metadata active_session_id:', err);
       }
     }
     return newSessionId;
@@ -389,9 +391,9 @@ export const dbService = {
     let activeSessionId: string | null = null;
     if (!isMock && supabase) {
       try {
-        const { data } = await supabase.from('profiles').select('session_id').eq('id', userId).single();
-        if (data && data.session_id) {
-          activeSessionId = data.session_id;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.user_metadata && user.user_metadata.active_session_id) {
+          activeSessionId = user.user_metadata.active_session_id;
         }
       } catch (err) {
         // Fallback to local map

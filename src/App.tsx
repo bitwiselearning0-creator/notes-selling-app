@@ -233,7 +233,7 @@ function App() {
     };
 
     checkSingleDeviceSession();
-    const interval = setInterval(checkSingleDeviceSession, 4000);
+    const interval = setInterval(checkSingleDeviceSession, 2500);
     return () => clearInterval(interval);
   }, [currentUser, currentPage]);
 
