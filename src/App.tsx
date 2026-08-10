@@ -215,7 +215,7 @@ function App() {
 
   // Periodic & Event-driven Single Device Concurrent Session Enforcement
   useEffect(() => {
-    if (!currentUser || currentUser.role === 'admin') return;
+    if (!currentUser) return;
 
     let isTerminated = false;
 

@@ -380,15 +380,17 @@ export const dbService = {
           data: { active_session_id: newSessionId }
         });
 
-        // 2. Dual Sync: Update DB profiles table for uncached PostgreSQL DB cross-browser sync (Firefox, Safari, Chrome, WebView)
-        const { data: profile } = await supabase.from('profiles').select('phone').eq('id', userId).single();
-        if (profile) {
-          const rawPhone = (profile.phone || '').replace(/\s*<!--SESS:.*?-->/g, '').trim();
-          const updatedPhone = `${rawPhone} <!--SESS:${newSessionId}-->`;
-          await supabase.from('profiles').update({ phone: updatedPhone }).eq('id', userId);
-        }
+        // 2. Real-time PostgreSQL DB Upsert in purchases table (Guaranteed 100% uncached cross-browser sync across Firefox, Safari, Chrome, WebView)
+        await supabase.from('purchases').upsert({
+          id: 'sess_' + userId,
+          userId: userId,
+          noteId: 'session_tracker',
+          bundleId: newSessionId,
+          createdAt: new Date().toISOString(),
+          expiresAt: '2099-01-01T00:00:00.000Z'
+        });
       } catch (err) {
-        console.warn('Could not sync session_id to Supabase:', err);
+        console.warn('Could not sync session_id to Supabase DB:', err);
       }
     }
     return newSessionId;
@@ -402,19 +404,16 @@ export const dbService = {
 
     if (!isMock && supabase) {
       try {
-        // Engine 1: Direct PostgreSQL DB Query (Uncached Live DB Query across Firefox, Safari, Chrome, Edge, WebView)
-        const { data: profile } = await supabase.from('profiles').select('phone').eq('id', userId).single();
-        if (profile && profile.phone) {
-          const match = profile.phone.match(/<!--SESS:(.*?)-->/);
-          if (match && match[1]) {
-            activeSessionId = match[1];
-          }
+        // Engine 1: Direct PostgreSQL DB Query from purchases table (Uncached Live DB Query across Firefox, Safari, Chrome, Edge, WebView)
+        const { data } = await supabase.from('purchases').select('bundleId').eq('id', 'sess_' + userId).single();
+        if (data && data.bundleId) {
+          activeSessionId = data.bundleId;
         }
       } catch (err) {
-        console.warn('Error querying profiles DB session:', err);
+        console.warn('Error querying purchases DB session:', err);
       }
 
-      // Engine 2: Fallback to Supabase Auth endpoint if DB profile didn't return session
+      // Engine 2: Fallback to Supabase Auth endpoint if DB record didn't return session
       if (!activeSessionId) {
         try {
           const { data: sessionData } = await supabase.auth.getSession();
@@ -662,7 +661,7 @@ export const dbService = {
           supabase.from('purchases').select('*').eq('userId', currentUser.id).gt('expiresAt', now.toISOString()),
           supabase.from('bundles').select('*')
         ]);
-        allPurchases = purchasesRes.data || [];
+        allPurchases = (purchasesRes.data || []).filter(p => p.noteId !== 'session_tracker');
         allBundles = bundlesRes.data || [];
       } catch (err) {
         console.warn('Error fetching DB purchases in batch:', err);
