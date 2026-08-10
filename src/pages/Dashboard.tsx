@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight, Sparkles, Clock } from 'lucide-react';
 import { dbService } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Playlist } from '../lib/supabase';
 import { openRazorpayCheckout } from '../lib/razorpay';
@@ -559,8 +559,59 @@ export const Dashboard: React.FC<DashboardProps> = ({
               ))}
             </div>
           ) : (
-            <div className="empty-state glass-card" style={{ padding: '30px 20px', borderRadius: '16px', border: '1px dashed var(--glass-border)', background: 'rgba(255,255,255,0.01)', marginBottom: '36px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--color-muted)' }}>No study notes published yet for {selectedSubject}.</span>
+            <div 
+              className="empty-state glass-card fade-in" 
+              style={{ 
+                padding: '36px 20px', 
+                borderRadius: '20px', 
+                border: '1px dashed rgba(245, 158, 11, 0.35)', 
+                background: 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(7, 12, 27, 0.6) 100%)', 
+                marginBottom: '36px',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.3)'
+              }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '12px',
+                boxShadow: '0 0 20px rgba(245, 158, 11, 0.2)'
+              }}>
+                <Sparkles size={22} className="yellow-accent" />
+              </div>
+
+              <span style={{
+                background: 'rgba(245, 158, 11, 0.12)',
+                color: 'var(--color-yellow)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                padding: '3px 12px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                marginBottom: '8px'
+              }}>
+                ⚡ Coming Soon • Launching Shortly
+              </span>
+
+              <h4 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-white)', marginBottom: '4px' }}>
+                Unit Study Notes for {selectedSubject}
+              </h4>
+
+              <p style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '460px', margin: '0 auto', lineHeight: '1.5' }}>
+                Our engineering team is actively compiling & verifying high-yield Unit Study Notes for <strong>{selectedSubject}</strong>. Stay tuned!
+              </p>
             </div>
           )}
 
@@ -590,8 +641,59 @@ export const Dashboard: React.FC<DashboardProps> = ({
               ))}
             </div>
           ) : (
-            <div className="empty-state glass-card" style={{ padding: '30px 20px', borderRadius: '16px', border: '1px dashed var(--glass-border)', background: 'rgba(255,255,255,0.01)', marginBottom: '36px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--color-muted)' }}>No PYQ papers published yet for {selectedSubject}.</span>
+            <div 
+              className="empty-state glass-card fade-in" 
+              style={{ 
+                padding: '36px 20px', 
+                borderRadius: '20px', 
+                border: '1px dashed rgba(96, 165, 250, 0.35)', 
+                background: 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(7, 12, 27, 0.6) 100%)', 
+                marginBottom: '36px',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.3)'
+              }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                background: 'rgba(96, 165, 250, 0.12)',
+                border: '1px solid rgba(96, 165, 250, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '12px',
+                boxShadow: '0 0 20px rgba(96, 165, 250, 0.2)'
+              }}>
+                <Clock size={22} className="blue-accent" />
+              </div>
+
+              <span style={{
+                background: 'rgba(96, 165, 250, 0.12)',
+                color: 'var(--color-blue-light)',
+                border: '1px solid rgba(96, 165, 250, 0.3)',
+                padding: '3px 12px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                marginBottom: '8px'
+              }}>
+                📝 Previous Year Questions • Coming Soon
+              </span>
+
+              <h4 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-white)', marginBottom: '4px' }}>
+                PYQ Question Papers for {selectedSubject}
+              </h4>
+
+              <p style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '460px', margin: '0 auto', lineHeight: '1.5' }}>
+                Solved Past Exam Question Papers for <strong>{selectedSubject}</strong> are currently being digitized and verified. Check back soon!
+              </p>
             </div>
           )}
 
