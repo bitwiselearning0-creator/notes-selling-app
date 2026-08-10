@@ -846,16 +846,7 @@ export const dbService = {
 
     if (!isMock && supabase) {
       try {
-        await supabase.from('purchases').insert([{
-          userId: currentUser.id,
-          itemId: notesId,
-          itemType: 'notes',
-          purchasedAt: purchasedAt.toISOString(),
-          expiresAt: expiresAt.toISOString(),
-          paymentId: paymentDetails?.paymentId || '',
-          orderId: paymentDetails?.orderId || '',
-          signature: paymentDetails?.signature || ''
-        }]);
+        await supabase.from('purchases').insert([newPurchase]);
       } catch (e) {
         console.warn('Supabase DB purchase insert warning:', e);
       }
@@ -867,33 +858,14 @@ export const dbService = {
   getPurchasedNotes: async (): Promise<{ data: Note[]; error: string | null }> => {
     if (!currentUser) return { data: [], error: 'User session not active.' };
 
-    if (!isMock && supabase) {
-      const { data: allNotes, error: notesError } = await supabase.from('notes').select('*');
-      if (notesError) return { data: [], error: notesError.message };
-      if (currentUser.role === 'admin') return { data: allNotes || [], error: null };
+    const { data: allNotes, error: notesError } = await dbService.getNotes();
+    if (notesError) return { data: [], error: notesError };
+    if (currentUser.role === 'admin') return { data: allNotes || [], error: null };
 
-      const purchasedList: Note[] = [];
-      if (allNotes) {
-        for (const note of allNotes) {
-          const active = await dbService.isNotesPurchased(note.id);
-          if (active) {
-            purchasedList.push(note);
-          }
-        }
-      }
-      return { data: purchasedList, error: null };
-    } else {
-      if (currentUser.role === 'admin') return { data: mockNotes, error: null };
-
-      const purchasedList: Note[] = [];
-      for (const note of mockNotes) {
-        const active = await dbService.isNotesPurchased(note.id);
-        if (active) {
-          purchasedList.push(note);
-        }
-      }
-      return { data: purchasedList, error: null };
-    }
+    // Batch fetch all purchases for current user in 1 fast query to guarantee Website-to-App sync
+    const { purchasedNoteIds } = await dbService.getAllUserPurchasesState();
+    const purchasedList = (allNotes || []).filter(note => purchasedNoteIds.includes(note.id));
+    return { data: purchasedList, error: null };
   },
 
   // --- BUNDLES SERVICE ---
@@ -968,16 +940,7 @@ export const dbService = {
 
     if (!isMock && supabase) {
       try {
-        await supabase.from('purchases').insert([{
-          userId: currentUser.id,
-          itemId: bundleId,
-          itemType: 'bundle',
-          purchasedAt: purchasedAt.toISOString(),
-          expiresAt: expiresAt.toISOString(),
-          paymentId: paymentDetails?.paymentId || '',
-          orderId: paymentDetails?.orderId || '',
-          signature: paymentDetails?.signature || ''
-        }]);
+        await supabase.from('purchases').insert([newPurchase]);
       } catch (e) {
         console.warn('Supabase DB purchase insert warning:', e);
       }
