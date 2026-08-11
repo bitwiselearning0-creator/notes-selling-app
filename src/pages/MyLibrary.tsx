@@ -62,14 +62,9 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
     );
   }
 
-  // Filter notes that are purchased INDIVIDUALLY (not unlocked via a bundle)
-  const individualPurchasedNotes = libraryNotes.filter(note => {
-    const unlockedViaBundle = libraryBundles.some(({ bundle }) => bundle.notesIds.includes(note.id));
-    return !unlockedViaBundle;
-  });
-
-  const studyNotes = individualPurchasedNotes.filter(n => n.type !== 'pyqs');
-  const pyqs = individualPurchasedNotes.filter(n => n.type === 'pyqs');
+  // Show ALL purchased & unlocked notes directly in Notes & PYQ sections
+  const studyNotes = libraryNotes.filter(n => n.type !== 'pyqs');
+  const pyqs = libraryNotes.filter(n => n.type === 'pyqs');
 
   // Validity badge helper
   const ValidityBadge = ({ daysLeft }: { daysLeft: number | null }) => (

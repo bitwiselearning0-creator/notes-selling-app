@@ -1875,10 +1875,7 @@ body.app-mode .play-btn-circle svg {
 
 /* --- 120 FPS HIGH REFRESH RATE ULTRA ENGINE OVERHAUL --- */
 body.app-mode {
-  -webkit-transform-style: preserve-3d;
-  transform-style: preserve-3d;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 body.app-mode .note-card,
