@@ -122,9 +122,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [paying, setPaying] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
-  // Load notes, bundles, playlists, and user purchases in high-performance batch
+  // Load notes, bundles, playlists, and user purchases in high-performance batch (0ms Instant Load)
   const loadDashboardData = async () => {
-    setLoading(true);
+    if (notes.length === 0) {
+      setLoading(true);
+    }
     try {
       const [notesRes, bundlesRes, playlistsRes] = await Promise.all([
         dbService.getNotes(selectedYear),

@@ -92,7 +92,7 @@ html, body {
   }
 }
 
-/* Background Animated Blobs */
+/* Background Animated Blobs (Hardware Accelerated for smooth 60fps scrolling) */
 .liquid-bg {
   position: fixed;
   top: 0;
@@ -102,14 +102,19 @@ html, body {
   z-index: -1;
   pointer-events: none;
   overflow: hidden;
+  will-change: transform;
+  transform: translateZ(0);
 }
 .blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(140px);
-  opacity: 0.15;
-  mix-blend-mode: screen;
-  animation: float 25s infinite alternate ease-in-out;
+  filter: blur(80px);
+  opacity: 0.12;
+  will-change: transform;
+  transform: translateZ(0);
+}
+body.app-mode .blob {
+  animation: none !important;
 }
 .blob-1 {
   width: 550px;
@@ -117,7 +122,6 @@ html, body {
   background: var(--color-blue);
   top: -10%;
   left: -5%;
-  animation-duration: 22s;
 }
 .blob-2 {
   width: 650px;
@@ -125,7 +129,6 @@ html, body {
   background: #312e81;
   bottom: -15%;
   right: -5%;
-  animation-duration: 30s;
 }
 .blob-3 {
   width: 450px;

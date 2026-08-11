@@ -528,47 +528,52 @@ export const dbService = {
 
   // --- NOTES SERVICE ---
   getNotes: async (year?: string): Promise<{ data: Note[]; error: string | null }> => {
+    const cachedNotes = getStoredData<Note[]>('bw_cached_notes_catalog', INITIAL_NOTES);
+    const hasCache = cachedNotes && cachedNotes.length > 0;
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
-    if (!isOffline && !isMock && supabase) {
-      try {
-        let query = supabase.from('notes').select('id, title, subject, year, semester, price, originalPrice, description, pagesCount, type, topics');
-        if (year) query = query.eq('year', year);
-        const res: any = await fetchWithTimeout(query as any, 1000);
-        const data = res?.data;
-        
-        if (data && data.length > 0) {
-          const currentCached = getStoredData<Note[]>('bw_cached_notes_catalog', []);
-          const merged = [...currentCached];
-          for (const n of data) {
-            const idx = merged.findIndex(m => m.id === n.id);
-            if (idx >= 0) merged[idx] = n as any;
-            else merged.push(n as any);
-          }
-          setStoredData('bw_cached_notes_catalog', merged);
-          return { data: (data as any), error: null };
-        }
-      } catch (err) {
-        console.warn('Network fetch error in getNotes, using offline cache:', err);
+    const getLocalMerged = () => {
+      const noteMap = new Map<string, Note>();
+      INITIAL_NOTES.forEach(n => noteMap.set(n.id, n));
+      mockNotes.forEach(n => noteMap.set(n.id, n));
+      cachedNotes.forEach(n => noteMap.set(n.id, n));
+
+      const offlineIndex = dbService.getOfflineNotesIndex();
+      for (const nid of offlineIndex) {
+        const offNote = dbService.getOfflineNote(nid);
+        if (offNote) noteMap.set(offNote.id, offNote);
       }
+
+      const allMerged = Array.from(noteMap.values());
+      return year ? allMerged.filter(n => n.year === year) : allMerged;
+    };
+
+    // Return instant local cached data in 0ms
+    if (isOffline || isMock || !supabase || hasCache) {
+      if (!isOffline && !isMock && supabase) {
+        (async () => {
+          try {
+            let query = supabase.from('notes').select('id, title, subject, year, semester, price, originalPrice, description, pagesCount, type, topics');
+            if (year) query = query.eq('year', year);
+            const res: any = await fetchWithTimeout(query as any, 800);
+            const data = res?.data;
+            if (data && data.length > 0) {
+              const currentCached = getStoredData<Note[]>('bw_cached_notes_catalog', []);
+              const merged = [...currentCached];
+              for (const n of data) {
+                const idx = merged.findIndex(m => m.id === n.id);
+                if (idx >= 0) merged[idx] = n as any;
+                else merged.push(n as any);
+              }
+              setStoredData('bw_cached_notes_catalog', merged);
+            }
+          } catch (e) {}
+        })();
+      }
+      return { data: getLocalMerged(), error: null };
     }
 
-    // Merge INITIAL_NOTES, mockNotes, cached notes catalog & offline notes
-    const cachedNotes = getStoredData<Note[]>('bw_cached_notes_catalog', INITIAL_NOTES);
-    const noteMap = new Map<string, Note>();
-    INITIAL_NOTES.forEach(n => noteMap.set(n.id, n));
-    mockNotes.forEach(n => noteMap.set(n.id, n));
-    cachedNotes.forEach(n => noteMap.set(n.id, n));
-
-    const offlineIndex = dbService.getOfflineNotesIndex();
-    for (const nid of offlineIndex) {
-      const offNote = dbService.getOfflineNote(nid);
-      if (offNote) noteMap.set(offNote.id, offNote);
-    }
-
-    const allMerged = Array.from(noteMap.values());
-    const resultNotes = year ? allMerged.filter(n => n.year === year) : allMerged;
-    return { data: resultNotes, error: null };
+    return { data: getLocalMerged(), error: null };
   },
 
   // --- OFFLINE CACHING SERVICE (APP MODE ONLY) ---
@@ -596,6 +601,16 @@ export const dbService = {
 
   getOfflineNotesIndex: (): string[] => {
     return getStoredData<string[]>('bw_offline_notes_index', []);
+  },
+
+  clearOfflineNotes: () => {
+    try {
+      const index = getStoredData<string[]>('bw_offline_notes_index', []);
+      for (const nid of index) {
+        localStorage.removeItem(`bw_offline_note_${nid}`);
+      }
+      localStorage.removeItem('bw_offline_notes_index');
+    } catch (err) {}
   },
 
   getNoteById: async (id: string): Promise<{ data: Note | null; error: string | null }> => {
@@ -666,26 +681,28 @@ export const dbService = {
 
   // --- PLAYLISTS SERVICE ---
   getPlaylists: async (year?: string): Promise<{ data: Playlist[]; error: string | null }> => {
+    const cachedPlaylists = getStoredData<Playlist[]>('bw_cached_playlists', mockPlaylists);
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
-    if (!isOffline && !isMock && supabase) {
-      try {
-        let query = supabase.from('playlists').select('*');
-        if (year) query = query.eq('year', year);
-        const res: any = await fetchWithTimeout(query as any, 1000);
-        const data = res?.data;
-        if (data && data.length > 0) {
-          setStoredData('bw_cached_playlists', data);
-          return { data: data || [], error: null };
-        }
-      } catch (err) {
-        console.warn('Network error in getPlaylists, using offline cache:', err);
+    const getLocalPlaylists = () => year ? cachedPlaylists.filter(p => p.year === year) : cachedPlaylists;
+
+    if (isOffline || isMock || !supabase || cachedPlaylists.length > 0) {
+      if (!isOffline && !isMock && supabase) {
+        (async () => {
+          try {
+            let query = supabase.from('playlists').select('*');
+            if (year) query = query.eq('year', year);
+            const res: any = await fetchWithTimeout(query as any, 800);
+            if (res?.data && res.data.length > 0) {
+              setStoredData('bw_cached_playlists', res.data);
+            }
+          } catch (e) {}
+        })();
       }
+      return { data: getLocalPlaylists(), error: null };
     }
 
-    const cachedPlaylists = getStoredData<Playlist[]>('bw_cached_playlists', mockPlaylists);
-    const list = year ? cachedPlaylists.filter(p => p.year === year) : cachedPlaylists;
-    return { data: list, error: null };
+    return { data: getLocalPlaylists(), error: null };
   },
 
   addPlaylist: async (playlist: Omit<Playlist, 'id'>): Promise<{ data: Playlist | null; error: string | null }> => {
@@ -700,17 +717,31 @@ export const dbService = {
     }
   },
 
-  // --- PURCHASES (UNLOCKED STUDY MATERIAL WITH 6-MONTH VALIDITY) ---
+  // --- USER PURCHASES & ACCESS SERVICE ---
   isNotesPurchased: async (notesId: string): Promise<boolean> => {
-    const details = await dbService.getPurchaseDetails(notesId);
-    return details.purchased;
+    return dbService.checkNoteAccess(notesId);
+  },
+
+  checkNoteAccess: async (notesId: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+
+    // Offline check: If device is offline and note is saved locally, grant access!
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const offlineIndex = dbService.getOfflineNotesIndex();
+      if (offlineIndex.includes(notesId) || dbService.getOfflineNote(notesId)) {
+        return true;
+      }
+    }
+
+    const { purchasedNoteIds } = await dbService.getAllUserPurchasesState();
+    return purchasedNoteIds.includes(notesId);
   },
 
   getPurchaseDetails: async (notesId: string): Promise<{ purchased: boolean; expiresAt: string | null; daysLeft: number | null }> => {
     if (!currentUser) return { purchased: false, expiresAt: null, daysLeft: null };
     if (currentUser.role === 'admin') return { purchased: true, expiresAt: null, daysLeft: null };
 
-    // Offline check: If device is offline and note is cached locally, report unlocked!
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       const offlineIndex = dbService.getOfflineNotesIndex();
       if (offlineIndex.includes(notesId) || dbService.getOfflineNote(notesId)) {
@@ -718,7 +749,6 @@ export const dbService = {
       }
     }
 
-    // Use the single unified batch query (checks DB + local cache + bundles with safe notesIds parsing)
     const { purchasedNoteIds, noteDetailsMap } = await dbService.getAllUserPurchasesState();
     
     if (purchasedNoteIds.includes(notesId)) {
@@ -733,7 +763,7 @@ export const dbService = {
     return { purchased: false, expiresAt: null, daysLeft: null };
   },
 
-  // Batch purchase status fetcher to prevent N+1 query loading bottlenecks
+  // Batch purchase status fetcher to prevent N+1 query loading bottlenecks (0ms Instant Return)
   getAllUserPurchasesState: async (): Promise<{
     purchasedNoteIds: string[];
     purchasedBundleIds: string[];
@@ -748,69 +778,59 @@ export const dbService = {
     }
 
     const now = new Date();
-    let allPurchases: Purchase[] = [];
-    let allBundles: Bundle[] = [];
-
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
-    if (isOffline) {
-      const cachedUserPurchases = getStoredData<Purchase[]>(`bw_user_purchases_cache_${currentUser.id}`, []);
-      const localMap = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-      const localUserPurchases = localMap[currentUser.id] || [];
+    // Retrieve cached user purchases instantly from localStorage
+    const cachedUserPurchases = getStoredData<Purchase[]>(`bw_user_purchases_cache_${currentUser.id}`, []);
+    const localMap = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+    const localUserPurchases = localMap[currentUser.id] || [];
+    const mockForUser = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
 
-      allPurchases = [...cachedUserPurchases];
-      for (const lp of localUserPurchases) {
-        if (!allPurchases.some(p => p.itemId === lp.itemId && p.itemType === lp.itemType)) {
-          allPurchases.push(lp);
-        }
+    let allPurchases: Purchase[] = [...cachedUserPurchases];
+    for (const lp of localUserPurchases) {
+      if (!allPurchases.some(p => p.itemId === lp.itemId && p.itemType === lp.itemType)) {
+        allPurchases.push(lp);
       }
+    }
+    for (const mp of mockForUser) {
+      if (!allPurchases.some(p => p.itemId === mp.itemId && p.itemType === mp.itemType)) {
+        allPurchases.push(mp);
+      }
+    }
+    const offlineIndex = dbService.getOfflineNotesIndex();
+    for (const nid of offlineIndex) {
+      if (!allPurchases.some(p => p.itemId === nid)) {
+        allPurchases.push({
+          id: nid,
+          userId: currentUser.id,
+          itemId: nid,
+          itemType: 'notes',
+          purchasedAt: new Date().toISOString(),
+          expiresAt: '2099-01-01T00:00:00.000Z'
+        });
+      }
+    }
 
-      // Add mock purchases for this user
-      const mockForUser = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
-      for (const mp of mockForUser) {
-        if (!allPurchases.some(p => p.itemId === mp.itemId && p.itemType === mp.itemType)) {
-          allPurchases.push(mp);
-        }
-      }
+    const allBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
 
-      // Also ensure all offline cached notes index are included
-      const offlineIndex = dbService.getOfflineNotesIndex();
-      for (const nid of offlineIndex) {
-        if (!allPurchases.some(p => p.itemId === nid)) {
-          allPurchases.push({
-            id: nid,
-            userId: currentUser.id,
-            itemId: nid,
-            itemType: 'notes',
-            purchasedAt: new Date().toISOString(),
-            expiresAt: '2099-01-01T00:00:00.000Z'
-          });
-        }
-      }
-
-      const cachedBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
-      allBundles = cachedBundles;
-    } else if (!isMock && supabase) {
-      try {
-        const [purchasesRes, bundlesRes] = await fetchWithTimeout(Promise.all([
-          supabase.from('purchases').select('*').eq('userId', currentUser.id).gt('expiresAt', now.toISOString()),
-          supabase.from('bundles').select('*')
-        ]), 1000);
-        allPurchases = (purchasesRes.data || []).filter(p => p.itemId !== 'session_tracker');
-        // Decode bundles so notesIds is always a proper array
-        allBundles = (bundlesRes.data || []).map(b => ({ ...b, notesIds: safeParseBundleNotesIds(b.notesIds) }));
-        
-        // Cache user purchases and bundles for offline access
-        setStoredData(`bw_user_purchases_cache_${currentUser.id}`, allPurchases);
-        setStoredData('bw_cached_bundles', allBundles);
-      } catch (err) {
-        console.warn('Error fetching DB purchases in batch, falling back to cache:', err);
-        allPurchases = getStoredData<Purchase[]>(`bw_user_purchases_cache_${currentUser.id}`, mockPurchasesV2.filter(p => p.userId === currentUser?.id));
-        allBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
-      }
-    } else {
-      allPurchases = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
-      allBundles = mockBundles;
+    // If online, refresh cache in background non-blocking
+    if (!isOffline && !isMock && supabase) {
+      (async () => {
+        try {
+          const [purchasesRes, bundlesRes] = await fetchWithTimeout(Promise.all([
+            supabase.from('purchases').select('*').eq('userId', currentUser.id).gt('expiresAt', now.toISOString()),
+            supabase.from('bundles').select('*')
+          ]), 800);
+          if (purchasesRes?.data) {
+            const freshPurchases = (purchasesRes.data || []).filter((p: any) => p.itemId !== 'session_tracker');
+            setStoredData(`bw_user_purchases_cache_${currentUser.id}`, freshPurchases);
+          }
+          if (bundlesRes?.data) {
+            const freshBundles = (bundlesRes.data || []).map((b: any) => ({ ...b, notesIds: safeParseBundleNotesIds(b.notesIds) }));
+            setStoredData('bw_cached_bundles', freshBundles);
+          }
+        } catch (e) {}
+      })();
     }
 
     const noteDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};

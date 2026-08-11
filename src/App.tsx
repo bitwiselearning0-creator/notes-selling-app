@@ -347,7 +347,7 @@ function App() {
     }
 
     setReadingNote(note);
-    const unlocked = await dbService.isNotesPurchased(note.id);
+    const unlocked = await dbService.checkNoteAccess(note.id);
     setReadingNoteUnlocked(unlocked || note.price === 0);
     setCurrentPage('viewer');
 

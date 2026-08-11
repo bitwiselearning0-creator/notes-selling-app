@@ -19,27 +19,21 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
 
   const fetchLibraryData = async () => {
     if (!user) return;
-    setLoading(true);
+    if (allNotes.length === 0 && libraryNotes.length === 0) {
+      setLoading(true);
+    }
     try {
-      const allNotesRes = await dbService.getNotes();
+      const [allNotesRes, notesRes, bundlesRes, purchaseState] = await Promise.all([
+        dbService.getNotes(),
+        dbService.getPurchasedNotes(),
+        dbService.getPurchasedBundles(),
+        dbService.getAllUserPurchasesState()
+      ]);
+
       setAllNotes(allNotesRes.data || []);
-
-      const notesRes = await dbService.getPurchasedNotes();
-      const bundlesRes = await dbService.getPurchasedBundles();
-      
-      const activeNotes = notesRes.data || [];
-      setLibraryNotes(activeNotes);
+      setLibraryNotes(notesRes.data || []);
       setLibraryBundles(bundlesRes.data || []);
-
-      // Load specific license details for each note
-      const detailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
-      for (const note of activeNotes) {
-        const details = await dbService.getPurchaseDetails(note.id);
-        if (details.purchased) {
-          detailsMap[note.id] = { expiresAt: details.expiresAt, daysLeft: details.daysLeft };
-        }
-      }
-      setNotesDetails(detailsMap);
+      setNotesDetails(purchaseState.noteDetailsMap);
     } catch (err) {
       console.error('Error fetching library notes:', err);
     } finally {
