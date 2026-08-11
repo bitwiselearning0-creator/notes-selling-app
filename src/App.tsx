@@ -139,7 +139,7 @@ function App() {
     // 3. Hash routing check for admin/student access
     const handleHashRouting = () => {
       const activeHash = window.location.hash.split('?')[0];
-      const activeUser = dbService.getCurrentUser();
+      const activeUser = currentUser || dbService.getCurrentUser();
 
       // Strict protection for App Mode: redirect to login if not authenticated
       if (isApp && !activeUser) {
@@ -163,6 +163,7 @@ function App() {
         }
       } else if (activeHash === '#login') {
         if (activeUser) {
+          setCurrentPage('dashboard');
           window.location.hash = '#catalog';
         } else {
           setCurrentPage('auth');
@@ -173,16 +174,19 @@ function App() {
         if (activeUser) {
           setCurrentPage('library');
         } else {
+          setCurrentPage('auth');
           window.location.hash = '#login';
         }
       } else if (activeHash === '#profile') {
         if (activeUser) {
           setCurrentPage('profile');
         } else {
+          setCurrentPage('auth');
           window.location.hash = '#login';
         }
       } else if (activeHash === '#home' || activeHash === '') {
         if (isApp) {
+          setCurrentPage('dashboard');
           window.location.hash = '#catalog';
         } else {
           setCurrentPage('landing');
@@ -278,8 +282,9 @@ function App() {
     return () => clearInterval(interval);
   }, [currentUser]);
 
-  // Custom navigate wrapper to sync hash and views
+  // Custom navigate wrapper to sync hash and views synchronously
   const navigate = (page: string) => {
+    setCurrentPage(page);
     if (page === 'landing') {
       window.location.hash = '#home';
     } else if (page === 'dashboard') {
@@ -294,8 +299,6 @@ function App() {
       window.location.hash = '#library';
     } else if (page === 'profile') {
       window.location.hash = '#profile';
-    } else {
-      setCurrentPage(page);
     }
   };
 
