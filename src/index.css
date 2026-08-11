@@ -1877,37 +1877,86 @@ body.app-mode .pdf-viewer-container {
   gap: 6px !important;
 }
 
-body.app-mode .viewer-header {
-  padding: 6px 10px !important;
-  border-radius: 8px !important;
-  gap: 8px !important;
+@media (max-width: 640px) {
+  .viewer-header {
+    padding: 6px 10px !important;
+    left: 8px !important;
+    right: 8px !important;
+    top: 8px !important;
+    gap: 6px !important;
+    border-radius: 12px !important;
+  }
+
+  .desktop-only-zoom {
+    display: none !important;
+  }
+
+  .viewer-title-area {
+    min-width: 0 !important;
+    flex-shrink: 1 !important;
+    overflow: hidden !important;
+  }
+
+  .viewer-title {
+    font-size: 11px !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    overflow: hidden !important;
+    max-width: 110px !important;
+  }
+
+  .viewer-subtitle {
+    font-size: 8px !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    overflow: hidden !important;
+    max-width: 110px !important;
+    display: block !important;
+  }
+
+  .viewer-controls {
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .page-jump-pill {
+    padding: 2px 6px !important;
+    gap: 3px !important;
+    height: 30px !important;
+  }
+
+  .page-jump-pill span {
+    font-size: 10px !important;
+  }
+
+  .page-jump-pill input {
+    width: 28px !important;
+    height: 20px !important;
+    font-size: 10px !important;
+  }
 }
 
-body.app-mode .viewer-title-area {
-  flex-grow: 1 !important;
-  text-align: left !important;
-  padding-left: 6px !important;
+body.app-mode .viewer-header {
+  padding: 6px 10px !important;
+  left: 8px !important;
+  right: 8px !important;
+  top: 8px !important;
+  gap: 6px !important;
+  border-radius: 12px !important;
+}
+
+body.app-mode .desktop-only-zoom {
+  display: none !important;
 }
 
 body.app-mode .viewer-title {
-  font-size: 12px !important;
-  white-space: nowrap !important;
-  text-overflow: ellipsis !important;
-  overflow: hidden !important;
-  max-width: 140px !important;
+  font-size: 11px !important;
+  max-width: 110px !important;
 }
 
 body.app-mode .viewer-subtitle {
   font-size: 8px !important;
-}
-
-body.app-mode .viewer-controls {
-  gap: 4px !important;
-}
-
-body.app-mode .zoom-text {
-  font-size: 10px !important;
-  width: 26px !important;
+  max-width: 110px !important;
 }
 
 body.app-mode .security-banner {

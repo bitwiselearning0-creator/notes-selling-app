@@ -438,9 +438,9 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             <ChevronLeft size={16} /> Back
           </button>
           
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+          <div className="viewer-title-area" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, overflow: 'hidden' }}>
             <h2 className="viewer-title" style={{ 
-              fontSize: '14px', 
+              fontSize: '13px', 
               fontWeight: '700', 
               color: 'var(--color-white)', 
               overflow: 'hidden', 
@@ -452,13 +452,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               {note.title}
             </h2>
             <span className="viewer-subtitle" style={{ 
-              fontSize: '10px', 
+              fontSize: '9px', 
               color: isUnlocked ? '#22c55e' : 'var(--color-yellow)', 
               fontWeight: '700', 
               textTransform: 'uppercase', 
-              letterSpacing: '0.5px',
+              letterSpacing: '0.3px',
               marginTop: '1px',
-              lineHeight: 1
+              lineHeight: 1.1,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: 'block'
             }}>
               {isUnlocked ? '✦ Full Access Unlocked' : '✦ Free Preview Mode'}
             </span>
@@ -466,15 +470,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         </div>
 
         {/* Right Section: Page Jump & Zoom Controls */}
-        <div className="viewer-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        <div className="viewer-controls" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           {/* Direct Page Jump Input Pill */}
-          <div style={{
+          <div className="page-jump-pill" style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '4px',
             background: 'rgba(255, 255, 255, 0.05)',
             border: '1px solid var(--glass-border)',
-            padding: '3px 10px',
+            padding: '3px 8px',
             borderRadius: '20px',
             height: '34px',
             boxSizing: 'border-box',
@@ -594,8 +598,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             </button>
           </div>
 
-          {/* Zoom Controls Pill */}
-          <div style={{ 
+          {/* Zoom Controls Pill (Hidden on Mobile screens where bottom floating zoom widget handles zoom) */}
+          <div className="desktop-only-zoom" style={{ 
             display: 'inline-flex', 
             alignItems: 'center', 
             gap: '4px',
