@@ -234,6 +234,9 @@ function App() {
 
     const checkSingleDeviceSession = async () => {
       if (isTerminated) return;
+      // Skip network check if device is offline to keep UI blazing fast & 0ms responsive
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
       const { valid } = await dbService.verifyDeviceSession(currentUser.id);
       if (!valid) {
         isTerminated = true;
@@ -246,9 +249,9 @@ function App() {
     };
 
     checkSingleDeviceSession();
-    const interval = setInterval(checkSingleDeviceSession, 2500);
+    const interval = setInterval(checkSingleDeviceSession, 12000);
     return () => clearInterval(interval);
-  }, [currentUser, currentPage]);
+  }, [currentUser]);
 
   // Custom navigate wrapper to sync hash and views
   const navigate = (page: string) => {

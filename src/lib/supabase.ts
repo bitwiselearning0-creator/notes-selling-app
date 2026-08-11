@@ -286,6 +286,16 @@ let currentUser = getStoredData<UserProfile | null>('bw_mock_current_user', null
 let mockNotes = getStoredData<Note[]>('bw_mock_notes', INITIAL_NOTES);
 let mockPlaylists = getStoredData<Playlist[]>('bw_mock_playlists', INITIAL_PLAYLISTS);
 
+// Helper to race network promises with a 1.0s timeout for ultra-fast 0ms fallback responses
+const fetchWithTimeout = async <T>(promise: Promise<T>, timeoutMs = 1000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error('Network query timed out')), timeoutMs)
+    )
+  ]);
+};
+
 export const dbService = {
   // --- AUTHENTICATION ---
   signUp: async (name: string, email: string, phone: string, password: string): Promise<{ data: UserProfile | null; error: string | null }> => {
@@ -524,7 +534,8 @@ export const dbService = {
       try {
         let query = supabase.from('notes').select('id, title, subject, year, semester, price, originalPrice, description, pagesCount, type, topics');
         if (year) query = query.eq('year', year);
-        const { data } = await query;
+        const res: any = await fetchWithTimeout(query as any, 1000);
+        const data = res?.data;
         
         if (data && data.length > 0) {
           const currentCached = getStoredData<Note[]>('bw_cached_notes_catalog', []);
@@ -661,7 +672,8 @@ export const dbService = {
       try {
         let query = supabase.from('playlists').select('*');
         if (year) query = query.eq('year', year);
-        const { data } = await query;
+        const res: any = await fetchWithTimeout(query as any, 1000);
+        const data = res?.data;
         if (data && data.length > 0) {
           setStoredData('bw_cached_playlists', data);
           return { data: data || [], error: null };
@@ -780,10 +792,10 @@ export const dbService = {
       allBundles = cachedBundles;
     } else if (!isMock && supabase) {
       try {
-        const [purchasesRes, bundlesRes] = await Promise.all([
+        const [purchasesRes, bundlesRes] = await fetchWithTimeout(Promise.all([
           supabase.from('purchases').select('*').eq('userId', currentUser.id).gt('expiresAt', now.toISOString()),
           supabase.from('bundles').select('*')
-        ]);
+        ]), 1000);
         allPurchases = (purchasesRes.data || []).filter(p => p.itemId !== 'session_tracker');
         // Decode bundles so notesIds is always a proper array
         allBundles = (bundlesRes.data || []).map(b => ({ ...b, notesIds: safeParseBundleNotesIds(b.notesIds) }));
@@ -913,10 +925,11 @@ export const dbService = {
       try {
         let query = supabase.from('bundles').select('*');
         if (year) query = query.eq('year', year);
-        const { data } = await query;
+        const res: any = await fetchWithTimeout(query as any, 1000);
+        const data = res?.data;
         
         if (data && data.length > 0) {
-          const processed = (data || []).map(b => {
+          const processed = (data || []).map((b: any) => {
             const decoded = decodeBundleFromDb(b);
             const cached = mockBundles.find(mb => mb.id === b.id);
             if (cached && cached.subjects && cached.subjects.length > 0) {
