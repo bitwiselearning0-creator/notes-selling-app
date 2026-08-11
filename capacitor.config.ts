@@ -5,7 +5,6 @@ const config: CapacitorConfig = {
   appName: 'Bitwise Learning',
   webDir: 'dist',
   server: {
-    url: 'https://bitwise-learning.onrender.com?platform=app',
     cleartext: true
   }
 };
