@@ -510,6 +510,9 @@ export const dbService = {
   },
 
   getCurrentUser: (): UserProfile | null => {
+    if (!currentUser) {
+      currentUser = getStoredData<UserProfile | null>('bw_mock_current_user', null);
+    }
     return currentUser;
   },
 
@@ -539,8 +542,21 @@ export const dbService = {
       }
     }
 
-    const cachedNotes = getStoredData<Note[]>('bw_cached_notes_catalog', mockNotes);
-    const resultNotes = year ? cachedNotes.filter(n => n.year === year) : cachedNotes;
+    // Merge INITIAL_NOTES, mockNotes, cached notes catalog & offline notes
+    const cachedNotes = getStoredData<Note[]>('bw_cached_notes_catalog', INITIAL_NOTES);
+    const noteMap = new Map<string, Note>();
+    INITIAL_NOTES.forEach(n => noteMap.set(n.id, n));
+    mockNotes.forEach(n => noteMap.set(n.id, n));
+    cachedNotes.forEach(n => noteMap.set(n.id, n));
+
+    const offlineIndex = dbService.getOfflineNotesIndex();
+    for (const nid of offlineIndex) {
+      const offNote = dbService.getOfflineNote(nid);
+      if (offNote) noteMap.set(offNote.id, offNote);
+    }
+
+    const allMerged = Array.from(noteMap.values());
+    const resultNotes = year ? allMerged.filter(n => n.year === year) : allMerged;
     return { data: resultNotes, error: null };
   },
 
@@ -713,29 +729,56 @@ export const dbService = {
     bundleDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }>;
   }> => {
     if (!currentUser) {
-      return { purchasedNoteIds: [], purchasedBundleIds: [], noteDetailsMap: {}, bundleDetailsMap: {} };
-    }
-
-    // Offline check: If device is offline, return cached offline note IDs!
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const offlineIndex = dbService.getOfflineNotesIndex();
-      const noteDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
-      for (const nid of offlineIndex) {
-        noteDetailsMap[nid] = { expiresAt: '2099-01-01T00:00:00.000Z', daysLeft: 180 };
+      currentUser = getStoredData<UserProfile | null>('bw_mock_current_user', null);
+      if (!currentUser) {
+        return { purchasedNoteIds: [], purchasedBundleIds: [], noteDetailsMap: {}, bundleDetailsMap: {} };
       }
-      return {
-        purchasedNoteIds: offlineIndex,
-        purchasedBundleIds: [],
-        noteDetailsMap,
-        bundleDetailsMap: {}
-      };
     }
 
     const now = new Date();
     let allPurchases: Purchase[] = [];
     let allBundles: Bundle[] = [];
 
-    if (!isMock && supabase) {
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (isOffline) {
+      const cachedUserPurchases = getStoredData<Purchase[]>(`bw_user_purchases_cache_${currentUser.id}`, []);
+      const localMap = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+      const localUserPurchases = localMap[currentUser.id] || [];
+
+      allPurchases = [...cachedUserPurchases];
+      for (const lp of localUserPurchases) {
+        if (!allPurchases.some(p => p.itemId === lp.itemId && p.itemType === lp.itemType)) {
+          allPurchases.push(lp);
+        }
+      }
+
+      // Add mock purchases for this user
+      const mockForUser = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
+      for (const mp of mockForUser) {
+        if (!allPurchases.some(p => p.itemId === mp.itemId && p.itemType === mp.itemType)) {
+          allPurchases.push(mp);
+        }
+      }
+
+      // Also ensure all offline cached notes index are included
+      const offlineIndex = dbService.getOfflineNotesIndex();
+      for (const nid of offlineIndex) {
+        if (!allPurchases.some(p => p.itemId === nid)) {
+          allPurchases.push({
+            id: nid,
+            userId: currentUser.id,
+            itemId: nid,
+            itemType: 'notes',
+            purchasedAt: new Date().toISOString(),
+            expiresAt: '2099-01-01T00:00:00.000Z'
+          });
+        }
+      }
+
+      const cachedBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
+      allBundles = cachedBundles;
+    } else if (!isMock && supabase) {
       try {
         const [purchasesRes, bundlesRes] = await Promise.all([
           supabase.from('purchases').select('*').eq('userId', currentUser.id).gt('expiresAt', now.toISOString()),
@@ -744,27 +787,23 @@ export const dbService = {
         allPurchases = (purchasesRes.data || []).filter(p => p.itemId !== 'session_tracker');
         // Decode bundles so notesIds is always a proper array
         allBundles = (bundlesRes.data || []).map(b => ({ ...b, notesIds: safeParseBundleNotesIds(b.notesIds) }));
+        
+        // Cache user purchases and bundles for offline access
+        setStoredData(`bw_user_purchases_cache_${currentUser.id}`, allPurchases);
+        setStoredData('bw_cached_bundles', allBundles);
       } catch (err) {
-        console.warn('Error fetching DB purchases in batch:', err);
-        allPurchases = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
-        allBundles = mockBundles;
+        console.warn('Error fetching DB purchases in batch, falling back to cache:', err);
+        allPurchases = getStoredData<Purchase[]>(`bw_user_purchases_cache_${currentUser.id}`, mockPurchasesV2.filter(p => p.userId === currentUser?.id));
+        allBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
       }
     } else {
       allPurchases = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
       allBundles = mockBundles;
     }
 
-    // Combine local cached purchases
-    const localMap = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-    const localUserPurchases = localMap[currentUser.id] || [];
-    for (const lp of localUserPurchases) {
-      if (!allPurchases.some(p => p.itemId === lp.itemId && p.itemType === lp.itemType)) {
-        allPurchases.push(lp);
-      }
-    }
-
     const noteDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
-    const bundleDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
+    let bundleDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }>;
+    bundleDetailsMap = {};
     const purchasedNoteIdsSet = new Set<string>();
     const purchasedBundleIdsSet = new Set<string>();
 
@@ -783,12 +822,11 @@ export const dbService = {
         bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
 
         const bObj = allBundles.find(b => b.id === p.itemId);
-        if (bObj && Array.isArray(bObj.notesIds)) {
-          for (const nid of bObj.notesIds) {
-            purchasedNoteIdsSet.add(nid);
-            if (!noteDetailsMap[nid]) {
-              noteDetailsMap[nid] = { expiresAt: p.expiresAt, daysLeft };
-            }
+        const bNotesIds = bObj ? safeParseBundleNotesIds(bObj.notesIds) : [];
+        for (const nid of bNotesIds) {
+          purchasedNoteIdsSet.add(nid);
+          if (!noteDetailsMap[nid]) {
+            noteDetailsMap[nid] = { expiresAt: p.expiresAt, daysLeft };
           }
         }
       }
