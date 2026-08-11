@@ -30,8 +30,17 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
         dbService.getAllUserPurchasesState()
       ]);
 
-      setAllNotes(allNotesRes.data || []);
-      setLibraryNotes(notesRes.data || []);
+      const fullCatalog = allNotesRes.data || [];
+      setAllNotes(fullCatalog);
+
+      // Guarantee 100% unlocked notes are populated in state
+      const purchasedSet = new Set<string>([
+        ...(notesRes.data || []).map(n => n.id),
+        ...purchaseState.purchasedNoteIds
+      ]);
+
+      const unlockedNotesList = fullCatalog.filter(n => purchasedSet.has(n.id));
+      setLibraryNotes(unlockedNotesList.length > 0 ? unlockedNotesList : (notesRes.data || []));
       setLibraryBundles(bundlesRes.data || []);
       setNotesDetails(purchaseState.noteDetailsMap);
     } catch (err) {

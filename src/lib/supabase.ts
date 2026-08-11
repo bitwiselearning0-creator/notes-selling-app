@@ -912,10 +912,11 @@ export const dbService = {
   },
 
   getPurchasedNotes: async (): Promise<{ data: Note[]; error: string | null }> => {
-    if (!currentUser) return { data: [], error: 'User session not active.' };
+    const user = dbService.getCurrentUser();
+    if (!user) return { data: [], error: 'User session not active.' };
 
     const { data: allNotes } = await dbService.getNotes();
-    if (currentUser.role === 'admin') return { data: allNotes || [], error: null };
+    if (user.role === 'admin') return { data: allNotes || [], error: null };
 
     // Batch fetch all purchases for current user in 1 fast query (checks DB + local cache + offline index)
     const { purchasedNoteIds } = await dbService.getAllUserPurchasesState();
@@ -1067,7 +1068,8 @@ export const dbService = {
   },
 
   getPurchasedBundles: async (): Promise<{ data: { bundle: Bundle; expiresAt: string; daysLeft: number }[]; error: string | null }> => {
-    if (!currentUser) return { data: [], error: 'User session not active.' };
+    const user = dbService.getCurrentUser();
+    if (!user) return { data: [], error: 'User session not active.' };
     
     const now = new Date();
 
@@ -1075,7 +1077,7 @@ export const dbService = {
       const { data: allBundles, error: bundlesError } = await supabase.from('bundles').select('*');
       if (bundlesError) return { data: [], error: bundlesError.message };
 
-      if (currentUser.role === 'admin') {
+      if (user.role === 'admin') {
         const adminResults = (allBundles || []).map(b => ({
           bundle: b,
           expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 180).toISOString(),
@@ -1087,7 +1089,7 @@ export const dbService = {
       const { data: dbPurchases, error: purchasesError } = await supabase
         .from('purchases')
         .select('*')
-        .eq('userId', currentUser.id)
+        .eq('userId', user.id)
         .eq('itemType', 'bundle')
         .gt('expiresAt', now.toISOString());
 
@@ -1116,11 +1118,11 @@ export const dbService = {
       for (const purchase of mockPurchasesV2) {
         if (purchase.itemType === 'bundle') {
           const expDate = new Date(purchase.expiresAt);
-          if (expDate > now || currentUser.role === 'admin') {
+          if (expDate > now || user.role === 'admin') {
             const bundle = mockBundles.find(b => b.id === purchase.itemId);
             if (bundle) {
               const diffTime = expDate.getTime() - now.getTime();
-              const daysLeft = currentUser.role === 'admin' ? 9999 : Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              const daysLeft = user.role === 'admin' ? 9999 : Math.ceil(diffTime / (1000 * 60 * 60 * 24));
               results.push({
                 bundle,
                 expiresAt: purchase.expiresAt,

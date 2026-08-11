@@ -2454,4 +2454,16 @@ body.app-mode .form-toggle-link span {
   margin-top: 0 !important;
 }
 
+/* Hide scrollbars completely in App Mode for clean native mobile look */
+::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+* {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
 
