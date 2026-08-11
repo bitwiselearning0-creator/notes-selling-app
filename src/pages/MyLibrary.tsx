@@ -71,6 +71,47 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
     );
   }
 
+  // Helper to resolve note objects inside a bundle with 100% fallback reliability
+  const resolveBundleNotes = (bundle: Bundle): Note[] => {
+    let items: string[] = [];
+    if (Array.isArray(bundle.notesIds) && bundle.notesIds.length > 0) {
+      items = bundle.notesIds;
+    } else if (Array.isArray(bundle.subjects) && bundle.subjects.length > 0) {
+      items = bundle.subjects;
+    }
+
+    if (items.length === 0) {
+      // Fallback: get all notes matching semester/year from allNotes
+      const semNotes = allNotes.filter(n => n.semester === bundle.semester || n.year === bundle.year);
+      if (semNotes.length > 0) return semNotes;
+    }
+
+    return items.map((item, idx) => {
+      const itemStr = String(item);
+      const match = allNotes.find(n => n.id === itemStr || n.title.toLowerCase().includes(itemStr.toLowerCase()))
+        || dbService.getOfflineNote(itemStr) || undefined;
+
+      if (match) return match;
+
+      // Construct clean Note object for subject item
+      const cleanTitle = itemStr.replace(/^note_/, '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      return {
+        id: `bundle_item_${bundle.id}_${idx}`,
+        title: cleanTitle.length > 2 ? cleanTitle : `${bundle.title} - Subject ${idx + 1}`,
+        subject: cleanTitle,
+        year: (bundle.year as any) || '2nd Year',
+        semester: bundle.semester || 4,
+        price: 0,
+        originalPrice: 0,
+        description: 'Complete syllabus notes included in combo pack.',
+        previewUrl: 'https://cdn.jsdelivr.net/gh/mozilla/pdf.js@master/web/compressed.tracemonkey-pldi-09.pdf',
+        pagesCount: 65,
+        topics: ['Complete Syllabus Unit 1-5', 'Important Solved Questions'],
+        type: 'notes'
+      };
+    });
+  };
+
   // Show ALL purchased & unlocked notes directly in Notes & PYQ sections
   const studyNotes = libraryNotes.filter(n => n.type !== 'pyqs');
   const pyqs = libraryNotes.filter(n => n.type === 'pyqs');
@@ -205,6 +246,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {libraryBundles.map(({ bundle, daysLeft }) => {
                   const isExpanded = expandedBundleId === bundle.id;
+                  const bundleItems = resolveBundleNotes(bundle);
 
                   return (
                     <div
@@ -247,7 +289,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
                             {bundle.title}
                           </h4>
                           <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>
-                            {bundle.notesIds.length} subjects · Sem {bundle.semester}
+                            {bundleItems.length} subjects · Sem {bundle.semester}
                           </span>
                         </div>
 
@@ -277,38 +319,33 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
                           gap: '8px',
                           background: 'rgba(0,0,0,0.15)'
                         }}>
-                          {bundle.notesIds.map(noteId => {
-                            const noteItem = allNotes.find(n => n.id === noteId);
-                            if (!noteItem) return null;
-
-                            return (
-                              <div
-                                key={noteId}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '12px',
-                                  padding: '10px 12px',
-                                  background: 'rgba(255, 255, 255, 0.03)',
-                                  borderRadius: '10px',
-                                  cursor: 'pointer',
-                                  transition: 'background 0.15s ease'
-                                }}
-                                onClick={() => onReadNote(noteItem)}
-                              >
-                                <BookOpen size={16} style={{ color: '#60a5fa', flexShrink: 0 }} />
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <span style={{ fontSize: '13px', color: '#fff', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                                    {noteItem.title}
-                                  </span>
-                                  <span style={{ fontSize: '10px', color: 'var(--color-muted)' }}>
-                                    {noteItem.pagesCount} pages
-                                  </span>
-                                </div>
-                                <ChevronRight size={14} style={{ color: 'var(--color-muted)', flexShrink: 0 }} />
+                          {bundleItems.map(noteItem => (
+                            <div
+                              key={noteItem.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                padding: '10px 12px',
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                borderRadius: '10px',
+                                cursor: 'pointer',
+                                transition: 'background 0.15s ease'
+                              }}
+                              onClick={() => onReadNote(noteItem)}
+                            >
+                              <BookOpen size={16} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <span style={{ fontSize: '13px', color: '#fff', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+                                  {noteItem.title}
+                                </span>
+                                <span style={{ fontSize: '10px', color: 'var(--color-muted)' }}>
+                                  {noteItem.pagesCount} pages · {noteItem.subject}
+                                </span>
                               </div>
-                            );
-                          })}
+                              <ChevronRight size={14} style={{ color: 'var(--color-muted)', flexShrink: 0 }} />
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

@@ -256,10 +256,16 @@ export const decodeBundleFromDb = (b: Bundle): Bundle => {
     }
   }
 
+  let notesIds = safeParseBundleNotesIds(b.notesIds);
+  if (notesIds.length === 0 && subjects && subjects.length > 0) {
+    notesIds = subjects;
+  }
+
   return {
     ...b,
     description,
-    subjects: subjects || []
+    subjects: subjects || [],
+    notesIds: notesIds.length > 0 ? notesIds : (b.notesIds || [])
   };
 };
 
@@ -558,14 +564,13 @@ export const dbService = {
             const res: any = await fetchWithTimeout(query as any, 800);
             const data = res?.data;
             if (data && data.length > 0) {
-              const currentCached = getStoredData<Note[]>('bw_cached_notes_catalog', []);
-              const merged = [...currentCached];
-              for (const n of data) {
-                const idx = merged.findIndex(m => m.id === n.id);
-                if (idx >= 0) merged[idx] = n as any;
-                else merged.push(n as any);
-              }
-              setStoredData('bw_cached_notes_catalog', merged);
+              const currentCached = getStoredData<Note[]>('bw_cached_notes_catalog', INITIAL_NOTES);
+              const mergedMap = new Map<string, Note>();
+              INITIAL_NOTES.forEach(n => mergedMap.set(n.id, n));
+              mockNotes.forEach(n => mergedMap.set(n.id, n));
+              currentCached.forEach(n => mergedMap.set(n.id, n));
+              data.forEach((n: any) => mergedMap.set(n.id, n));
+              setStoredData('bw_cached_notes_catalog', Array.from(mergedMap.values()));
             }
           } catch (e) {}
         })();
