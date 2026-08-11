@@ -32,6 +32,9 @@ function App() {
   const [showExitModal, setShowExitModal] = useState(false);
   const childBackHandlerRef = useRef<(() => boolean) | null>(null);
 
+  // Ref that always holds the LATEST back navigation handler (avoids stale closures)
+  const backHandlerRef = useRef<() => boolean>(() => false);
+
   // Network offline listener for App Mode
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -44,69 +47,80 @@ function App() {
     };
   }, []);
 
-  // Unified single-step back navigation handler with Exit Confirmation Modal
-  const handleBackNavigation = () => {
-    // 1. If Exit Modal is currently open, close modal
-    if (showExitModal) {
-      setShowExitModal(false);
-      return true;
-    }
-
-    // 2. If PDF viewer is open, exit reader mode
-    if (currentPage === 'viewer' || readingNote !== null) {
-      setReadingNote(null);
-      setCurrentPage(previousPage || 'dashboard');
-      return true;
-    }
-
-    // 3. Check child component back handler (e.g. Dashboard subject/search/sem detail view)
-    if (childBackHandlerRef.current && childBackHandlerRef.current()) {
-      return true;
-    }
-
-    // 4. If on Library, Profile, Policies, or Admin tab, return to Dashboard Catalog Root
-    if (currentPage === 'library' || currentPage === 'profile' || currentPage === 'admin' || currentPage.startsWith('policy-')) {
-      setCurrentPage('dashboard');
-      window.location.hash = '#catalog';
-      return true;
-    }
-
-    // 5. If already at Dashboard Root (Catalog Home Screen with no subject/search open):
-    // Show Exit Confirmation Modal instead of closing abruptly!
-    if (currentPage === 'dashboard' || currentPage === 'landing') {
-      setShowExitModal(true);
-      return true; // Return true so CapApp.minimizeApp() is NOT called directly!
-    }
-
-    return false;
-  };
-
-  // Hardware back button and browser popstate listener
+  // Keep backHandlerRef always in sync with latest React state (no stale closures)
   useEffect(() => {
-    let capListener: any = null;
-    try {
-      capListener = CapApp.addListener('backButton', () => {
-        const handled = handleBackNavigation();
-        if (!handled && (window as any).Capacitor) {
-          setShowExitModal(true);
-        }
-      });
-    } catch (e) {
-      // Ignored outside Capacitor container
-    }
+    backHandlerRef.current = () => {
+      // 1. If Exit Modal is currently open, close modal
+      if (showExitModal) {
+        setShowExitModal(false);
+        return true;
+      }
 
-    const handlePopState = () => {
-      handleBackNavigation();
+      // 2. If PDF viewer is open, exit reader mode
+      if (currentPage === 'viewer' || readingNote !== null) {
+        setReadingNote(null);
+        setCurrentPage(previousPage || 'dashboard');
+        return true;
+      }
+
+      // 3. Check child component back handler (e.g. Dashboard subject/search/sem detail view)
+      if (childBackHandlerRef.current && childBackHandlerRef.current()) {
+        return true;
+      }
+
+      // 4. If on Library, Profile, Policies, or Admin tab, return to Dashboard Catalog Root
+      if (currentPage === 'library' || currentPage === 'profile' || currentPage === 'admin' || currentPage.startsWith('policy-')) {
+        setCurrentPage('dashboard');
+        window.location.hash = '#catalog';
+        return true;
+      }
+
+      // 5. If already at Dashboard Root — show Exit Confirmation Modal
+      if (currentPage === 'dashboard' || currentPage === 'landing') {
+        setShowExitModal(true);
+        return true;
+      }
+
+      return false;
     };
-    window.addEventListener('popstate', handlePopState);
+  }, [currentPage, readingNote, previousPage, showExitModal]);
+
+  // Hardware back button — registered ONCE, calls through ref (never stale)
+  useEffect(() => {
+    let cancelled = false;
+
+    const setup = async () => {
+      try {
+        const listener = await CapApp.addListener('backButton', () => {
+          if (cancelled) return;
+          const handled = backHandlerRef.current();
+          if (!handled && (window as any).Capacitor) {
+            setShowExitModal(true);
+          }
+        });
+
+        // Store cleanup
+        if (!cancelled) {
+          return listener;
+        } else {
+          listener.remove();
+        }
+      } catch (_e) {
+        // Not in Capacitor environment
+      }
+      return null;
+    };
+
+    let listenerHandle: any = null;
+    setup().then(h => { listenerHandle = h; });
 
     return () => {
-      if (capListener && typeof capListener.remove === 'function') {
-        capListener.remove();
+      cancelled = true;
+      if (listenerHandle && typeof listenerHandle.remove === 'function') {
+        listenerHandle.remove();
       }
-      window.removeEventListener('popstate', handlePopState);
     };
-  }, [currentPage, readingNote, previousPage, isAppMode, showExitModal]);
+  }, []); // Empty deps — registered exactly ONCE
 
   // Check user session on mount & handle hash routing (e.g. #admin)
   useEffect(() => {
