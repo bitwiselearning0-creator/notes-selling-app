@@ -1873,6 +1873,32 @@ body.app-mode .play-btn-circle svg {
   height: 14px !important;
 }
 
+/* --- 120 FPS HIGH REFRESH RATE ULTRA ENGINE OVERHAUL --- */
+body.app-mode {
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+body.app-mode .note-card,
+body.app-mode .glass-card,
+body.app-mode .stat-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 120px;
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  -webkit-font-smoothing: antialiased;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(13, 20, 42, 0.9) !important;
+}
+
+body.app-mode main {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
 /* 10. PDF Secure Viewer Mobile layout */
 body.app-mode .pdf-viewer-container {
   margin: 0 !important;
