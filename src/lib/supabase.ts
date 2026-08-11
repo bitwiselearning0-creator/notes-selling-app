@@ -515,15 +515,33 @@ export const dbService = {
 
   // --- NOTES SERVICE ---
   getNotes: async (year?: string): Promise<{ data: Note[]; error: string | null }> => {
-    if (!isMock && supabase) {
-      let query = supabase.from('notes').select('id, title, subject, year, semester, price, originalPrice, description, pagesCount, type, topics');
-      if (year) query = query.eq('year', year);
-      const { data, error } = await query;
-      return { data: (data as any) || [], error: error ? error.message : null };
-    } else {
-      const notes = year ? mockNotes.filter(n => n.year === year) : mockNotes;
-      return { data: notes, error: null };
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (!isOffline && !isMock && supabase) {
+      try {
+        let query = supabase.from('notes').select('id, title, subject, year, semester, price, originalPrice, description, pagesCount, type, topics');
+        if (year) query = query.eq('year', year);
+        const { data } = await query;
+        
+        if (data && data.length > 0) {
+          const currentCached = getStoredData<Note[]>('bw_cached_notes_catalog', []);
+          const merged = [...currentCached];
+          for (const n of data) {
+            const idx = merged.findIndex(m => m.id === n.id);
+            if (idx >= 0) merged[idx] = n as any;
+            else merged.push(n as any);
+          }
+          setStoredData('bw_cached_notes_catalog', merged);
+          return { data: (data as any), error: null };
+        }
+      } catch (err) {
+        console.warn('Network fetch error in getNotes, using offline cache:', err);
+      }
     }
+
+    const cachedNotes = getStoredData<Note[]>('bw_cached_notes_catalog', mockNotes);
+    const resultNotes = year ? cachedNotes.filter(n => n.year === year) : cachedNotes;
+    return { data: resultNotes, error: null };
   },
 
   // --- OFFLINE CACHING SERVICE (APP MODE ONLY) ---
@@ -621,15 +639,25 @@ export const dbService = {
 
   // --- PLAYLISTS SERVICE ---
   getPlaylists: async (year?: string): Promise<{ data: Playlist[]; error: string | null }> => {
-    if (!isMock && supabase) {
-      let query = supabase.from('playlists').select('*');
-      if (year) query = query.eq('year', year);
-      const { data, error } = await query;
-      return { data: data || [], error: error ? error.message : null };
-    } else {
-      const list = year ? mockPlaylists.filter(p => p.year === year) : mockPlaylists;
-      return { data: list, error: null };
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (!isOffline && !isMock && supabase) {
+      try {
+        let query = supabase.from('playlists').select('*');
+        if (year) query = query.eq('year', year);
+        const { data } = await query;
+        if (data && data.length > 0) {
+          setStoredData('bw_cached_playlists', data);
+          return { data: data || [], error: null };
+        }
+      } catch (err) {
+        console.warn('Network error in getPlaylists, using offline cache:', err);
+      }
     }
+
+    const cachedPlaylists = getStoredData<Playlist[]>('bw_cached_playlists', mockPlaylists);
+    const list = year ? cachedPlaylists.filter(p => p.year === year) : cachedPlaylists;
+    return { data: list, error: null };
   },
 
   addPlaylist: async (playlist: Omit<Playlist, 'id'>): Promise<{ data: Playlist | null; error: string | null }> => {
@@ -816,37 +844,60 @@ export const dbService = {
   getPurchasedNotes: async (): Promise<{ data: Note[]; error: string | null }> => {
     if (!currentUser) return { data: [], error: 'User session not active.' };
 
-    const { data: allNotes, error: notesError } = await dbService.getNotes();
-    if (notesError) return { data: [], error: notesError };
+    const { data: allNotes } = await dbService.getNotes();
     if (currentUser.role === 'admin') return { data: allNotes || [], error: null };
 
-    // Batch fetch all purchases for current user in 1 fast query to guarantee Website-to-App sync
+    // Batch fetch all purchases for current user in 1 fast query (checks DB + local cache + offline index)
     const { purchasedNoteIds } = await dbService.getAllUserPurchasesState();
-    const purchasedList = (allNotes || []).filter(note => purchasedNoteIds.includes(note.id));
+
+    const noteMap = new Map<string, Note>();
+    (allNotes || []).forEach(n => noteMap.set(n.id, n));
+
+    const purchasedList: Note[] = [];
+    for (const nid of purchasedNoteIds) {
+      let noteObj = noteMap.get(nid);
+      if (!noteObj) {
+        noteObj = dbService.getOfflineNote(nid) || undefined;
+      }
+      if (noteObj) {
+        purchasedList.push(noteObj);
+      }
+    }
+
     return { data: purchasedList, error: null };
   },
 
   // --- BUNDLES SERVICE ---
   getBundles: async (year?: string): Promise<{ data: Bundle[]; error: string | null }> => {
-    if (!isMock && supabase) {
-      let query = supabase.from('bundles').select('*');
-      if (year) query = query.eq('year', year);
-      const { data, error } = await query;
-      
-      const processed = (data || []).map(b => {
-        const decoded = decodeBundleFromDb(b);
-        const cached = mockBundles.find(mb => mb.id === b.id);
-        if (cached && cached.subjects && cached.subjects.length > 0) {
-          return { ...decoded, subjects: cached.subjects };
-        }
-        return decoded;
-      });
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
-      return { data: processed, error: error ? error.message : null };
-    } else {
-      const bundles = year ? mockBundles.filter(b => b.year === year) : mockBundles;
-      return { data: bundles.map(decodeBundleFromDb), error: null };
+    if (!isOffline && !isMock && supabase) {
+      try {
+        let query = supabase.from('bundles').select('*');
+        if (year) query = query.eq('year', year);
+        const { data } = await query;
+        
+        if (data && data.length > 0) {
+          const processed = (data || []).map(b => {
+            const decoded = decodeBundleFromDb(b);
+            const cached = mockBundles.find(mb => mb.id === b.id);
+            if (cached && cached.subjects && cached.subjects.length > 0) {
+              return { ...decoded, subjects: cached.subjects };
+            }
+            return decoded;
+          });
+
+          setStoredData('bw_cached_bundles', processed);
+          return { data: processed, error: null };
+        }
+      } catch (err) {
+        console.warn('Network error in getBundles, using offline cache:', err);
+      }
     }
+
+    const cachedBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
+    const bundles = year ? cachedBundles.filter(b => b.year === year) : cachedBundles;
+    return { data: bundles, error: null };
   },
 
   addBundle: async (bundle: Omit<Bundle, 'id'>): Promise<{ data: Bundle | null; error: string | null }> => {
