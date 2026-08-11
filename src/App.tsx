@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './pages/LandingPage';
 import { Auth } from './pages/Auth';
@@ -11,7 +11,7 @@ import { PDFViewer } from './components/PDFViewer';
 import { Profile } from './pages/Profile';
 import { dbService } from './lib/supabase';
 import type { UserProfile, Note } from './lib/supabase';
-import { BookOpen, Library, ShieldCheck, User } from 'lucide-react';
+import { BookOpen, Library, ShieldCheck, User, LogOut } from 'lucide-react';
 import { App as CapApp } from '@capacitor/app';
 
 function App() {
@@ -29,6 +29,9 @@ function App() {
   const [previousPage, setPreviousPage] = useState<string>('dashboard');
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
+  const [showExitModal, setShowExitModal] = useState(false);
+  const childBackHandlerRef = useRef<(() => boolean) | null>(null);
+
   // Network offline listener for App Mode
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -41,18 +44,40 @@ function App() {
     };
   }, []);
 
-  // Unified single-step back navigation handler
+  // Unified single-step back navigation handler with Exit Confirmation Modal
   const handleBackNavigation = () => {
+    // 1. If Exit Modal is currently open, close modal
+    if (showExitModal) {
+      setShowExitModal(false);
+      return true;
+    }
+
+    // 2. If PDF viewer is open, exit reader mode
     if (currentPage === 'viewer' || readingNote !== null) {
       setReadingNote(null);
       setCurrentPage(previousPage || 'dashboard');
       return true;
     }
-    if (isAppMode && (currentPage === 'library' || currentPage === 'profile')) {
+
+    // 3. Check child component back handler (e.g. Dashboard subject/search/sem detail view)
+    if (childBackHandlerRef.current && childBackHandlerRef.current()) {
+      return true;
+    }
+
+    // 4. If on Library, Profile, Policies, or Admin tab, return to Dashboard Catalog Root
+    if (currentPage === 'library' || currentPage === 'profile' || currentPage === 'admin' || currentPage.startsWith('policy-')) {
       setCurrentPage('dashboard');
       window.location.hash = '#catalog';
       return true;
     }
+
+    // 5. If already at Dashboard Root (Catalog Home Screen with no subject/search open):
+    // Show Exit Confirmation Modal instead of closing abruptly!
+    if (currentPage === 'dashboard' || currentPage === 'landing') {
+      setShowExitModal(true);
+      return true; // Return true so CapApp.minimizeApp() is NOT called directly!
+    }
+
     return false;
   };
 
@@ -63,7 +88,7 @@ function App() {
       capListener = CapApp.addListener('backButton', () => {
         const handled = handleBackNavigation();
         if (!handled && (window as any).Capacitor) {
-          CapApp.minimizeApp();
+          setShowExitModal(true);
         }
       });
     } catch (e) {
@@ -81,7 +106,7 @@ function App() {
       }
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [currentPage, readingNote, previousPage, isAppMode]);
+  }, [currentPage, readingNote, previousPage, isAppMode, showExitModal]);
 
   // Check user session on mount & handle hash routing (e.g. #admin)
   useEffect(() => {
@@ -427,6 +452,7 @@ function App() {
             setSelectedYear={setSelectedYear}
             onReadNote={handleReadNote}
             navigate={navigate}
+            onRegisterBackHandler={(fn) => { childBackHandlerRef.current = fn; }}
           />
         )}
 
@@ -727,6 +753,107 @@ function App() {
               <span>Admin</span>
             </button>
           )}
+        </div>
+      )}
+
+      {/* Premium Exit App Confirmation Modal */}
+      {showExitModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999999,
+            background: 'rgba(5, 10, 25, 0.85)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+          onClick={() => setShowExitModal(false)}
+        >
+          <div 
+            style={{
+              background: 'linear-gradient(145deg, rgba(16, 24, 52, 0.95), rgba(10, 16, 38, 0.98))',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '24px',
+              padding: '24px 20px',
+              width: '100%',
+              maxWidth: '340px',
+              textAlign: 'center',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(245, 158, 11, 0.15)',
+              animation: 'scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'rgba(245, 158, 11, 0.15)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              color: '#f59e0b'
+            }}>
+              <LogOut size={28} />
+            </div>
+
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: '0 0 8px' }}>
+              Exit Bitwise Learning?
+            </h3>
+
+            <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: '0 0 24px', lineHeight: 1.5 }}>
+              Are you sure you want to exit the app? Your reading progress is saved automatically.
+            </p>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowExitModal(false)}
+                className="btn-secondary"
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '12px',
+                  fontWeight: '700',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Stay in App
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowExitModal(false);
+                  if ((window as any).Capacitor) {
+                    CapApp.minimizeApp();
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: '700',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)'
+                }}
+              >
+                Exit
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

@@ -93,6 +93,7 @@ interface DashboardProps {
   setSelectedYear: (year: '1st Year' | '2nd Year' | '3rd Year' | '4th Year') => void;
   onReadNote: (note: Note) => void;
   navigate: (page: string) => void;
+  onRegisterBackHandler?: (handler: () => boolean) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -100,7 +101,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   selectedYear,
   setSelectedYear,
   onReadNote,
-  navigate
+  navigate,
+  onRegisterBackHandler
 }) => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [bundles, setBundles] = useState<Bundle[]>([]);
@@ -159,14 +161,35 @@ export const Dashboard: React.FC<DashboardProps> = ({
     loadDashboardData();
   }, [selectedYear, user]);
 
-  // Handle physical/browser back button for Dashboard Subject Detail View and Search
+  // Handle physical/browser back button for Dashboard Subject Detail View, Search, & Semester Filter
   useEffect(() => {
+    if (onRegisterBackHandler) {
+      onRegisterBackHandler(() => {
+        if (selectedSubject !== null) {
+          setSelectedSubject(null);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return true;
+        }
+        if (searchQuery.trim() !== '') {
+          setSearchQuery('');
+          return true;
+        }
+        if (selectedSemester !== null) {
+          setSelectedSemester(null);
+          return true;
+        }
+        return false;
+      });
+    }
+
     const handlePopState = () => {
       if (selectedSubject !== null) {
         setSelectedSubject(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (searchQuery.trim() !== '') {
         setSearchQuery('');
+      } else if (selectedSemester !== null) {
+        setSelectedSemester(null);
       }
     };
 
@@ -174,7 +197,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [selectedSubject, searchQuery]);
+  }, [selectedSubject, searchQuery, selectedSemester, onRegisterBackHandler]);
 
   // Determine semesters in active year
   const getSemestersForYear = () => {
