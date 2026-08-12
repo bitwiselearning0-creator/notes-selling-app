@@ -9,17 +9,35 @@ interface PDFViewerProps {
   onUnlock: () => void;
 }
 
-// Sub-component to render individual PDF pages onto canvas securely at 1.8x HD resolution
+// Sub-component to render individual PDF pages onto canvas securely with IntersectionObserver lazy rendering
 const CanvasPage: React.FC<{
   pageNumber: number;
   pdfDoc: any;
   rotation: number;
 }> = React.memo(({ pageNumber, pdfDoc, rotation }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
+  const [isVisible, setIsVisible] = useState(pageNumber <= 2);
 
   useEffect(() => {
-    if (!pdfDoc || !canvasRef.current) return;
+    if (pageNumber <= 2) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        setIsVisible(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '400px 0px 400px 0px' });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pageNumber]);
+
+  useEffect(() => {
+    if (!pdfDoc || !canvasRef.current || !isVisible) return;
     
     let isMounted = true;
 
@@ -37,8 +55,8 @@ const CanvasPage: React.FC<{
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Render at high-definition 1.8x crisp scale
-        const scale = 1.8;
+        // Render at high-definition 1.6x crisp scale
+        const scale = 1.6;
         const viewport = page.getViewport({ scale, rotation });
 
         canvas.height = viewport.height;
@@ -71,27 +89,31 @@ const CanvasPage: React.FC<{
         } catch (e) {}
       }
     };
-  }, [pdfDoc, pageNumber, rotation]);
+  }, [pdfDoc, pageNumber, rotation, isVisible]);
 
   return (
-    <div style={{ 
-      margin: '16px auto', 
-      boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1)',
-      borderRadius: '12px',
-      overflow: 'hidden',
-      background: '#ffffff',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      width: '94vw',
-      maxWidth: '850px'
-    }}>
+    <div 
+      ref={containerRef}
+      style={{ 
+        margin: '16px auto', 
+        boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        background: '#ffffff',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: '94vw',
+        maxWidth: '850px',
+        minHeight: '350px'
+      }}
+    >
       <canvas 
         ref={canvasRef} 
         style={{ 
           width: '100%', 
           height: 'auto',
-          display: 'block' 
+          display: isVisible ? 'block' : 'none' 
         }} 
       />
     </div>

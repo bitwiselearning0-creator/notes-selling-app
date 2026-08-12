@@ -356,15 +356,13 @@ function App() {
   const handleReadNote = async (note: Note) => {
     setPreviousPage(currentPage);
     
-    // Check if device is offline and cached note exists
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const cached = dbService.getOfflineNote(note.id);
-      if (cached) {
-        setReadingNote(cached);
-        setReadingNoteUnlocked(true);
-        setCurrentPage('viewer');
-        return;
-      }
+    // Check local device storage first for 0ms instant loading with ZERO server pings
+    const cached = dbService.getOfflineNote(note.id);
+    if (cached && cached.previewUrl) {
+      setReadingNote(cached);
+      setReadingNoteUnlocked(true);
+      setCurrentPage('viewer');
+      return;
     }
 
     setReadingNote(note);
@@ -373,12 +371,11 @@ function App() {
     setReadingNoteUnlocked(unlocked || note.price === 0);
     setCurrentPage('viewer');
 
-    // Fetch full note payload (with previewUrl) in background
+    // Fetch full note payload (with previewUrl) in background & auto-cache locally for permanent 0ms offline reading
     dbService.getNoteById(note.id).then(({ data: fullNote }) => {
       if (fullNote) {
         setReadingNote(fullNote);
-        // Auto-cache note for offline reading in App Mode
-        if (isAppMode && (unlocked || note.price === 0)) {
+        if (unlocked || note.price === 0) {
           dbService.saveNoteForOffline(fullNote);
         }
       }

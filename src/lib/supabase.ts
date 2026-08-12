@@ -1312,11 +1312,6 @@ export const dbService = {
     setStoredData('bw_mock_bundles', []);
     setStoredData('bw_mock_playlists', []);
     setStoredData('bw_mock_purchases_v2', []);
-    const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-    Object.keys(storedMapV2).forEach(uid => {
-      storedMapV2[uid] = [];
-    });
-    setStoredData('bw_mock_purchases_map_v2', storedMapV2);
     return { success: true };
   }
 };
