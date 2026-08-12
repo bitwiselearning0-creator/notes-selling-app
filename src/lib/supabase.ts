@@ -941,35 +941,27 @@ export const dbService = {
   // --- BUNDLES SERVICE ---
   getBundles: async (year?: string): Promise<{ data: Bundle[]; error: string | null }> => {
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    const cachedBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
 
+    // Non-blocking background network refresh if online
     if (!isOffline && !isMock && supabase) {
-      try {
-        let query = supabase.from('bundles').select('*');
-        if (year) query = query.eq('year', year);
-        const res: any = await fetchWithTimeout(query as any, 1000);
-        const data = res?.data;
-        
-        if (data && data.length > 0) {
-          const processed = (data || []).map((b: any) => {
-            const decoded = decodeBundleFromDb(b);
-            const cached = mockBundles.find(mb => mb.id === b.id);
-            if (cached && cached.subjects && cached.subjects.length > 0) {
-              return { ...decoded, subjects: cached.subjects };
-            }
-            return decoded;
-          });
-
-          setStoredData('bw_cached_bundles', processed);
-          return { data: processed, error: null };
-        }
-      } catch (err) {
-        console.warn('Network error in getBundles, using offline cache:', err);
-      }
+      (async () => {
+        try {
+          let query = supabase.from('bundles').select('*');
+          if (year) query = query.eq('year', year);
+          const res: any = await fetchWithTimeout(query as any, 800);
+          const data = res?.data;
+          
+          if (data && data.length > 0) {
+            const processed = (data || []).map((b: any) => decodeBundleFromDb(b));
+            setStoredData('bw_cached_bundles', processed);
+          }
+        } catch (err) {}
+      })();
     }
 
-    const cachedBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
     const bundles = year ? cachedBundles.filter(b => b.year === year) : cachedBundles;
-    return { data: bundles, error: null };
+    return { data: bundles.length > 0 ? bundles : mockBundles.map(decodeBundleFromDb), error: null };
   },
 
   addBundle: async (bundle: Omit<Bundle, 'id'>): Promise<{ data: Bundle | null; error: string | null }> => {

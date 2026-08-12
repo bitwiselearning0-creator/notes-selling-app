@@ -124,9 +124,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Load notes, bundles, playlists, and user purchases in high-performance batch (0ms Instant Load)
   const loadDashboardData = async () => {
-    if (notes.length === 0) {
-      setLoading(true);
+    // 0ms Synchronous local cache hydration for instant catalog display!
+    const cachedCatalog = localStorage.getItem('bw_cached_notes_catalog') ? JSON.parse(localStorage.getItem('bw_cached_notes_catalog')!) : [];
+    const cachedBundles = localStorage.getItem('bw_cached_bundles') ? JSON.parse(localStorage.getItem('bw_cached_bundles')!) : [];
+    const cachedPlaylists = localStorage.getItem('bw_cached_playlists') ? JSON.parse(localStorage.getItem('bw_cached_playlists')!) : [];
+
+    if (cachedCatalog.length > 0 || cachedBundles.length > 0 || cachedPlaylists.length > 0) {
+      setNotes(selectedYear ? cachedCatalog.filter((n: Note) => n.year === selectedYear) : cachedCatalog);
+      setBundles(selectedYear ? cachedBundles.filter((b: Bundle) => b.year === selectedYear) : cachedBundles);
+      setPlaylists(selectedYear ? cachedPlaylists.filter((p: Playlist) => p.year === selectedYear) : cachedPlaylists);
+      setLoading(false); // 0ms instant display!
+    } else {
+      if (notes.length === 0) setLoading(true);
     }
+
     try {
       const [notesRes, bundlesRes, playlistsRes] = await Promise.all([
         dbService.getNotes(selectedYear),
