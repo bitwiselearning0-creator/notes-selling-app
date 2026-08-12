@@ -123,6 +123,7 @@ const CanvasPage: React.FC<{
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, onUnlock }) => {
   const [zoom, setZoom] = useState(100);
+  const [focalOrigin, setFocalOrigin] = useState<string>('center center');
   const [rotation, setRotation] = useState(0);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [scrollPage, setScrollPage] = useState(1);
@@ -181,8 +182,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         return () => {
           URL.revokeObjectURL(blobUrl);
         };
-      } catch (err) {
-        console.error('Error converting base64 to blob:', err);
+      } catch (e) {
+        console.error('Error converting base64 PDF to blob URL:', e);
         setPdfUrl(note.previewUrl);
       }
     } else {
@@ -218,7 +219,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     setJumpPageInput(scrollPage.toString());
   }, [scrollPage]);
 
-  // 4. Multi-touch 2-Finger Pinch-to-Zoom Gesture for mobile screens
+  // 4. Multi-touch 2-Finger Focal-Point Pinch-to-Zoom Gesture for mobile screens
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartZoomRef = useRef<number>(100);
 
@@ -234,6 +235,16 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         );
         touchStartDistRef.current = dist;
         touchStartZoomRef.current = zoom;
+
+        // Calculate exact 2-finger touch midpoint (centroid)
+        const focalX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const focalY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const rect = container.getBoundingClientRect();
+        
+        const originXPercent = Math.max(0, Math.min(100, ((focalX - rect.left) / rect.width) * 100));
+        const originYPercent = Math.max(0, Math.min(100, ((focalY - rect.top) / rect.height) * 100));
+
+        setFocalOrigin(`${originXPercent.toFixed(1)}% ${originYPercent.toFixed(1)}%`);
       }
     };
 
@@ -245,7 +256,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           e.touches[0].clientY - e.touches[1].clientY
         );
         const scale = currentDist / touchStartDistRef.current;
-        const newZoom = Math.min(250, Math.max(55, Math.round(touchStartZoomRef.current * scale)));
+        const newZoom = Math.min(260, Math.max(60, Math.round(touchStartZoomRef.current * scale)));
         setZoom(newZoom);
       }
     };
@@ -739,8 +750,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             flexDirection: 'column', 
             alignItems: 'center',
             transform: `scale(${zoom / 100})`,
-            transformOrigin: 'center top',
-            transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+            transformOrigin: focalOrigin,
+            transition: 'transform 0.1s cubic-bezier(0.16, 1, 0.3, 1)'
           }}>
             {/* Floating Security Watermark Overlay */}
             <div style={{
