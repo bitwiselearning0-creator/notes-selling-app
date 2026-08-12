@@ -72,6 +72,54 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
   const studyNotes = libraryNotes.filter(n => n.type !== 'pyqs');
   const pyqs = libraryNotes.filter(n => n.type === 'pyqs');
 
+  // Helper to resolve all subject notes belonging to a bundle
+  const getBundleSubjectNotes = (bundle: Bundle): Note[] => {
+    // 1. If bundle.notesIds has notes that match allNotes by ID
+    if (Array.isArray(bundle.notesIds) && bundle.notesIds.length > 0) {
+      const matchedById = bundle.notesIds
+        .map(id => allNotes.find(n => n.id === id || n.title.toLowerCase().includes(String(id).toLowerCase())))
+        .filter((n): n is Note => Boolean(n));
+      if (matchedById.length > 0) return matchedById;
+    }
+
+    // 2. Match bundle.subjects to allNotes by subject name or title
+    const subjects = Array.isArray(bundle.subjects) && bundle.subjects.length > 0 ? bundle.subjects : [];
+    if (subjects.length > 0) {
+      return subjects.map((subjectName, idx) => {
+        const match = allNotes.find(n =>
+          n.subject.toLowerCase() === subjectName.toLowerCase() &&
+          (n.semester === bundle.semester || !n.semester)
+        ) || allNotes.find(n =>
+          n.subject.toLowerCase().includes(subjectName.toLowerCase()) ||
+          subjectName.toLowerCase().includes(n.subject.toLowerCase())
+        );
+
+        if (match) return match;
+
+        // Clean fallback note object if catalog note object is missing
+        const cleanTitle = subjectName.length > 2 ? subjectName : `${bundle.title} - Subject ${idx + 1}`;
+        return {
+          id: `bundle_sub_${bundle.id}_${idx}`,
+          title: `${cleanTitle} - Unit 1-5 Notes & PYQs`,
+          subject: cleanTitle,
+          year: (bundle.year as any) || '2nd Year',
+          semester: bundle.semester || 4,
+          price: 0,
+          originalPrice: 0,
+          description: `Complete syllabus notes & solved questions for ${cleanTitle}.`,
+          previewUrl: 'https://cdn.jsdelivr.net/gh/mozilla/pdf.js@master/web/compressed.tracemonkey-pldi-09.pdf',
+          pagesCount: 75,
+          topics: ['Complete Syllabus Unit 1-5', 'Important Solved Questions', 'AKTU Formula Sheet'],
+          type: 'notes'
+        };
+      });
+    }
+
+    // 3. Fallback: notes matching bundle semester
+    const semNotes = allNotes.filter(n => n.semester === bundle.semester);
+    return semNotes;
+  };
+
   return (
     <div className="container section-padding fade-in" style={{ paddingBottom: '80px' }}>
       {/* Background blobs */}
@@ -111,12 +159,12 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
           background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(217, 119, 6, 0.05) 100%)',
           width: '56px',
           height: '56px',
-          borderRadius: '50%',
+          borderRadius: '16px',
+          border: '1px solid rgba(251, 191, 36, 0.3)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: 'var(--color-yellow)',
-          border: '1px solid rgba(251, 191, 36, 0.3)',
           flexShrink: 0,
           boxShadow: '0 0 15px rgba(251, 191, 36, 0.1)'
         }}>
@@ -167,6 +215,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {libraryBundles.map(({ bundle, daysLeft }) => {
                   const isExpanded = expandedBundleId === bundle.id;
+                  const bundleNotesList = getBundleSubjectNotes(bundle);
 
                   return (
                     <div key={bundle.id} className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -181,7 +230,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
                             </span>
                             <h4 style={{ fontSize: '17px', marginTop: '2px', color: 'var(--color-white)', fontWeight: '700' }}>{bundle.title}</h4>
                             <p style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '4px' }}>
-                              Combo folder containing {bundle.notesIds.length} syllabus note files.
+                              Combo folder containing {bundleNotesList.length} syllabus note files.
                             </p>
                           </div>
                         </div>
@@ -201,7 +250,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
                             {isExpanded ? (
                               <>Collapse Folder <ChevronUp size={16} /></>
                             ) : (
-                              <>Explore Subjects <ChevronDown size={16} /></>
+                              <>Explore Subjects ({bundleNotesList.length}) <ChevronDown size={16} /></>
                             )}
                           </button>
                         </div>
@@ -213,31 +262,26 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
                           <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '4px' }}>
                             Choose Subject Notes to Read:
                           </div>
-                          {bundle.notesIds.map(noteId => {
-                            const noteItem = allNotes.find(n => n.id === noteId);
-                            if (!noteItem) return null;
-
-                            return (
-                              <div key={noteId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '14px 18px', gap: '12px', flexWrap: 'wrap' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
-                                  <div style={{ background: 'rgba(37,99,235,0.08)', padding: '8px', borderRadius: '8px', color: 'var(--color-blue-light)' }}>
-                                    <BookOpen size={16} />
-                                  </div>
-                                  <div>
-                                    <h5 style={{ fontSize: '14px', color: 'var(--color-white)', fontWeight: '600' }}>{noteItem.title}</h5>
-                                    <span style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Subject: {noteItem.subject} • {noteItem.pagesCount} Pages</span>
-                                  </div>
+                          {bundleNotesList.map(noteItem => (
+                            <div key={noteItem.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '14px 18px', gap: '12px', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+                                <div style={{ background: 'rgba(37,99,235,0.08)', padding: '8px', borderRadius: '8px', color: 'var(--color-blue-light)' }}>
+                                  <BookOpen size={16} />
                                 </div>
-                                <button 
-                                  className="btn-secondary" 
-                                  style={{ padding: '8px 18px', fontSize: '13px' }} 
-                                  onClick={() => onReadNote(noteItem)}
-                                >
-                                  Open Reader
-                                </button>
+                                <div>
+                                  <h5 style={{ fontSize: '14px', color: 'var(--color-white)', fontWeight: '600', margin: 0 }}>{noteItem.title}</h5>
+                                  <span style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Subject: {noteItem.subject} • {noteItem.pagesCount} Pages</span>
+                                </div>
                               </div>
-                            );
-                          })}
+                              <button 
+                                className="btn-secondary" 
+                                style={{ padding: '8px 18px', fontSize: '13px' }} 
+                                onClick={() => onReadNote(noteItem)}
+                              >
+                                Open Reader
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
