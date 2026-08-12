@@ -2468,4 +2468,67 @@ body.app-mode .form-toggle-link span {
   scrollbar-width: none !important;
 }
 
+/* ==========================================================================
+   High-Performance Native 60fps/120fps GPU Smooth Animations & Page Transitions
+   ========================================================================== */
+
+/* Hardware-Accelerated Smooth Drill-Down Keyframes */
+@keyframes pageDrillEnter {
+  0% {
+    opacity: 0.2;
+    transform: translate3d(0, 16px, 0) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes pageDrillBack {
+  0% {
+    opacity: 0.2;
+    transform: translate3d(0, -12px, 0) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* Page Transition Wrapper Utility Classes */
+.page-transition-enter {
+  will-change: transform, opacity;
+  animation: pageDrillEnter 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+
+.page-transition-back {
+  will-change: transform, opacity;
+  animation: pageDrillBack 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+
+/* Smooth Card Hover & Touch Press Physics (Butter Smooth Spring Feedback) */
+.subject-card, .glass-card, .btn-primary, .btn-secondary {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* Touch Active Press Feedback (Native App Spring Response) */
+.subject-card:active, .glass-card[style*="cursor: pointer"]:active, .btn-primary:active, .btn-secondary:active {
+  transform: scale(0.975) !important;
+}
+
+/* Reduced Motion Override for low-end accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .page-transition-enter,
+  .page-transition-back {
+    animation: none !important;
+    transition: opacity 0.15s linear !important;
+  }
+}
+
 

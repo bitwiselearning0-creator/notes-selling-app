@@ -116,6 +116,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<'notes' | 'pyqs' | null>(null);
+  const [navAnimDir, setNavAnimDir] = useState<'forward' | 'back'>('forward');
+
+  const handleOpenSubject = (subjectName: string) => {
+    setNavAnimDir('forward');
+    setSelectedSubject(subjectName);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenCategory = (cat: 'notes' | 'pyqs') => {
+    setNavAnimDir('forward');
+    setSelectedCategory(cat);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackCategory = () => {
+    setNavAnimDir('back');
+    setSelectedCategory(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackSubject = () => {
+    setNavAnimDir('back');
+    setSelectedSubject(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   
   // Loading & payment states
   const [loading, setLoading] = useState(true);
@@ -180,13 +205,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (onRegisterBackHandler) {
       onRegisterBackHandler(() => {
         if (selectedCategory !== null) {
-          setSelectedCategory(null);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          handleBackCategory();
           return true;
         }
         if (selectedSubject !== null) {
-          setSelectedSubject(null);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          handleBackSubject();
           return true;
         }
         if (searchQuery.trim() !== '') {
@@ -203,11 +226,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const handlePopState = () => {
       if (selectedCategory !== null) {
-        setSelectedCategory(null);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        handleBackCategory();
       } else if (selectedSubject !== null) {
-        setSelectedSubject(null);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        handleBackSubject();
       } else if (searchQuery.trim() !== '') {
         setSearchQuery('');
       } else if (selectedSemester !== null) {
@@ -434,7 +455,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Dedicated Inside Subject Detail View */}
       {selectedSubject ? (
-        <div className="subject-detail-view fade-in">
+        <div 
+          key={selectedSubject + (selectedCategory || 'portal')} 
+          className={navAnimDir === 'forward' ? 'page-transition-enter' : 'page-transition-back'}
+        >
           {selectedCategory !== null ? (
             /* LEVEL 3: Dedicated Card Page (ONLY ← Back + Notes/PYQs list, ZERO top clutter) */
             <div className="fade-in">
@@ -449,10 +473,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               }}>
                 <button 
                   className="btn-secondary"
-                  onClick={() => {
-                    setSelectedCategory(null);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
+                  onClick={handleBackCategory}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -555,10 +576,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <button 
                   className="btn-secondary"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: '600' }}
-                  onClick={() => {
-                    setSelectedSubject(null);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
+                  onClick={handleBackSubject}
                 >
                   <ArrowLeft size={16} />
                   <span>Back to Catalog</span>
@@ -614,10 +632,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                 <button 
                   className="btn-secondary" 
-                  onClick={() => {
-                    setSelectedSubject(null);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
+                  onClick={handleBackSubject}
                   style={{ fontSize: '12px', padding: '6px 12px' }}
                 >
                   All Subjects
@@ -774,10 +789,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {/* Square Card 1: Study Notes */}
                 <div 
                   className="glass-card fade-in"
-                  onClick={() => {
-                    setSelectedCategory('notes');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
+                  onClick={() => handleOpenCategory('notes')}
                   style={{
                     padding: '16px 12px',
                     borderRadius: '16px',
@@ -835,10 +847,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {/* Square Card 2: Exam PYQs */}
                 <div 
                   className="glass-card fade-in"
-                  onClick={() => {
-                    setSelectedCategory('pyqs');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
+                  onClick={() => handleOpenCategory('pyqs')}
                   style={{
                     padding: '16px 12px',
                     borderRadius: '16px',
@@ -1008,10 +1017,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                               key={i} 
                               className="subject-card"
                               style={{ cursor: 'pointer', touchAction: 'manipulation' }}
-                              onClick={() => {
-                                setSelectedSubject(subject.name);
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                              }}
+                              onClick={() => handleOpenSubject(subject.name)}
                             >
                               <div className="subject-card-top">
                                 <div className="subject-card-icon-box"><BookOpen size={16} /></div>
@@ -1095,10 +1101,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           key={i} 
                           className="subject-card"
                           style={{ cursor: 'pointer', touchAction: 'manipulation' }}
-                          onClick={() => {
-                            setSelectedSubject(subject.name);
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
+                          onClick={() => handleOpenSubject(subject.name)}
                         >
                           <div className="subject-card-top">
                             <div className="subject-card-icon-box">
