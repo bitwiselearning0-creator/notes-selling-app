@@ -256,16 +256,10 @@ export const decodeBundleFromDb = (b: Bundle): Bundle => {
     }
   }
 
-  let notesIds = safeParseBundleNotesIds(b.notesIds);
-  if (notesIds.length === 0 && subjects && subjects.length > 0) {
-    notesIds = subjects;
-  }
-
   return {
     ...b,
     description,
-    subjects: subjects || [],
-    notesIds: notesIds.length > 0 ? notesIds : (b.notesIds || [])
+    subjects: subjects || []
   };
 };
 
@@ -559,18 +553,19 @@ export const dbService = {
       if (!isOffline && !isMock && supabase) {
         (async () => {
           try {
-            let query = supabase.from('notes').select('id, title, subject, year, semester, price, originalPrice, description, previewUrl, pagesCount, type, topics');
+            let query = supabase.from('notes').select('id, title, subject, year, semester, price, originalPrice, description, pagesCount, type, topics');
             if (year) query = query.eq('year', year);
             const res: any = await fetchWithTimeout(query as any, 800);
             const data = res?.data;
             if (data && data.length > 0) {
-              const currentCached = getStoredData<Note[]>('bw_cached_notes_catalog', INITIAL_NOTES);
-              const mergedMap = new Map<string, Note>();
-              INITIAL_NOTES.forEach(n => mergedMap.set(n.id, n));
-              mockNotes.forEach(n => mergedMap.set(n.id, n));
-              currentCached.forEach(n => mergedMap.set(n.id, n));
-              data.forEach((n: any) => mergedMap.set(n.id, n));
-              setStoredData('bw_cached_notes_catalog', Array.from(mergedMap.values()));
+              const currentCached = getStoredData<Note[]>('bw_cached_notes_catalog', []);
+              const merged = [...currentCached];
+              for (const n of data) {
+                const idx = merged.findIndex(m => m.id === n.id);
+                if (idx >= 0) merged[idx] = n as any;
+                else merged.push(n as any);
+              }
+              setStoredData('bw_cached_notes_catalog', merged);
             }
           } catch (e) {}
         })();
@@ -831,7 +826,7 @@ export const dbService = {
             setStoredData(`bw_user_purchases_cache_${currentUser.id}`, freshPurchases);
           }
           if (bundlesRes?.data) {
-            const freshBundles = (bundlesRes.data || []).map((b: any) => decodeBundleFromDb(b));
+            const freshBundles = (bundlesRes.data || []).map((b: any) => ({ ...b, notesIds: safeParseBundleNotesIds(b.notesIds) }));
             setStoredData('bw_cached_bundles', freshBundles);
           }
         } catch (e) {}
@@ -1079,12 +1074,11 @@ export const dbService = {
     const now = new Date();
 
     if (!isMock && supabase) {
-      const { data: allBundlesRaw, error: bundlesError } = await supabase.from('bundles').select('*');
+      const { data: allBundles, error: bundlesError } = await supabase.from('bundles').select('*');
       if (bundlesError) return { data: [], error: bundlesError.message };
-      const allBundles = (allBundlesRaw || []).map((b: any) => decodeBundleFromDb(b));
 
       if (user.role === 'admin') {
-        const adminResults = allBundles.map(b => ({
+        const adminResults = (allBundles || []).map(b => ({
           bundle: b,
           expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 180).toISOString(),
           daysLeft: 9999

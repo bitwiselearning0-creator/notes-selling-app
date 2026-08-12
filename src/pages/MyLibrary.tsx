@@ -71,96 +71,6 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
     );
   }
 
-  // Helper to generate a clean, official Bitwise Learning PDF document data URL for any subject
-  const createSubjectPdfDataUrl = (subject: string, title: string): string => {
-    const cleanSubject = subject.replace(/[()]/g, '');
-    const cleanTitle = title.replace(/[()]/g, '');
-    const streamContent = `BT\n/F1 22 Tf\n50 720 Td\n(BITWISE LEARNING - OFFICIAL NOTES) Tj\n/F1 16 Tf\n0 -36 Td\n(Subject: ${cleanSubject}) Tj\n0 -28 Td\n(${cleanTitle}) Tj\n/F1 12 Tf\n0 -40 Td\n(Unit 1: Overview & Core Concepts) Tj\n0 -20 Td\n(Unit 2: Standard Architecture & Theorems) Tj\n0 -20 Td\n(Unit 3: Key Derivations & Analytical Methods) Tj\n0 -20 Td\n(Unit 4: Solved PYQs & High-Yield Exam Problems) Tj\n0 -20 Td\n(Unit 5: Exam Formula Sheet & Quick Revision) Tj\nET`;
-    const streamLength = streamContent.length;
-    
-    const pdfRaw = `%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /MediaBox [0 0 612 792] /Contents 5 0 R >>
-endobj
-4 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-5 0 obj
-<< /Length ${streamLength} >>
-stream
-${streamContent}
-endstream
-endobj
-xref
-0 6
-0000000000 65535 f 
-0000000010 00000 n 
-0000000060 00000 n 
-0000000117 00000 n 
-0000000244 00000 n 
-0000000318 00000 n 
-trailer
-<< /Size 6 /Root 1 0 R >>
-startxref
-488
-%%EOF`;
-
-    try {
-      return `data:application/pdf;base64,${btoa(pdfRaw)}`;
-    } catch (e) {
-      return '';
-    }
-  };
-
-  // Resolve actual notes inside a bundle so EVERY subject opens its PDF notes immediately on tap
-  const resolveBundleNotes = (bundle: Bundle): Note[] => {
-    const subjects = Array.isArray(bundle.subjects) && bundle.subjects.length > 0
-      ? bundle.subjects
-      : [];
-
-    if (subjects.length === 0) {
-      const semNotes = allNotes.filter(n => n.semester === bundle.semester || n.year === bundle.year);
-      if (semNotes.length > 0) return semNotes;
-    }
-
-    return subjects.map((subjectName, idx) => {
-      // Check if an exact match exists in catalog
-      const match = allNotes.find(n =>
-        n.subject.toLowerCase() === subjectName.toLowerCase() &&
-        (n.semester === bundle.semester || !n.semester)
-      ) || allNotes.find(n =>
-        n.subject.toLowerCase().includes(subjectName.toLowerCase()) ||
-        subjectName.toLowerCase().includes(n.subject.toLowerCase())
-      ) || dbService.getOfflineNote(`note_${bundle.id}_${idx}`);
-
-      if (match) return match;
-
-      // Synthesize a complete, clickable Note object for this subject
-      const cleanTitle = subjectName.length > 2 ? subjectName : `${bundle.title} - Subject ${idx + 1}`;
-      return {
-        id: `bundle_sub_${bundle.id}_${idx}`,
-        title: `${cleanTitle} - Unit 1-5 Notes & PYQs`,
-        subject: cleanTitle,
-        year: (bundle.year as any) || '2nd Year',
-        semester: bundle.semester || 4,
-        price: 0,
-        originalPrice: 0,
-        description: `Complete syllabus notes, key concepts & solved questions for ${cleanTitle}.`,
-        previewUrl: createSubjectPdfDataUrl(cleanTitle, `${cleanTitle} - Complete Notes`),
-        pagesCount: 75,
-        topics: ['Complete Syllabus Unit 1-5', 'Important Solved Questions', 'AKTU Formula Sheet'],
-        type: 'notes'
-      };
-    });
-  };
-
-
   // Show ALL purchased & unlocked notes directly in Notes & PYQ sections
   const studyNotes = libraryNotes.filter(n => n.type !== 'pyqs');
   const pyqs = libraryNotes.filter(n => n.type === 'pyqs');
@@ -295,7 +205,6 @@ startxref
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {libraryBundles.map(({ bundle, daysLeft }) => {
                   const isExpanded = expandedBundleId === bundle.id;
-                  const bundleItems = resolveBundleNotes(bundle);
 
                   return (
                     <div
@@ -338,7 +247,7 @@ startxref
                             {bundle.title}
                           </h4>
                           <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>
-                            {bundleItems.length} subjects · Sem {bundle.semester}
+                            {bundle.notesIds.length} subjects · Sem {bundle.semester}
                           </span>
                         </div>
 
@@ -368,33 +277,38 @@ startxref
                           gap: '8px',
                           background: 'rgba(0,0,0,0.15)'
                         }}>
-                          {bundleItems.map(noteItem => (
-                            <div
-                              key={noteItem.id}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                padding: '10px 12px',
-                                background: 'rgba(255, 255, 255, 0.03)',
-                                borderRadius: '10px',
-                                cursor: 'pointer',
-                                transition: 'background 0.15s ease'
-                              }}
-                              onClick={() => onReadNote(noteItem)}
-                            >
-                              <BookOpen size={16} style={{ color: '#60a5fa', flexShrink: 0 }} />
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <span style={{ fontSize: '13px', color: '#fff', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                                  {noteItem.title}
-                                </span>
-                                <span style={{ fontSize: '10px', color: 'var(--color-muted)' }}>
-                                  {noteItem.pagesCount} pages · {noteItem.subject}
-                                </span>
+                          {bundle.notesIds.map(noteId => {
+                            const noteItem = allNotes.find(n => n.id === noteId);
+                            if (!noteItem) return null;
+
+                            return (
+                              <div
+                                key={noteId}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '12px',
+                                  padding: '10px 12px',
+                                  background: 'rgba(255, 255, 255, 0.03)',
+                                  borderRadius: '10px',
+                                  cursor: 'pointer',
+                                  transition: 'background 0.15s ease'
+                                }}
+                                onClick={() => onReadNote(noteItem)}
+                              >
+                                <BookOpen size={16} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <span style={{ fontSize: '13px', color: '#fff', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+                                    {noteItem.title}
+                                  </span>
+                                  <span style={{ fontSize: '10px', color: 'var(--color-muted)' }}>
+                                    {noteItem.pagesCount} pages
+                                  </span>
+                                </div>
+                                <ChevronRight size={14} style={{ color: 'var(--color-muted)', flexShrink: 0 }} />
                               </div>
-                              <ChevronRight size={14} style={{ color: 'var(--color-muted)', flexShrink: 0 }} />
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
