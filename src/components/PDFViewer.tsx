@@ -96,16 +96,14 @@ const CanvasPage: React.FC<{
       ref={containerRef}
       style={{ 
         margin: '16px auto', 
-        boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1)',
         borderRadius: '12px',
         overflow: 'hidden',
-        background: '#ffffff',
+        background: 'transparent',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         width: '94vw',
-        maxWidth: '850px',
-        minHeight: '350px'
+        maxWidth: '850px'
       }}
     >
       <canvas 
@@ -113,7 +111,10 @@ const CanvasPage: React.FC<{
         style={{ 
           width: '100%', 
           height: 'auto',
-          display: isVisible ? 'block' : 'none' 
+          display: isVisible ? 'block' : 'none',
+          borderRadius: '12px',
+          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+          background: '#ffffff'
         }} 
       />
     </div>
