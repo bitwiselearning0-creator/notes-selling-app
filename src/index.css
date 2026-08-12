@@ -2469,64 +2469,68 @@ body.app-mode .form-toggle-link span {
 }
 
 /* ==========================================================================
-   High-Performance Native 60fps/120fps GPU Smooth Animations & Page Transitions
+   Apple iOS ProMotion (120Hz) Fluid Spring Animation Engine
    ========================================================================== */
 
-/* Hardware-Accelerated Distinct Smooth Drill-Down Keyframes */
-@keyframes pageDrillEnter {
+/* 1. iOS Drill-Down Sheet / Navigation Push (Apple Design System Easing) */
+@keyframes iosPagePushEnter {
   0% {
     opacity: 0;
-    transform: translate3d(0, 36px, 0) scale(0.94);
-    filter: blur(4px);
+    transform: translate3d(24px, 20px, 0) scale(0.95);
+  }
+  60% {
+    opacity: 1;
   }
   100% {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
-    filter: blur(0px);
   }
 }
 
-@keyframes pageDrillBack {
+/* 2. iOS Back Navigation Pull-Down */
+@keyframes iosPagePopBack {
   0% {
     opacity: 0;
-    transform: translate3d(0, -28px, 0) scale(0.95);
-    filter: blur(4px);
+    transform: translate3d(-18px, -12px, 0) scale(0.97);
   }
   100% {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
-    filter: blur(0px);
   }
 }
 
-/* Page Transition Wrapper Utility Classes */
+/* iOS Page Transition Utility Classes */
 .page-transition-enter {
-  will-change: transform, opacity, filter;
-  animation: pageDrillEnter 0.38s cubic-bezier(0.18, 0.89, 0.32, 1.1) forwards;
+  will-change: transform, opacity;
+  animation: iosPagePushEnter 0.36s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   backface-visibility: hidden;
-  -webkit-font-smoothing: subpixel-antialiased;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
 }
 
 .page-transition-back {
-  will-change: transform, opacity, filter;
-  animation: pageDrillBack 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.1) forwards;
+  will-change: transform, opacity;
+  animation: iosPagePopBack 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   backface-visibility: hidden;
-  -webkit-font-smoothing: subpixel-antialiased;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
 }
 
-/* Smooth Card Hover & Touch Press Physics (Spring Feedback) */
+/* 3. iOS Rubberband & Spring Physics on Cards & Buttons */
 .subject-card, .glass-card, .btn-primary, .btn-secondary {
-  transition: transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.1), box-shadow 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.1), background-color 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.28s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease, border-color 0.2s ease;
   will-change: transform, opacity;
   backface-visibility: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Distinct Touch Active Press Feedback (Native App Spring Dip Response) */
+/* iOS Haptic-style Physical Press Bounce (Dip on Touch) */
 .subject-card:active, .glass-card[style*="cursor: pointer"]:active, .btn-primary:active, .btn-secondary:active {
-  transform: scale(0.94) translateY(2px) !important;
+  transform: scale(0.95) translate3d(0, 1px, 0) !important;
+  transition: transform 0.1s cubic-bezier(0.32, 0.72, 0, 1) !important;
 }
 
-/* Reduced Motion Override for low-end accessibility */
+/* Respect user accessibility settings */
 @media (prefers-reduced-motion: reduce) {
   .page-transition-enter,
   .page-transition-back {
