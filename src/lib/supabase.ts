@@ -528,52 +528,41 @@ export const dbService = {
 
   // --- NOTES SERVICE ---
   getNotes: async (year?: string): Promise<{ data: Note[]; error: string | null }> => {
-    const cachedNotes = getStoredData<Note[]>('bw_cached_notes_catalog', INITIAL_NOTES);
-    const hasCache = cachedNotes && cachedNotes.length > 0;
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
-    const getLocalMerged = () => {
-      const noteMap = new Map<string, Note>();
-      INITIAL_NOTES.forEach(n => noteMap.set(n.id, n));
-      mockNotes.forEach(n => noteMap.set(n.id, n));
-      cachedNotes.forEach(n => noteMap.set(n.id, n));
+    if (!isOffline && !isMock && supabase) {
+      try {
+        let query = supabase.from('notes').select('*');
+        if (year) query = query.eq('year', year);
+        const { data, error } = await query;
+        if (!error && data && data.length > 0) {
+          const decodedNotes: Note[] = data.map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            subject: n.subject,
+            year: n.year,
+            semester: Number(n.semester),
+            price: Number(n.price),
+            originalPrice: Number(n.originalPrice || n.price * 1.5),
+            description: n.description || '',
+            previewUrl: n.previewUrl || n.preview_url || '',
+            pagesCount: Number(n.pagesCount || n.pages_count || 50),
+            topics: Array.isArray(n.topics) ? n.topics : (typeof n.topics === 'string' ? JSON.parse(n.topics) : ['Complete Syllabus']),
+            type: n.type || 'notes'
+          }));
 
-      const offlineIndex = dbService.getOfflineNotesIndex();
-      for (const nid of offlineIndex) {
-        const offNote = dbService.getOfflineNote(nid);
-        if (offNote) noteMap.set(offNote.id, offNote);
+          setStoredData('bw_cached_notes_catalog', decodedNotes);
+          return { data: decodedNotes, error: null };
+        }
+      } catch (err) {
+        console.warn('Supabase getNotes failed, falling back to local cache:', err);
       }
-
-      const allMerged = Array.from(noteMap.values());
-      return year ? allMerged.filter(n => n.year === year) : allMerged;
-    };
-
-    // Return instant local cached data in 0ms
-    if (isOffline || isMock || !supabase || hasCache) {
-      if (!isOffline && !isMock && supabase) {
-        (async () => {
-          try {
-            let query = supabase.from('notes').select('id, title, subject, year, semester, price, originalPrice, description, pagesCount, type, topics');
-            if (year) query = query.eq('year', year);
-            const res: any = await fetchWithTimeout(query as any, 800);
-            const data = res?.data;
-            if (data && data.length > 0) {
-              const currentCached = getStoredData<Note[]>('bw_cached_notes_catalog', []);
-              const merged = [...currentCached];
-              for (const n of data) {
-                const idx = merged.findIndex(m => m.id === n.id);
-                if (idx >= 0) merged[idx] = n as any;
-                else merged.push(n as any);
-              }
-              setStoredData('bw_cached_notes_catalog', merged);
-            }
-          } catch (e) {}
-        })();
-      }
-      return { data: getLocalMerged(), error: null };
     }
 
-    return { data: getLocalMerged(), error: null };
+    // Fallback to cached notes if offline or DB query yields 0 rows
+    const cachedNotes = getStoredData<Note[]>('bw_cached_notes_catalog', INITIAL_NOTES);
+    const filtered = year ? cachedNotes.filter(n => n.year === year) : cachedNotes;
+    return { data: filtered, error: null };
   },
 
   // --- OFFLINE CACHING SERVICE (APP MODE ONLY) ---
