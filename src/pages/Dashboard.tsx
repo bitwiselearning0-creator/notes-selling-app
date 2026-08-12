@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight, Sparkles, Clock } from 'lucide-react';
-import { dbService } from '../lib/supabase';
+import { dbService, cleanBundleDescription } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Playlist } from '../lib/supabase';
 import { openRazorpayCheckout } from '../lib/razorpay';
 import { NoteCard } from '../components/NoteCard';
@@ -1008,7 +1008,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 {isPurchased ? 'Unlocked Combo Pack' : '🔥 Semester Discount Combo'}
                               </div>
                               <h4 className="bundle-banner-title">{bundle.title}</h4>
-                              <p className="bundle-banner-desc">{bundle.description}</p>
+                              <p className="bundle-banner-desc">{cleanBundleDescription(bundle.description)}</p>
                             </div>
 
                             {/* Column 2: Included Subjects */}

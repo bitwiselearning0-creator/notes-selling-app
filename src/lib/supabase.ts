@@ -231,12 +231,17 @@ const safeParseBundleNotesIds = (notesIds: any): string[] => {
   return [];
 };
 
+export const cleanBundleDescription = (desc?: string): string => {
+  if (!desc) return '';
+  return desc.replace(/\s*<!--SUBJECTS:.*?-->/gs, '').replace(/<!--SUBJECTS:.*?-->/gs, '').trim();
+};
+
 export const decodeBundleFromDb = (b: Bundle): Bundle => {
   if (!b) return b;
   let subjects = b.subjects;
-  let description = b.description || '';
+  let rawDescription = b.description || '';
 
-  const match = description.match(/<!--SUBJECTS:(.*?)-->/s);
+  const match = rawDescription.match(/<!--SUBJECTS:(.*?)-->/s);
   if (match) {
     try {
       const parsed = JSON.parse(match[1]);
@@ -246,8 +251,9 @@ export const decodeBundleFromDb = (b: Bundle): Bundle => {
     } catch (e) {
       console.warn('Error parsing subjects from bundle description:', e);
     }
-    description = description.replace(/\s*<!--SUBJECTS:.*?-->/s, '').trim();
   }
+
+  const description = cleanBundleDescription(rawDescription);
 
   if (!subjects || subjects.length === 0) {
     const init = INITIAL_BUNDLES.find(ib => ib.id === b.id);
