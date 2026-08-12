@@ -1155,24 +1155,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         }, 0);
 
                         const getBundleSubjectsList = (b: Bundle): string[] => {
-                          // 1. Return strictly the subjects selected by the admin in Admin Panel
-                          if (b.subjects && Array.isArray(b.subjects)) {
-                            return b.subjects.filter(s => s && !s.toLowerCase().includes('pyq'));
+                          // 1. Return subjects selected by admin in Admin Panel
+                          if (b.subjects && Array.isArray(b.subjects) && b.subjects.length > 0) {
+                            return b.subjects.filter(Boolean);
                           }
 
-                          // 2. Fallback for legacy bundle objects: extract subjects from notesIds
-                          if (b.notesIds && Array.isArray(b.notesIds) && b.notesIds.length > 0) {
-                            const fromNotes = b.notesIds
-                              .map(id => notes.find(n => n.id === id)?.subject)
-                              .filter((s): s is string => !!s && !s.toLowerCase().includes('pyq'));
-                            const uniqueFromNotes = Array.from(new Set(fromNotes));
-                            if (uniqueFromNotes.length > 0) {
-                              return uniqueFromNotes;
-                            }
-                          }
-
-                          // 3. Default fallback only if no subjects array or notes exist
-                          return getSubjectsForActiveFilter(b.year, b.semester).map(s => s.name);
+                          // 2. Return all standard subjects for the semester
+                          return getSubjectsForActiveFilter(b.year, b.semester)
+                            .filter(s => !s.isComingSoon)
+                            .map(s => s.name);
                         };
 
                         const includedSubjectsList = getBundleSubjectsList(bundle);
