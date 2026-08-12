@@ -551,16 +551,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
             /* LEVEL 2: Subject Portal View (Back to Catalog + Subject Banner + Bundles + 2 Cards + YouTube Playlists) */
             <>
               {/* Back Navigation Bar */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: '12px' }}>
                 <button 
                   className="btn-secondary"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', fontSize: '14px', fontWeight: '600' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: '600' }}
                   onClick={() => {
                     setSelectedSubject(null);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                 >
-                  <ArrowLeft size={18} />
+                  <ArrowLeft size={16} />
                   <span>Back to Catalog</span>
                 </button>
               </div>
@@ -569,23 +569,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="glass-card" style={{
                 background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%)',
                 border: '1px solid var(--glass-border)',
-                borderRadius: '20px',
-                padding: '28px',
-                marginBottom: '32px',
+                borderRadius: '16px',
+                padding: '16px 20px',
+                marginBottom: '16px',
                 textAlign: 'left',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: '20px',
+                gap: '16px',
                 flexWrap: 'wrap',
-                boxShadow: '0 12px 30px rgba(0,0,0,0.3)'
+                boxShadow: '0 8px 25px rgba(0,0,0,0.25)'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                   <div style={{
                     background: 'linear-gradient(135deg, rgba(96, 165, 250, 0.2) 0%, rgba(37, 99, 235, 0.1) 100%)',
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '16px',
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '14px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -593,16 +593,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     border: '1px solid rgba(96, 165, 250, 0.3)',
                     flexShrink: 0
                   }}>
-                    <BookOpen size={32} />
+                    <BookOpen size={22} />
                   </div>
                   <div>
-                    <span className="semester-tag" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <span className="semester-tag" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       {selectedYear} • {selectedSemester !== null ? `Semester ${selectedSemester}` : 'Subject Portal'}
                     </span>
-                    <h2 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-white)', margin: '4px 0 8px 0' }}>
+                    <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-white)', margin: '2px 0 4px 0' }}>
                       {selectedSubject}
                     </h2>
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--color-muted)' }}>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', fontSize: '11px', color: 'var(--color-muted)' }}>
                       <span>📚 {studyNotes.length} Unit Notes</span>
                       <span>•</span>
                       <span>📝 {pyqs.length} PYQ Papers</span>
@@ -618,7 +618,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     setSelectedSubject(null);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  style={{ fontSize: '13px' }}
+                  style={{ fontSize: '12px', padding: '6px 12px' }}
                 >
                   All Subjects
                 </button>
@@ -627,7 +627,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {/* Subject All-In-One Bundle Card (if any exists for this subject) */}
               {bundles.filter(b => b.type === 'subject' && b.subject?.toLowerCase() === selectedSubject.toLowerCase()).map(bundle => {
                 const isPurchased = purchasedBundleIds.includes(bundle.id);
-                const expiry = bundlePurchaseDetailsMap[bundle.id];
                 const normalSum = bundle.notesIds.reduce((sum, id) => {
                   const note = notes.find(n => n.id === id);
                   return sum + (note ? note.price : 99);
@@ -640,14 +639,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     style={{
                       background: 'radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%)',
                       border: '1px solid rgba(96, 165, 250, 0.3)',
-                      borderRadius: '20px',
-                      padding: '20px 24px',
-                      marginBottom: '32px',
-                      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.35)',
+                      borderRadius: '16px',
+                      padding: '14px 18px',
+                      marginBottom: '16px',
+                      boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      gap: '20px',
+                      gap: '14px',
                       flexWrap: 'wrap',
                       position: 'relative',
                       overflow: 'hidden'
@@ -658,82 +657,82 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       position: 'absolute',
                       top: '-30px',
                       right: '-30px',
-                      width: '140px',
-                      height: '140px',
+                      width: '120px',
+                      height: '120px',
                       borderRadius: '50%',
                       background: 'radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, rgba(0, 0, 0, 0) 70%)',
                       pointerEvents: 'none'
                     }} />
 
                     {/* Left Column: Badge, Title & Compact Inclusions */}
-                    <div style={{ flex: 1, minWidth: '240px', textAlign: 'left' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                    <div style={{ flex: 1, minWidth: '200px', textAlign: 'left' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                         <span style={{
-                          fontSize: '10px',
+                          fontSize: '9px',
                           fontWeight: '800',
                           color: '#60a5fa',
                           background: 'rgba(59, 130, 246, 0.15)',
                           border: '1px solid rgba(59, 130, 246, 0.3)',
-                          padding: '3px 10px',
+                          padding: '2px 8px',
                           borderRadius: '100px',
                           textTransform: 'uppercase',
                           letterSpacing: '0.05em'
                         }}>
                           {isPurchased ? 'Unlocked Subject Pack' : '⚡ Subject All-In-One Pack'}
                         </span>
-                        <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--color-muted)', fontWeight: '600' }}>
                           6 Months Access
                         </span>
                       </div>
 
-                      <h4 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: '0 0 8px 0' }}>
+                      <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#fff', margin: '0 0 6px 0' }}>
                         {bundle.title}
                       </h4>
 
-                      {/* Compact Inclusion Pills (No Paragraph Text!) */}
+                      {/* Compact Inclusion Pills */}
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         <span style={{
-                          fontSize: '11px',
+                          fontSize: '10px',
                           fontWeight: '600',
                           color: '#e2e8f0',
                           background: 'rgba(255, 255, 255, 0.05)',
                           border: '1px solid rgba(255, 255, 255, 0.1)',
-                          padding: '3px 10px',
-                          borderRadius: '8px',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px'
+                          gap: '3px'
                         }}>
-                          <CheckCircle2 size={12} style={{ color: '#10b981' }} />
+                          <CheckCircle2 size={10} style={{ color: '#10b981' }} />
                           All Syllabus Units
                         </span>
                         <span style={{
-                          fontSize: '11px',
+                          fontSize: '10px',
                           fontWeight: '600',
                           color: '#e2e8f0',
                           background: 'rgba(255, 255, 255, 0.05)',
                           border: '1px solid rgba(255, 255, 255, 0.1)',
-                          padding: '3px 10px',
-                          borderRadius: '8px',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px'
+                          gap: '3px'
                         }}>
-                          <CheckCircle2 size={12} style={{ color: '#10b981' }} />
+                          <CheckCircle2 size={10} style={{ color: '#10b981' }} />
                           Solved Exam PYQs
                         </span>
                       </div>
                     </div>
 
                     {/* Right Column: Price & Action */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                       <div style={{ textAlign: 'right' }}>
                         {!isPurchased && (
-                          <div style={{ fontSize: '12px', color: 'var(--color-muted)', textDecoration: 'line-through' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--color-muted)', textDecoration: 'line-through' }}>
                             ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
                           </div>
                         )}
-                        <div style={{ fontSize: '24px', fontWeight: '900', color: '#60a5fa', lineHeight: 1 }}>
+                        <div style={{ fontSize: '20px', fontWeight: '900', color: '#60a5fa', lineHeight: 1 }}>
                           ₹{bundle.price}
                         </div>
                       </div>
@@ -741,20 +740,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       {user ? (
                         isPurchased ? (
                           <div style={{ textAlign: 'center' }}>
-                            <button className="btn-secondary" style={{ pointerEvents: 'none', opacity: 0.8, fontSize: '13px', padding: '8px 16px' }}>
+                            <button className="btn-secondary" style={{ pointerEvents: 'none', opacity: 0.8, fontSize: '12px', padding: '6px 12px' }}>
                               Unlocked
                             </button>
-                            {expiry && (
-                              <div style={{ fontSize: '10px', color: 'var(--color-yellow)', fontWeight: '700', marginTop: '4px' }}>
-                                {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime' : `${expiry.daysLeft} Days Left`) : '6 Months'}
-                              </div>
-                            )}
                           </div>
                         ) : (
                           <button 
                             className="btn-primary" 
                             onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}
-                            style={{ fontSize: '13px', padding: '10px 20px', fontWeight: '700', borderRadius: '12px', boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)' }}
+                            style={{ fontSize: '12px', padding: '8px 16px', fontWeight: '700', borderRadius: '10px' }}
                           >
                             Unlock Pack
                           </button>
@@ -763,7 +757,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <button 
                           className="btn-primary" 
                           onClick={() => navigate('auth')}
-                          style={{ fontSize: '13px', padding: '10px 20px', fontWeight: '700', borderRadius: '12px' }}
+                          style={{ fontSize: '12px', padding: '8px 16px', fontWeight: '700', borderRadius: '10px' }}
                         >
                           Sign In to Unlock
                         </button>
@@ -773,12 +767,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 );
               })}
 
-              {/* 2 Square Cards in 1 Row */}
+              {/* 2 Square Cards in 1 Row (Compact & Fits in Same Screen View) */}
               <div style={{ 
                 display: 'grid', 
                 gridTemplateColumns: '1fr 1fr', 
-                gap: '14px', 
-                margin: '24px 0 32px' 
+                gap: '12px', 
+                margin: '0 0 20px' 
               }}>
                 {/* Square Card 1: Study Notes */}
                 <div 
@@ -788,8 +782,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   style={{
-                    padding: '24px 16px',
-                    borderRadius: '20px',
+                    padding: '16px 12px',
+                    borderRadius: '16px',
                     border: '1px solid rgba(96, 165, 250, 0.25)',
                     background: 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.18) 0%, rgba(10, 17, 43, 0.85) 100%)',
                     cursor: 'pointer',
@@ -799,46 +793,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     justifyContent: 'center',
                     textAlign: 'center',
                     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3)'
+                    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.25)'
                   }}
                 >
                   <div style={{
-                    width: '52px',
-                    height: '52px',
-                    borderRadius: '16px',
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '14px',
                     background: 'rgba(96, 165, 250, 0.15)',
                     border: '1px solid rgba(96, 165, 250, 0.3)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#60a5fa',
-                    marginBottom: '12px',
-                    boxShadow: '0 0 20px rgba(96, 165, 250, 0.2)'
+                    marginBottom: '8px'
                   }}>
-                    <BookOpen size={24} />
+                    <BookOpen size={20} />
                   </div>
 
-                  <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#fff', margin: '0 0 4px 0' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#fff', margin: '0 0 2px 0' }}>
                     Study Notes
                   </h4>
-                  <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
                     {studyNotes.length} Unit Files
                   </span>
 
                   <span style={{
-                    marginTop: '14px',
-                    fontSize: '11px',
+                    marginTop: '8px',
+                    fontSize: '10px',
                     fontWeight: '700',
                     color: '#60a5fa',
                     background: 'rgba(96, 165, 250, 0.15)',
-                    padding: '4px 14px',
+                    padding: '3px 10px',
                     borderRadius: '100px',
                     border: '1px solid rgba(96, 165, 250, 0.3)',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px'
                   }}>
-                    Open Card <ArrowRight size={12} />
+                    Open Card <ArrowRight size={10} />
                   </span>
                 </div>
 
@@ -850,8 +843,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   style={{
-                    padding: '24px 16px',
-                    borderRadius: '20px',
+                    padding: '16px 12px',
+                    borderRadius: '16px',
                     border: '1px solid rgba(167, 139, 250, 0.25)',
                     background: 'radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.18) 0%, rgba(10, 17, 43, 0.85) 100%)',
                     cursor: 'pointer',
@@ -861,46 +854,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     justifyContent: 'center',
                     textAlign: 'center',
                     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3)'
+                    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.25)'
                   }}
                 >
                   <div style={{
-                    width: '52px',
-                    height: '52px',
-                    borderRadius: '16px',
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '14px',
                     background: 'rgba(167, 139, 250, 0.15)',
                     border: '1px solid rgba(167, 139, 250, 0.3)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#a78bfa',
-                    marginBottom: '12px',
-                    boxShadow: '0 0 20px rgba(167, 139, 250, 0.2)'
+                    marginBottom: '8px'
                   }}>
-                    <FileText size={24} />
+                    <FileText size={20} />
                   </div>
 
-                  <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#fff', margin: '0 0 4px 0' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#fff', margin: '0 0 2px 0' }}>
                     Exam PYQs
                   </h4>
-                  <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
                     {pyqs.length} Solved Papers
                   </span>
 
                   <span style={{
-                    marginTop: '14px',
-                    fontSize: '11px',
+                    marginTop: '8px',
+                    fontSize: '10px',
                     fontWeight: '700',
                     color: '#a78bfa',
                     background: 'rgba(167, 139, 250, 0.15)',
-                    padding: '4px 14px',
+                    padding: '3px 10px',
                     borderRadius: '100px',
                     border: '1px solid rgba(167, 139, 250, 0.3)',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px'
                   }}>
-                    Open Card <ArrowRight size={12} />
+                    Open Card <ArrowRight size={10} />
                   </span>
                 </div>
               </div>
