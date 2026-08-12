@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lock, Unlock, FileText } from 'lucide-react';
+import { Unlock, FileText } from 'lucide-react';
 import type { Note } from '../lib/supabase';
 
 interface NoteCardProps {
@@ -22,91 +22,154 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   purchaseDetails
 }) => {
   const isFree = note.price === 0;
+  const isPyq = note.type === 'pyqs';
+  const isUnlocked = isPurchased || isFree;
+
+  // Accent colors based on type
+  const accentColor = isPyq ? '#a78bfa' : '#60a5fa';
+  const badgeBg = isPyq ? 'rgba(167, 139, 250, 0.15)' : 'rgba(96, 165, 250, 0.15)';
+  const badgeBorder = isPyq ? 'rgba(167, 139, 250, 0.3)' : 'rgba(96, 165, 250, 0.3)';
+  const cardGradient = isPyq
+    ? 'radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.16) 0%, rgba(15, 23, 42, 0.96) 100%)'
+    : 'radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.16) 0%, rgba(15, 23, 42, 0.96) 100%)';
 
   return (
-    <div className="note-card glass-card fade-in">
-      {/* Locked / Unlocked status badge */}
-      {(!isPurchased || isFree) && (
-        <div className={`note-status-badge ${isFree ? 'unlocked' : 'locked'}`}>
-          {isFree ? (
-            <>
-              <Unlock size={14} /> <span>UNLOCKED</span>
-            </>
-          ) : (
-            <>
-              <Lock size={14} /> <span>LOCKED</span>
-            </>
-          )}
-        </div>
-      )}
+    <div 
+      className="glass-card fade-in"
+      style={{
+        background: cardGradient,
+        border: `1px solid ${badgeBorder}`,
+        borderRadius: '18px',
+        padding: '16px 18px',
+        marginBottom: '14px',
+        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.35)',
+        position: 'relative',
+        overflow: 'hidden',
+        textAlign: 'left'
+      }}
+    >
+      {/* Row 1: Header Badge & Status */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <span style={{
+          fontSize: '10px',
+          fontWeight: '800',
+          color: accentColor,
+          background: badgeBg,
+          border: `1px solid ${badgeBorder}`,
+          padding: '3px 10px',
+          borderRadius: '100px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          {isPyq ? '📝 Exam PYQ Paper' : '📖 Study Notes Unit'}
+        </span>
 
-      {/* License Expiration Badge */}
-      {isPurchased && !isFree && purchaseDetails && (
-        <div className="license-badge">
-          {purchaseDetails.daysLeft !== null ? (
-            purchaseDetails.daysLeft > 365 ? (
-              <span>Admin License</span>
-            ) : (
-              <span>{purchaseDetails.daysLeft} Days Left</span>
-            )
-          ) : (
-            <span>6 Months</span>
-          )}
-        </div>
-      )}
+        {isUnlocked ? (
+          <span style={{ fontSize: '10px', fontWeight: '700', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '2px 8px', borderRadius: '100px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+            <Unlock size={10} /> {isFree ? 'FREE' : 'UNLOCKED'}
+          </span>
+        ) : (
+          <span style={{ fontSize: '10px', fontWeight: '600', color: 'var(--color-muted)' }}>
+            {purchaseDetails?.daysLeft ? `${purchaseDetails.daysLeft} Days` : '6 Months Access'}
+          </span>
+        )}
+      </div>
 
-      <div className="note-body">
-        <span className="semester-tag">Sem {note.semester} • {note.year} • <strong style={{ color: note.type === 'pyqs' ? '#60a5fa' : '#34d399' }}>{note.type === 'pyqs' ? 'PYQ' : 'Notes'}</strong></span>
-        <h3 className="note-title">{note.title}</h3>
-        <p className="note-description">{note.description}</p>
-        
-        {/* Topics List */}
-        <div className="note-topics">
+      {/* Row 2: Title */}
+      <h4 style={{ 
+        fontSize: '15px', 
+        fontWeight: '800', 
+        color: '#fff', 
+        margin: '0 0 8px 0', 
+        lineHeight: '1.3'
+      }}>
+        {note.title}
+      </h4>
+
+      {/* Topics / Features Chips */}
+      {note.topics && note.topics.length > 0 && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
           {note.topics.slice(0, 3).map((topic, i) => (
-            <span key={i} className="topic-chip">{topic}</span>
+            <span key={i} style={{
+              fontSize: '10px',
+              fontWeight: '600',
+              color: '#cbd5e1',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              padding: '2px 8px',
+              borderRadius: '6px'
+            }}>
+              {topic}
+            </span>
           ))}
-          {note.topics.length > 3 && <span className="topic-chip-more">+{note.topics.length - 3} more</span>}
+        </div>
+      )}
+
+      {/* Row 3: Symmetrical Bottom Bar (Stats on Left, Price & Action on Right) */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        paddingTop: '10px',
+        borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+      }}>
+        {/* Left: Document Stats */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: 'var(--color-muted)' }}>
+          <FileText size={13} style={{ color: accentColor }} />
+          <span>{note.pagesCount} PDF Pages</span>
         </div>
 
-        {/* Document Stats */}
-        <div className="note-stats">
-          <div className="note-stat-item">
-            <FileText size={16} className="blue-accent" />
-            <span>{note.pagesCount} PDF Pages</span>
-          </div>
-          <div className="note-price">
+        {/* Right: Price & Unlock/Read Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          <div style={{ textAlign: 'right' }}>
             {isFree ? (
-              <span className="free-price">FREE</span>
+              <span style={{ fontSize: '14px', fontWeight: '800', color: '#10b981' }}>FREE</span>
             ) : (
               <>
-                <span className="discounted-price">₹{note.price}</span>
-                <span className="original-price">₹{note.originalPrice ?? (note.price + 100)}</span>
+                {!isUnlocked && (
+                  <div style={{ fontSize: '10px', color: 'var(--color-muted)', textDecoration: 'line-through', lineHeight: 1 }}>
+                    ₹{note.originalPrice ?? (note.price + 100)}
+                  </div>
+                )}
+                <div style={{ fontSize: '18px', fontWeight: '900', color: accentColor, lineHeight: 1.1, marginTop: '1px' }}>
+                  ₹{note.price}
+                </div>
               </>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* Action buttons */}
-      <div className="note-footer">
-        {isLoggedIn ? (
-          isPurchased || isFree ? (
-            <button className="btn-primary w-full" onClick={() => onRead(note)}>
-              {note.type === 'pyqs' ? 'Read PYQ Solutions' : 'Read Notes'}
-            </button>
+          {isLoggedIn ? (
+            isUnlocked ? (
+              <button 
+                className="btn-primary" 
+                onClick={() => onRead(note)}
+                style={{ fontSize: '12px', padding: '7px 14px', fontWeight: '700', borderRadius: '10px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+              >
+                Read PDF
+              </button>
+            ) : (
+              <button 
+                className="btn-primary" 
+                onClick={() => onPurchase(note.id, note.price)}
+                style={{ fontSize: '12px', padding: '7px 14px', fontWeight: '700', borderRadius: '10px', boxShadow: `0 4px 15px ${badgeBorder}` }}
+              >
+                Unlock
+              </button>
+            )
           ) : (
             <button 
-            className="btn-primary w-full" 
-            onClick={() => onPurchase(note.id, note.price)}
-          >
-            Unlock ₹{note.price}
-          </button>
-          )
-        ) : (
-          <button className="btn-primary w-full" onClick={onNavigateToAuth}>
-            Sign In to Unlock
-          </button>
-        )}
+              className="btn-primary" 
+              onClick={onNavigateToAuth}
+              style={{ fontSize: '12px', padding: '7px 14px', fontWeight: '700', borderRadius: '10px' }}
+            >
+              Sign In
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
