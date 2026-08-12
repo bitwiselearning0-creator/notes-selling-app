@@ -2472,54 +2472,58 @@ body.app-mode .form-toggle-link span {
    High-Performance Native 60fps/120fps GPU Smooth Animations & Page Transitions
    ========================================================================== */
 
-/* Hardware-Accelerated Smooth Drill-Down Keyframes */
+/* Hardware-Accelerated Distinct Smooth Drill-Down Keyframes */
 @keyframes pageDrillEnter {
   0% {
-    opacity: 0.2;
-    transform: translate3d(0, 16px, 0) scale(0.985);
+    opacity: 0;
+    transform: translate3d(0, 36px, 0) scale(0.94);
+    filter: blur(4px);
   }
   100% {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0px);
   }
 }
 
 @keyframes pageDrillBack {
   0% {
-    opacity: 0.2;
-    transform: translate3d(0, -12px, 0) scale(0.99);
+    opacity: 0;
+    transform: translate3d(0, -28px, 0) scale(0.95);
+    filter: blur(4px);
   }
   100% {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0px);
   }
 }
 
 /* Page Transition Wrapper Utility Classes */
 .page-transition-enter {
-  will-change: transform, opacity;
-  animation: pageDrillEnter 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity, filter;
+  animation: pageDrillEnter 0.38s cubic-bezier(0.18, 0.89, 0.32, 1.1) forwards;
   backface-visibility: hidden;
   -webkit-font-smoothing: subpixel-antialiased;
 }
 
 .page-transition-back {
-  will-change: transform, opacity;
-  animation: pageDrillBack 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity, filter;
+  animation: pageDrillBack 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.1) forwards;
   backface-visibility: hidden;
   -webkit-font-smoothing: subpixel-antialiased;
 }
 
-/* Smooth Card Hover & Touch Press Physics (Butter Smooth Spring Feedback) */
+/* Smooth Card Hover & Touch Press Physics (Spring Feedback) */
 .subject-card, .glass-card, .btn-primary, .btn-secondary {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.1), box-shadow 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.1), background-color 0.2s ease, border-color 0.2s ease;
   will-change: transform, opacity;
   backface-visibility: hidden;
 }
 
-/* Touch Active Press Feedback (Native App Spring Response) */
+/* Distinct Touch Active Press Feedback (Native App Spring Dip Response) */
 .subject-card:active, .glass-card[style*="cursor: pointer"]:active, .btn-primary:active, .btn-secondary:active {
-  transform: scale(0.975) !important;
+  transform: scale(0.94) translateY(2px) !important;
 }
 
 /* Reduced Motion Override for low-end accessibility */
