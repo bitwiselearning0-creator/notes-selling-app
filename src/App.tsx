@@ -475,11 +475,10 @@ function App() {
       )}
 
       {/* Main Pages Content Router with Horizontal Tab Slide Animations */}
-      <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
+      <main style={{ flexGrow: 1 }}>
         <div 
           key={currentPage} 
           className={tabSlideDir === 'right' ? 'tab-transition-right' : 'tab-transition-left'}
-          style={{ width: '100%', flexGrow: 1, display: 'flex', flexDirection: 'column' }}
         >
           {currentPage === 'landing' && (
             <LandingPage 
