@@ -579,74 +579,57 @@ export const Dashboard: React.FC<DashboardProps> = ({
           })}
 
           {selectedCategory !== null ? (
-            /* LEVEL 3: Dedicated Inner View Inside Tapped Card */
+            /* LEVEL 3: Clean & Minimal Dedicated Card View */
             <div className="fade-in">
-              {/* Back Button to Subject Portal */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              {/* Ultra-Clean Minimal Top Bar */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '20px',
+                paddingBottom: '12px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+              }}>
                 <button 
                   className="btn-secondary"
                   onClick={() => {
                     setSelectedCategory(null);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '6px 14px' }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    padding: '6px 14px',
+                    borderRadius: '10px'
+                  }}
                 >
-                  <ArrowLeft size={16} />
-                  <span>Back to {selectedSubject}</span>
+                  <ArrowLeft size={14} />
+                  <span>{selectedSubject}</span>
                 </button>
 
-                <span style={{ fontSize: '12px', fontWeight: '700', color: selectedCategory === 'notes' ? '#60a5fa' : '#a78bfa' }}>
-                  {selectedCategory === 'notes' ? `📖 ${studyNotes.length} Unit Files` : `📝 ${pyqs.length} Solved Papers`}
+                <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#fff', margin: 0 }}>
+                  {selectedCategory === 'notes' ? 'Study Notes' : 'Previous Year Papers (PYQs)'}
+                </h3>
+
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  color: selectedCategory === 'notes' ? '#60a5fa' : '#a78bfa',
+                  background: selectedCategory === 'notes' ? 'rgba(96, 165, 250, 0.15)' : 'rgba(167, 139, 250, 0.15)',
+                  padding: '3px 10px',
+                  borderRadius: '12px'
+                }}>
+                  {selectedCategory === 'notes' ? `${studyNotes.length} Notes` : `${pyqs.length} PYQs`}
                 </span>
               </div>
 
-              {/* Dedicated Card View Banner */}
-              <div className="glass-card" style={{
-                padding: '24px',
-                borderRadius: '20px',
-                border: selectedCategory === 'notes' ? '1px solid rgba(96, 165, 250, 0.35)' : '1px solid rgba(167, 139, 250, 0.35)',
-                background: selectedCategory === 'notes' 
-                  ? 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.25) 0%, rgba(10, 17, 43, 0.95) 100%)'
-                  : 'radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.25) 0%, rgba(10, 17, 43, 0.95) 100%)',
-                marginBottom: '28px',
-                textAlign: 'left',
-                boxShadow: '0 12px 30px rgba(0, 0, 0, 0.4)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{
-                    width: '52px',
-                    height: '52px',
-                    borderRadius: '16px',
-                    background: selectedCategory === 'notes' ? 'rgba(96, 165, 250, 0.2)' : 'rgba(167, 139, 250, 0.2)',
-                    border: selectedCategory === 'notes' ? '1px solid rgba(96, 165, 250, 0.4)' : '1px solid rgba(167, 139, 250, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: selectedCategory === 'notes' ? '#60a5fa' : '#a78bfa',
-                    flexShrink: 0
-                  }}>
-                    {selectedCategory === 'notes' ? <BookOpen size={26} /> : <FileText size={26} />}
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      {selectedSubject} • {selectedCategory === 'notes' ? 'Study Notes' : 'Exam PYQs'}
-                    </span>
-                    <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', margin: '2px 0 4px 0' }}>
-                      {selectedCategory === 'notes' ? `${selectedSubject} - Unit Study Notes` : `${selectedSubject} - Previous Year Papers (PYQs)`}
-                    </h2>
-                    <p style={{ fontSize: '12px', color: 'var(--color-muted)', margin: 0 }}>
-                      {selectedCategory === 'notes' 
-                        ? 'Comprehensive unit-wise notes covering syllabus concepts, diagrams, and exam preparation.' 
-                        : 'Official past engineering exam question papers with step-by-step verified solutions.'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Grid of Files Inside Card View */}
+              {/* Directly Render Notes Cards / PYQ Cards Cleanly */}
               {selectedCategory === 'notes' ? (
                 studyNotes.length > 0 ? (
-                  <div className="notes-grid" style={{ marginBottom: '40px' }}>
+                  <div className="notes-grid" style={{ marginBottom: '32px' }}>
                     {studyNotes.map(note => (
                       <NoteCard 
                         key={note.id}
@@ -661,17 +644,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <div className="empty-state glass-card" style={{ padding: '40px 20px', textAlign: 'center', borderRadius: '20px', marginBottom: '40px' }}>
-                    <Sparkles size={28} className="yellow-accent" style={{ marginBottom: '12px' }} />
-                    <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>Unit Study Notes Launching Soon</h4>
-                    <p style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '400px', margin: '0 auto' }}>
-                      Our academic team is finalizing high-yield Unit Study Notes for <strong>{selectedSubject}</strong>. Check back shortly!
+                  <div className="empty-state glass-card" style={{ padding: '36px 20px', textAlign: 'center', borderRadius: '16px', marginBottom: '32px' }}>
+                    <Sparkles size={24} className="yellow-accent" style={{ marginBottom: '8px' }} />
+                    <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>Notes Launching Soon</h4>
+                    <p style={{ fontSize: '12px', color: 'var(--color-muted)', margin: 0 }}>
+                      Study notes for {selectedSubject} are currently being added.
                     </p>
                   </div>
                 )
               ) : (
                 pyqs.length > 0 ? (
-                  <div className="notes-grid" style={{ marginBottom: '40px' }}>
+                  <div className="notes-grid" style={{ marginBottom: '32px' }}>
                     {pyqs.map(note => (
                       <NoteCard 
                         key={note.id}
@@ -686,11 +669,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <div className="empty-state glass-card" style={{ padding: '40px 20px', textAlign: 'center', borderRadius: '20px', marginBottom: '40px' }}>
-                    <Clock size={28} className="blue-accent" style={{ marginBottom: '12px' }} />
-                    <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>Exam PYQs Launching Soon</h4>
-                    <p style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '400px', margin: '0 auto' }}>
-                      Solved past exam papers for <strong>{selectedSubject}</strong> are being verified & digitized. Check back soon!
+                  <div className="empty-state glass-card" style={{ padding: '36px 20px', textAlign: 'center', borderRadius: '16px', marginBottom: '32px' }}>
+                    <Clock size={24} className="blue-accent" style={{ marginBottom: '8px' }} />
+                    <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>PYQs Launching Soon</h4>
+                    <p style={{ fontSize: '12px', color: 'var(--color-muted)', margin: 0 }}>
+                      Solved PYQ papers for {selectedSubject} are currently being added.
                     </p>
                   </div>
                 )
