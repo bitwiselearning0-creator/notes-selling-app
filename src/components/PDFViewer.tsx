@@ -198,7 +198,56 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     setJumpPageInput(scrollPage.toString());
   }, [scrollPage]);
 
-  // 4. Anti-copying and anti-printing bindings
+  // 4. Multi-touch 2-Finger Pinch-to-Zoom Gesture for mobile screens
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartZoomRef = useRef<number>(100);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        touchStartDistRef.current = dist;
+        touchStartZoomRef.current = zoom;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+        if (e.cancelable) e.preventDefault();
+        const currentDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const scale = currentDist / touchStartDistRef.current;
+        const newZoom = Math.min(250, Math.max(55, Math.round(touchStartZoomRef.current * scale)));
+        setZoom(newZoom);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      touchStartDistRef.current = null;
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+    container.addEventListener('touchcancel', handleTouchEnd);
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [zoom]);
+
+  // 5. Anti-copying and anti-printing bindings
   useEffect(() => {
     const preventSelection = (e: Event) => {
       e.preventDefault();
@@ -598,8 +647,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             </button>
           </div>
 
-          {/* Zoom Controls Pill (Hidden on Mobile screens where bottom floating zoom widget handles zoom) */}
-          <div className="desktop-only-zoom" style={{ 
+          {/* Zoom & Rotate Controls Pill (Visible on All Devices) */}
+          <div style={{ 
             display: 'inline-flex', 
             alignItems: 'center', 
             gap: '4px',
