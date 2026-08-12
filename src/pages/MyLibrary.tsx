@@ -21,25 +21,25 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
     if (!user) return;
     setLoading(true);
     try {
-      const allNotesRes = await dbService.getNotes();
-      setAllNotes(allNotesRes.data || []);
+      const [allNotesRes, notesRes, bundlesRes, purchaseState] = await Promise.all([
+        dbService.getNotes(),
+        dbService.getPurchasedNotes(),
+        dbService.getPurchasedBundles(),
+        dbService.getAllUserPurchasesState()
+      ]);
 
-      const notesRes = await dbService.getPurchasedNotes();
-      const bundlesRes = await dbService.getPurchasedBundles();
-      
-      const activeNotes = notesRes.data || [];
-      setLibraryNotes(activeNotes);
+      const fullCatalog = allNotesRes.data || [];
+      setAllNotes(fullCatalog);
+
+      const purchasedSet = new Set<string>([
+        ...(notesRes.data || []).map(n => n.id),
+        ...purchaseState.purchasedNoteIds
+      ]);
+
+      const unlockedNotesList = fullCatalog.filter(n => purchasedSet.has(n.id));
+      setLibraryNotes(unlockedNotesList.length > 0 ? unlockedNotesList : (notesRes.data || []));
       setLibraryBundles(bundlesRes.data || []);
-
-      // Load specific license details for each note
-      const detailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
-      for (const note of activeNotes) {
-        const details = await dbService.getPurchaseDetails(note.id);
-        if (details.purchased) {
-          detailsMap[note.id] = { expiresAt: details.expiresAt, daysLeft: details.daysLeft };
-        }
-      }
-      setNotesDetails(detailsMap);
+      setNotesDetails(purchaseState.noteDetailsMap);
     } catch (err) {
       console.error('Error fetching library notes:', err);
     } finally {
@@ -68,16 +68,9 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
     );
   }
 
-  // Filter notes that are purchased INDIVIDUALLY (not unlocked via a bundle)
-  // to avoid cluttering the screen with duplicate entries
-  const individualPurchasedNotes = libraryNotes.filter(note => {
-    // Check if this note is part of any active purchased bundle
-    const unlockedViaBundle = libraryBundles.some(({ bundle }) => bundle.notesIds.includes(note.id));
-    return !unlockedViaBundle;
-  });
-
-  const studyNotes = individualPurchasedNotes.filter(n => n.type !== 'pyqs');
-  const pyqs = individualPurchasedNotes.filter(n => n.type === 'pyqs');
+  // Display all purchased & unlocked study notes and PYQs
+  const studyNotes = libraryNotes.filter(n => n.type !== 'pyqs');
+  const pyqs = libraryNotes.filter(n => n.type === 'pyqs');
 
   return (
     <div className="container section-padding fade-in" style={{ paddingBottom: '80px' }}>
