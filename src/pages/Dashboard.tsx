@@ -484,9 +484,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <span className="semester-tag" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {selectedYear} • {selectedSemester !== null ? `Semester ${selectedSemester}` : 'Subject Portal'}
                 </span>
-                <h2 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-white)', margin: '4px 0 0 0' }}>
+                <h2 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-white)', margin: '4px 0 8px 0' }}>
                   {selectedSubject}
                 </h2>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--color-muted)' }}>
+                  <span>📚 {studyNotes.length} Unit Notes</span>
+                  <span>•</span>
+                  <span>📝 {pyqs.length} PYQ Papers</span>
+                  <span>•</span>
+                  <span>🎥 {filteredPlaylists.length} Video Playlists</span>
+                </div>
               </div>
             </div>
 
