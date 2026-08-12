@@ -473,7 +473,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'space-between', 
-          padding: '8px 16px', 
+          padding: '8px 14px', 
           borderRadius: '16px', 
           border: '1px solid var(--glass-border)', 
           background: 'rgba(10, 17, 43, 0.92)',
@@ -483,28 +483,30 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
           transform: controlsVisible ? 'translateY(0)' : 'translateY(-130%)',
           opacity: controlsVisible ? 1 : 0,
-          pointerEvents: controlsVisible ? 'auto' : 'none'
+          pointerEvents: controlsVisible ? 'auto' : 'none',
+          gap: '12px'
         }}
       >
-        {/* Left Section: Back Button & Note Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flexShrink: 1 }}>
+        {/* Left Section: Icon-Only Back Button & Note Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
           <button 
             className="btn-secondary" 
             onClick={onBack} 
+            title="Back to Catalog"
             style={{ 
               display: 'inline-flex', 
               alignItems: 'center', 
-              gap: '6px', 
-              padding: '6px 14px', 
-              borderRadius: '10px', 
-              fontWeight: '600', 
-              fontSize: '13px',
+              justifyContent: 'center',
+              width: '34px',
               height: '34px',
-              whiteSpace: 'nowrap',
-              flexShrink: 0
+              padding: 0,
+              borderRadius: '10px', 
+              flexShrink: 0,
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid var(--glass-border)'
             }}
           >
-            <ChevronLeft size={16} /> Back
+            <ChevronLeft size={20} />
           </button>
           
           <div className="viewer-title-area" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, overflow: 'hidden' }}>
@@ -538,16 +540,16 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           </div>
         </div>
 
-        {/* Right Section: Page Jump & Zoom Controls */}
-        <div className="viewer-controls" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-          {/* Direct Page Jump Input Pill */}
+        {/* Right Section: Optimally Spread Page Navigator & Rotate Button */}
+        <div className="viewer-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          {/* Spacious Page Navigator Pill */}
           <div className="page-jump-pill" style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '4px',
-            background: 'rgba(255, 255, 255, 0.05)',
+            gap: '6px',
+            background: 'rgba(255, 255, 255, 0.06)',
             border: '1px solid var(--glass-border)',
-            padding: '3px 8px',
+            padding: '4px 10px',
             borderRadius: '20px',
             height: '34px',
             boxSizing: 'border-box',
@@ -569,15 +571,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '0',
-                width: '18px',
-                height: '18px',
+                width: '20px',
+                height: '20px',
                 flexShrink: 0
               }}
             >
-              <ChevronLeft size={14} />
+              <ChevronLeft size={16} />
             </button>
 
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600', whiteSpace: 'nowrap', lineHeight: 1 }}>Pg</span>
+            <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '600', whiteSpace: 'nowrap', lineHeight: 1 }}>Pg</span>
             
             <input 
               type="number"
@@ -594,7 +596,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               }}
               onFocus={(e) => e.target.select()}
               style={{
-                width: '36px',
+                width: '38px',
                 height: '24px',
                 background: 'rgba(0, 0, 0, 0.6)',
                 border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -612,7 +614,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               }}
             />
 
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+            <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '600', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
               / {totalPages}
             </span>
 
@@ -627,7 +629,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                 color: '#000',
                 border: 'none',
                 borderRadius: '6px',
-                padding: '2px 8px',
+                padding: '2px 9px',
                 fontSize: '11px',
                 fontWeight: '700',
                 cursor: 'pointer',
@@ -658,98 +660,38 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '0',
-                width: '18px',
-                height: '18px',
+                width: '20px',
+                height: '20px',
                 flexShrink: 0
               }}
             >
-              <ChevronRight size={14} />
+              <ChevronRight size={16} />
             </button>
           </div>
 
-          {/* Zoom & Rotate Controls Pill (Visible on All Devices) */}
-          <div style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: '4px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid var(--glass-border)',
-            padding: '3px 8px',
-            borderRadius: '20px',
-            height: '34px',
-            boxSizing: 'border-box'
-          }}>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setZoom(z => Math.max(55, z - 15));
-              }} 
-              title="Zoom Out" 
-              style={{ 
-                width: '24px', 
-                height: '24px', 
-                borderRadius: '50%', 
-                border: 'none', 
-                background: 'rgba(255,255,255,0.08)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                color: 'var(--color-white)', 
-                cursor: 'pointer' 
-              }}
-            >
-              <ZoomOut size={13} />
-            </button>
-            
-            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--color-white)', minWidth: '36px', textAlign: 'center' }}>
-              {zoom}%
-            </span>
-            
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setZoom(z => Math.min(200, z + 15));
-              }} 
-              title="Zoom In" 
-              style={{ 
-                width: '24px', 
-                height: '24px', 
-                borderRadius: '50%', 
-                border: 'none', 
-                background: 'rgba(255,255,255,0.08)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                color: 'var(--color-white)', 
-                cursor: 'pointer' 
-              }}
-            >
-              <ZoomIn size={13} />
-            </button>
-
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setRotation(r => (r + 90) % 360);
-              }} 
-              title="Rotate Page" 
-              style={{ 
-                width: '24px', 
-                height: '24px', 
-                borderRadius: '50%', 
-                border: 'none', 
-                background: 'none', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                color: 'var(--color-muted)', 
-                cursor: 'pointer',
-                marginLeft: '2px' 
-              }}
-            >
-              <RotateCw size={13} />
-            </button>
-          </div>
+          {/* Rotation Button (Kept as is at the end) */}
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setRotation(r => (r + 90) % 360);
+            }} 
+            title="Rotate Page" 
+            style={{ 
+              width: '34px', 
+              height: '34px', 
+              borderRadius: '10px', 
+              border: '1px solid var(--glass-border)', 
+              background: 'rgba(255, 255, 255, 0.08)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              color: 'var(--color-white)', 
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+          >
+            <RotateCw size={15} />
+          </button>
         </div>
       </div>
 
