@@ -9,13 +9,12 @@ interface PDFViewerProps {
   onUnlock: () => void;
 }
 
-// Sub-component to render individual PDF pages onto canvas securely with working zoom
+// Sub-component to render individual PDF pages onto canvas securely at 1.8x HD resolution
 const CanvasPage: React.FC<{
   pageNumber: number;
   pdfDoc: any;
-  zoom: number;
   rotation: number;
-}> = ({ pageNumber, pdfDoc, zoom, rotation }) => {
+}> = React.memo(({ pageNumber, pdfDoc, rotation }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
 
@@ -29,16 +28,17 @@ const CanvasPage: React.FC<{
         const page = await pdfDoc.getPage(pageNumber);
         if (!isMounted) return;
 
-        // Cancel previous rendering task if active
         if (renderTaskRef.current) {
-          renderTaskRef.current.cancel();
+          try {
+            renderTaskRef.current.cancel();
+          } catch (e) {}
         }
 
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // High-DPI crisp rendering scale multiplied by zoom factor
-        const scale = (zoom / 100) * 1.5;
+        // Render at high-definition 1.8x crisp scale
+        const scale = 1.8;
         const viewport = page.getViewport({ scale, rotation });
 
         canvas.height = viewport.height;
@@ -57,9 +57,7 @@ const CanvasPage: React.FC<{
 
         await renderTask.promise;
       } catch (err: any) {
-        if (err.name !== 'RenderingCancelledException') {
-          console.error('Error rendering page:', err);
-        }
+        // Safe catch for cancelled rendering tasks
       }
     };
 
@@ -68,12 +66,12 @@ const CanvasPage: React.FC<{
     return () => {
       isMounted = false;
       if (renderTaskRef.current) {
-        renderTaskRef.current.cancel();
+        try {
+          renderTaskRef.current.cancel();
+        } catch (e) {}
       }
     };
-  }, [pdfDoc, pageNumber, zoom, rotation]);
-
-  const scaledWidth = Math.round(850 * (zoom / 100));
+  }, [pdfDoc, pageNumber, rotation]);
 
   return (
     <div style={{ 
@@ -85,9 +83,8 @@ const CanvasPage: React.FC<{
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      width: `${scaledWidth}px`,
-      maxWidth: '96vw',
-      transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+      width: '94vw',
+      maxWidth: '850px'
     }}>
       <canvas 
         ref={canvasRef} 
@@ -99,7 +96,7 @@ const CanvasPage: React.FC<{
       />
     </div>
   );
-};
+});
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, onUnlock }) => {
   const [zoom, setZoom] = useState(100);
@@ -770,7 +767,16 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
         {/* PDF Page Renderer */}
         {pdfjsLoaded && pdfDoc && !loadError && (
-          <div style={{ width: '100%', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ 
+            width: '100%', 
+            position: 'relative', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center',
+            transform: `scale(${zoom / 100})`,
+            transformOrigin: 'center top',
+            transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}>
             {/* Floating Security Watermark Overlay */}
             <div style={{
               position: 'absolute',
@@ -817,7 +823,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                   <CanvasPage 
                     pageNumber={pageNum} 
                     pdfDoc={pdfDoc} 
-                    zoom={zoom} 
                     rotation={rotation} 
                   />
                   
