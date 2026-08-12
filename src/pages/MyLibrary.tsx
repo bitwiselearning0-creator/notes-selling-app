@@ -71,46 +71,35 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
     );
   }
 
-  // Helper to resolve note objects inside a bundle with 100% fallback reliability
-  const resolveBundleNotes = (bundle: Bundle): Note[] => {
-    let items: string[] = [];
-    if (Array.isArray(bundle.notesIds) && bundle.notesIds.length > 0) {
-      items = bundle.notesIds;
-    } else if (Array.isArray(bundle.subjects) && bundle.subjects.length > 0) {
-      items = bundle.subjects;
+  // Resolve actual notes inside a bundle by matching subjects to the catalog
+  const resolveBundleNotes = (bundle: Bundle): { subject: string; note: Note | null }[] => {
+    // Primary source: bundle.subjects (clean subject names like 'Operating System', 'Java', etc.)
+    const subjects = Array.isArray(bundle.subjects) && bundle.subjects.length > 0
+      ? bundle.subjects
+      : [];
+
+    if (subjects.length === 0) {
+      // Fallback: if no subjects defined, find notes matching this bundle's semester/year from catalog
+      const semNotes = allNotes.filter(n =>
+        n.semester === bundle.semester && n.year === bundle.year
+      );
+      return semNotes.map(n => ({ subject: n.subject, note: n }));
     }
 
-    if (items.length === 0) {
-      // Fallback: get all notes matching semester/year from allNotes
-      const semNotes = allNotes.filter(n => n.semester === bundle.semester || n.year === bundle.year);
-      if (semNotes.length > 0) return semNotes;
-    }
+    return subjects.map(subjectName => {
+      // Try to find the actual note from the catalog that matches this subject
+      const match = allNotes.find(n =>
+        n.subject.toLowerCase() === subjectName.toLowerCase() &&
+        n.semester === bundle.semester
+      ) || allNotes.find(n =>
+        n.subject.toLowerCase().includes(subjectName.toLowerCase()) ||
+        subjectName.toLowerCase().includes(n.subject.toLowerCase())
+      );
 
-    return items.map((item, idx) => {
-      const itemStr = String(item);
-      const match = allNotes.find(n => n.id === itemStr || n.title.toLowerCase().includes(itemStr.toLowerCase()))
-        || dbService.getOfflineNote(itemStr) || undefined;
-
-      if (match) return match;
-
-      // Construct clean Note object for subject item
-      const cleanTitle = itemStr.replace(/^note_/, '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      return {
-        id: `bundle_item_${bundle.id}_${idx}`,
-        title: cleanTitle.length > 2 ? cleanTitle : `${bundle.title} - Subject ${idx + 1}`,
-        subject: cleanTitle,
-        year: (bundle.year as any) || '2nd Year',
-        semester: bundle.semester || 4,
-        price: 0,
-        originalPrice: 0,
-        description: 'Complete syllabus notes included in combo pack.',
-        previewUrl: 'https://cdn.jsdelivr.net/gh/mozilla/pdf.js@master/web/compressed.tracemonkey-pldi-09.pdf',
-        pagesCount: 65,
-        topics: ['Complete Syllabus Unit 1-5', 'Important Solved Questions'],
-        type: 'notes'
-      };
+      return { subject: subjectName, note: match || null };
     });
   };
+
 
   // Show ALL purchased & unlocked notes directly in Notes & PYQ sections
   const studyNotes = libraryNotes.filter(n => n.type !== 'pyqs');
@@ -319,9 +308,9 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
                           gap: '8px',
                           background: 'rgba(0,0,0,0.15)'
                         }}>
-                          {bundleItems.map(noteItem => (
+                          {bundleItems.map(({ subject, note }, idx) => (
                             <div
-                              key={noteItem.id}
+                              key={note?.id || `subj_${idx}`}
                               style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -329,21 +318,22 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
                                 padding: '10px 12px',
                                 background: 'rgba(255, 255, 255, 0.03)',
                                 borderRadius: '10px',
-                                cursor: 'pointer',
-                                transition: 'background 0.15s ease'
+                                cursor: note ? 'pointer' : 'default',
+                                transition: 'background 0.15s ease',
+                                opacity: note ? 1 : 0.6
                               }}
-                              onClick={() => onReadNote(noteItem)}
+                              onClick={() => note && onReadNote(note)}
                             >
-                              <BookOpen size={16} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                              <BookOpen size={16} style={{ color: note ? '#60a5fa' : '#6b7280', flexShrink: 0 }} />
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <span style={{ fontSize: '13px', color: '#fff', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                                  {noteItem.title}
+                                  {note ? note.title : subject}
                                 </span>
                                 <span style={{ fontSize: '10px', color: 'var(--color-muted)' }}>
-                                  {noteItem.pagesCount} pages · {noteItem.subject}
+                                  {note ? `${note.pagesCount} pages · ${note.subject}` : 'Included in combo'}
                                 </span>
                               </div>
-                              <ChevronRight size={14} style={{ color: 'var(--color-muted)', flexShrink: 0 }} />
+                              {note && <ChevronRight size={14} style={{ color: 'var(--color-muted)', flexShrink: 0 }} />}
                             </div>
                           ))}
                         </div>
