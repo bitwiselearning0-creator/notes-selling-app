@@ -950,7 +950,7 @@ export const dbService = {
     }
 
     const bundles = year ? cachedBundles.filter(b => b.year === year) : cachedBundles;
-    return { data: bundles.length > 0 ? bundles : mockBundles.map(decodeBundleFromDb), error: null };
+    return { data: bundles, error: null };
   },
 
   addBundle: async (bundle: Omit<Bundle, 'id'>): Promise<{ data: Bundle | null; error: string | null }> => {

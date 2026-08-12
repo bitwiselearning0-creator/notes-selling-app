@@ -956,7 +956,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               )}
 
               {/* Semester Combo Bundles Section (Below Subject Cards Grid) */}
-              {bundles.filter(b => (b.type === 'semester' || !b.type) && (selectedSemester === null || b.semester === selectedSemester)).length > 0 && (
+              {bundles.filter(b => b.year === selectedYear && (b.type === 'semester' || !b.type) && (selectedSemester === null || b.semester === selectedSemester)).length > 0 && (
                 <div className="bundles-container" style={{ marginTop: '30px' }}>
                   <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '4px' }} className="yellow-accent">
                     Semester Combo Packs (6 Months Validity)
@@ -967,7 +967,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '40px' }}>
                     {bundles
-                      .filter(b => (b.type === 'semester' || !b.type) && (selectedSemester === null || b.semester === selectedSemester))
+                      .filter(b => b.year === selectedYear && (b.type === 'semester' || !b.type) && (selectedSemester === null || b.semester === selectedSemester))
                       .map(bundle => {
                         const isPurchased = purchasedBundleIds.includes(bundle.id);
                         const expiry = bundlePurchaseDetailsMap[bundle.id];
