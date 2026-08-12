@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight, Sparkles, Clock, FileText, Video } from 'lucide-react';
-import { dbService, cleanBundleDescription } from '../lib/supabase';
+import { dbService } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Playlist } from '../lib/supabase';
 import { openRazorpayCheckout } from '../lib/razorpay';
 import { NoteCard } from '../components/NoteCard';
@@ -634,45 +634,139 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 }, 0);
 
                 return (
-                  <div key={bundle.id} className="bundle-banner-card fade-in" style={{ marginBottom: '32px', borderColor: 'rgba(96, 165, 250, 0.3)' }}>
-                    <div>
-                      <div className="bundle-banner-badge" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-                        {isPurchased ? 'Unlocked Subject Pack' : '⚡ Subject All-In-One Pack'}
+                  <div 
+                    key={bundle.id} 
+                    className="glass-card fade-in"
+                    style={{
+                      background: 'radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%)',
+                      border: '1px solid rgba(96, 165, 250, 0.3)',
+                      borderRadius: '20px',
+                      padding: '20px 24px',
+                      marginBottom: '32px',
+                      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.35)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '20px',
+                      flexWrap: 'wrap',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {/* Ambient Background Glow */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '-30px',
+                      right: '-30px',
+                      width: '140px',
+                      height: '140px',
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, rgba(0, 0, 0, 0) 70%)',
+                      pointerEvents: 'none'
+                    }} />
+
+                    {/* Left Column: Badge, Title & Compact Inclusions */}
+                    <div style={{ flex: 1, minWidth: '240px', textAlign: 'left' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: '800',
+                          color: '#60a5fa',
+                          background: 'rgba(59, 130, 246, 0.15)',
+                          border: '1px solid rgba(59, 130, 246, 0.3)',
+                          padding: '3px 10px',
+                          borderRadius: '100px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          {isPurchased ? 'Unlocked Subject Pack' : '⚡ Subject All-In-One Pack'}
+                        </span>
+                        <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                          6 Months Access
+                        </span>
                       </div>
-                      <h4 className="bundle-banner-title">{bundle.title}</h4>
-                      <p className="bundle-banner-desc">{bundle.description}</p>
+
+                      <h4 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: '0 0 8px 0' }}>
+                        {bundle.title}
+                      </h4>
+
+                      {/* Compact Inclusion Pills (No Paragraph Text!) */}
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: '#e2e8f0',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          padding: '3px 10px',
+                          borderRadius: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <CheckCircle2 size={12} style={{ color: '#10b981' }} />
+                          All Syllabus Units
+                        </span>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: '#e2e8f0',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          padding: '3px 10px',
+                          borderRadius: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <CheckCircle2 size={12} style={{ color: '#10b981' }} />
+                          Solved Exam PYQs
+                        </span>
+                      </div>
                     </div>
-                    <div className="bundle-banner-includes">
-                      <div className="bundle-banner-includes-title">Includes Everything</div>
-                      <ul className="bundle-banner-includes-list">
-                        <li className="bundle-banner-includes-item">
-                          <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                          <span>All Syllabus Units + PYQs & Solutions</span>
-                        </li>
-                      </ul>
-                    </div>
-                    <div className="bundle-banner-checkout">
-                      <div className="bundle-banner-price-box">
+
+                    {/* Right Column: Price & Action */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+                      <div style={{ textAlign: 'right' }}>
                         {!isPurchased && (
-                          <span className="bundle-banner-original-price">₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}</span>
+                          <div style={{ fontSize: '12px', color: 'var(--color-muted)', textDecoration: 'line-through' }}>
+                            ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
+                          </div>
                         )}
-                        <span className="bundle-banner-price">₹{bundle.price}</span>
+                        <div style={{ fontSize: '24px', fontWeight: '900', color: '#60a5fa', lineHeight: 1 }}>
+                          ₹{bundle.price}
+                        </div>
                       </div>
+
                       {user ? (
                         isPurchased ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
-                            <button className="btn-secondary w-full" style={{ pointerEvents: 'none', opacity: 0.8 }}>Unlocked</button>
+                          <div style={{ textAlign: 'center' }}>
+                            <button className="btn-secondary" style={{ pointerEvents: 'none', opacity: 0.8, fontSize: '13px', padding: '8px 16px' }}>
+                              Unlocked
+                            </button>
                             {expiry && (
-                              <span style={{ fontSize: '11px', color: 'var(--color-yellow)', fontWeight: '700' }}>
-                                {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`) : '6 Months Validity'}
-                              </span>
+                              <div style={{ fontSize: '10px', color: 'var(--color-yellow)', fontWeight: '700', marginTop: '4px' }}>
+                                {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime' : `${expiry.daysLeft} Days Left`) : '6 Months'}
+                              </div>
                             )}
                           </div>
                         ) : (
-                          <button className="btn-primary w-full" onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}>Unlock All Units</button>
+                          <button 
+                            className="btn-primary" 
+                            onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}
+                            style={{ fontSize: '13px', padding: '10px 20px', fontWeight: '700', borderRadius: '12px', boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)' }}
+                          >
+                            Unlock Pack
+                          </button>
                         )
                       ) : (
-                        <button className="btn-primary w-full" onClick={() => navigate('auth')}>Sign In to Unlock</button>
+                        <button 
+                          className="btn-primary" 
+                          onClick={() => navigate('auth')}
+                          style={{ fontSize: '13px', padding: '10px 20px', fontWeight: '700', borderRadius: '12px' }}
+                        >
+                          Sign In to Unlock
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1082,75 +1176,132 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         const includedSubjectsList = getBundleSubjectsList(bundle);
 
                         return (
-                          <div key={bundle.id} className="bundle-banner-card fade-in">
-                            {/* Column 1: Details */}
-                            <div>
-                              <div className="bundle-banner-badge">
-                                {isPurchased ? 'Unlocked Combo Pack' : '🔥 Semester Discount Combo'}
-                              </div>
-                              <h4 className="bundle-banner-title">{bundle.title}</h4>
-                              <p className="bundle-banner-desc">{cleanBundleDescription(bundle.description)}</p>
-                            </div>
+                          <div 
+                            key={bundle.id} 
+                            className="glass-card fade-in"
+                            style={{
+                              background: 'radial-gradient(circle at 0% 0%, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%)',
+                              border: '1px solid rgba(245, 158, 11, 0.3)',
+                              borderRadius: '20px',
+                              padding: '20px 24px',
+                              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.35)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '20px',
+                              flexWrap: 'wrap',
+                              position: 'relative',
+                              overflow: 'hidden'
+                            }}
+                          >
+                            {/* Ambient Background Glow */}
+                            <div style={{
+                              position: 'absolute',
+                              top: '-30px',
+                              right: '-30px',
+                              width: '140px',
+                              height: '140px',
+                              borderRadius: '50%',
+                              background: 'radial-gradient(circle, rgba(245, 158, 11, 0.2) 0%, rgba(0, 0, 0, 0) 70%)',
+                              pointerEvents: 'none'
+                            }} />
 
-                            {/* Column 2: Included Subjects */}
-                            <div className="bundle-banner-includes">
-                              <div className="bundle-banner-includes-title">Subjects Included ({includedSubjectsList.length} Subjects)</div>
-                              <ul className="bundle-banner-includes-list">
+                            {/* Left Column: Badge, Title & Compact Subject Tags */}
+                            <div style={{ flex: 1, minWidth: '240px', textAlign: 'left' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: '800',
+                                  color: '#f59e0b',
+                                  background: 'rgba(245, 158, 11, 0.15)',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  padding: '3px 10px',
+                                  borderRadius: '100px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.05em'
+                                }}>
+                                  {isPurchased ? 'Unlocked Pack' : '🔥 Semester Discount Combo'}
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                                  6 Months Access
+                                </span>
+                              </div>
+
+                              <h4 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: '0 0 10px 0' }}>
+                                {bundle.title}
+                              </h4>
+
+                              {/* Compact Subject Tags (No Paragraph Text!) */}
+                              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                 {includedSubjectsList.map((subjName, idx) => (
-                                  <li 
+                                  <span 
                                     key={idx} 
-                                    className="bundle-banner-includes-item"
-                                    style={{ cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center' }}
                                     onClick={() => {
                                       setSelectedSubject(subjName);
                                       window.scrollTo({ top: 0, behavior: 'smooth' });
                                     }}
-                                    title={`Tap to open ${subjName} notes & resources`}
+                                    style={{
+                                      fontSize: '11px',
+                                      fontWeight: '600',
+                                      color: '#e2e8f0',
+                                      background: 'rgba(255, 255, 255, 0.05)',
+                                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                                      padding: '3px 10px',
+                                      borderRadius: '8px',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}
+                                    title={`Tap to open ${subjName}`}
                                   >
-                                    <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '600' }}>
-                                      {subjName}
-                                    </span>
-                                    <ArrowRight size={10} style={{ color: 'var(--color-yellow)', marginLeft: 'auto', opacity: 0.8, flexShrink: 0 }} />
-                                  </li>
+                                    <CheckCircle2 size={12} style={{ color: '#10b981' }} />
+                                    {subjName}
+                                  </span>
                                 ))}
-                              </ul>
+                              </div>
                             </div>
 
-                            {/* Column 3: Price & Actions */}
-                            <div className="bundle-banner-checkout">
-                              <div className="bundle-banner-price-box">
+                            {/* Right Column: Price & Action */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+                              <div style={{ textAlign: 'right' }}>
                                 {!isPurchased && (
-                                  <span className="bundle-banner-original-price">
+                                  <div style={{ fontSize: '12px', color: 'var(--color-muted)', textDecoration: 'line-through' }}>
                                     ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
-                                  </span>
+                                  </div>
                                 )}
-                                <span className="bundle-banner-price">₹{bundle.price}</span>
+                                <div style={{ fontSize: '24px', fontWeight: '900', color: '#f59e0b', lineHeight: 1 }}>
+                                  ₹{bundle.price}
+                                </div>
                               </div>
 
                               {user ? (
                                 isPurchased ? (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
-                                    <button className="btn-secondary w-full" style={{ pointerEvents: 'none', opacity: 0.8, justifyContent: 'center' }}>
-                                      Active & Unlocked
+                                  <div style={{ textAlign: 'center' }}>
+                                    <button className="btn-secondary" style={{ pointerEvents: 'none', opacity: 0.8, fontSize: '13px', padding: '8px 16px' }}>
+                                      Unlocked
                                     </button>
                                     {expiry && (
-                                      <span style={{ fontSize: '11px', color: 'var(--color-yellow)', fontWeight: '700' }}>
-                                        {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`) : '6 Months Validity'}
-                                      </span>
+                                      <div style={{ fontSize: '10px', color: 'var(--color-yellow)', fontWeight: '700', marginTop: '4px' }}>
+                                        {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime' : `${expiry.daysLeft} Days Left`) : '6 Months'}
+                                      </div>
                                     )}
                                   </div>
                                 ) : (
                                   <button 
-                                    className="btn-primary w-full" 
-                                    style={{ justifyContent: 'center' }}
+                                    className="btn-primary" 
                                     onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}
+                                    style={{ fontSize: '13px', padding: '10px 20px', fontWeight: '700', borderRadius: '12px', boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)' }}
                                   >
                                     Unlock Combo
                                   </button>
                                 )
                               ) : (
-                                <button className="btn-primary w-full" style={{ justifyContent: 'center' }} onClick={() => navigate('auth')}>
+                                <button 
+                                  className="btn-primary" 
+                                  onClick={() => navigate('auth')}
+                                  style={{ fontSize: '13px', padding: '10px 20px', fontWeight: '700', borderRadius: '12px' }}
+                                >
                                   Sign In to Unlock
                                 </button>
                               )}
