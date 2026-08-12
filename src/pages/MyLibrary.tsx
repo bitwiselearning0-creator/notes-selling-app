@@ -24,15 +24,19 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
     const cachedCatalog = localStorage.getItem('bw_cached_notes_catalog') ? JSON.parse(localStorage.getItem('bw_cached_notes_catalog')!) : [];
     const cachedPurchases = localStorage.getItem(`bw_user_purchases_cache_${user.id}`) ? JSON.parse(localStorage.getItem(`bw_user_purchases_cache_${user.id}`)!) : [];
     
-    // Hydrate state from cache synchronously if available
-    if (cachedCatalog.length > 0) {
-      setAllNotes(cachedCatalog);
+    // Hydrate state from cache synchronously ONLY IF both catalog and purchases are available
+    let hasCachedContent = false;
+    if (cachedCatalog.length > 0 && cachedPurchases.length > 0) {
       const purchasedSet = new Set<string>(cachedPurchases.map((p: any) => p.note_id || p.id));
       const unlockedFromCache = cachedCatalog.filter((n: Note) => purchasedSet.has(n.id));
-      if (unlockedFromCache.length > 0) setLibraryNotes(unlockedFromCache);
+      if (unlockedFromCache.length > 0) {
+        setAllNotes(cachedCatalog);
+        setLibraryNotes(unlockedFromCache);
+        hasCachedContent = true;
+      }
     }
 
-    if (cachedPurchases.length > 0) {
+    if (hasCachedContent) {
       setLoading(false);
     } else {
       setLoading(true);
