@@ -436,7 +436,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {selectedSubject ? (
         <div className="subject-detail-view fade-in">
           {/* Back Navigation Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: '24px' }}>
             <button 
               className="btn-secondary"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', fontSize: '14px', fontWeight: '600' }}
@@ -448,20 +448,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <ArrowLeft size={18} />
               <span>Back to Catalog</span>
             </button>
-
-            <div style={{ fontSize: '13px', color: 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>Catalog</span>
-              <span>/</span>
-              <span>{selectedYear}</span>
-              {selectedSemester !== null && (
-                <>
-                  <span>/</span>
-                  <span>Semester {selectedSemester}</span>
-                </>
-              )}
-              <span>/</span>
-              <span style={{ color: 'var(--color-yellow)', fontWeight: '600' }}>{selectedSubject}</span>
-            </div>
           </div>
 
           {/* Subject Hero Header */}
