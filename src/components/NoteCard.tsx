@@ -125,31 +125,31 @@ export const NoteCard: React.FC<NoteCardProps> = ({
 
         {/* Right: Price & Unlock/Read Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-          <div style={{ textAlign: 'right' }}>
-            {isFree ? (
-              <span style={{ fontSize: '14px', fontWeight: '800', color: '#10b981' }}>FREE</span>
-            ) : (
-              <>
-                {!isUnlocked && (
-                  <div style={{ fontSize: '10px', color: 'var(--color-muted)', textDecoration: 'line-through', lineHeight: 1 }}>
-                    ₹{note.originalPrice ?? (note.price + 100)}
-                  </div>
-                )}
-                <div style={{ fontSize: '18px', fontWeight: '900', color: accentColor, lineHeight: 1.1, marginTop: '1px' }}>
-                  ₹{note.price}
-                </div>
-              </>
-            )}
-          </div>
+          {!isUnlocked && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '10px', color: 'var(--color-muted)', textDecoration: 'line-through', lineHeight: 1 }}>
+                ₹{note.originalPrice ?? (note.price + 100)}
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '900', color: accentColor, lineHeight: 1.1, marginTop: '1px' }}>
+                ₹{note.price}
+              </div>
+            </div>
+          )}
+
+          {isFree && !isPurchased && (
+            <span style={{ fontSize: '12px', fontWeight: '800', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '3px 8px', borderRadius: '6px' }}>
+              FREE
+            </span>
+          )}
 
           {isLoggedIn ? (
             isUnlocked ? (
               <button 
                 className="btn-primary" 
                 onClick={() => onRead(note)}
-                style={{ fontSize: '12px', padding: '7px 14px', fontWeight: '700', borderRadius: '10px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                style={{ fontSize: '12px', padding: '7px 16px', fontWeight: '700', borderRadius: '10px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                Read PDF
+                <span>Read PDF</span>
               </button>
             ) : (
               <button 

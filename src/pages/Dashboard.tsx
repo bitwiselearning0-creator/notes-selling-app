@@ -724,21 +724,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                       {/* Right: Price Tag & Unlock Action */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                        <div style={{ textAlign: 'right' }}>
-                          {!isPurchased && (
+                        {!isPurchased && (
+                          <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '10px', color: 'var(--color-muted)', textDecoration: 'line-through', lineHeight: 1 }}>
                               ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
                             </div>
-                          )}
-                          <div style={{ fontSize: '18px', fontWeight: '900', color: '#60a5fa', lineHeight: 1.1, marginTop: '2px' }}>
-                            ₹{bundle.price}
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#60a5fa', lineHeight: 1.1, marginTop: '2px' }}>
+                              ₹{bundle.price}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         {user ? (
                           isPurchased ? (
-                            <button className="btn-secondary" style={{ pointerEvents: 'none', opacity: 0.8, fontSize: '12px', padding: '6px 12px' }}>
-                              Unlocked
+                            <button className="btn-secondary" style={{ pointerEvents: 'none', opacity: 0.9, fontSize: '12px', padding: '6px 12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: '700', borderRadius: '10px' }}>
+                              ✓ Unlocked & Active
                             </button>
                           ) : (
                             <button 
@@ -1253,22 +1253,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                             {/* Right Column: Price & Action */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
-                              <div style={{ textAlign: 'right' }}>
-                                {!isPurchased && (
+                              {!isPurchased && (
+                                <div style={{ textAlign: 'right' }}>
                                   <div style={{ fontSize: '12px', color: 'var(--color-muted)', textDecoration: 'line-through' }}>
                                     ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
                                   </div>
-                                )}
-                                <div style={{ fontSize: '24px', fontWeight: '900', color: '#f59e0b', lineHeight: 1 }}>
-                                  ₹{bundle.price}
+                                  <div style={{ fontSize: '24px', fontWeight: '900', color: '#f59e0b', lineHeight: 1 }}>
+                                    ₹{bundle.price}
+                                  </div>
                                 </div>
-                              </div>
+                              )}
 
                               {user ? (
                                 isPurchased ? (
                                   <div style={{ textAlign: 'center' }}>
-                                    <button className="btn-secondary" style={{ pointerEvents: 'none', opacity: 0.8, fontSize: '13px', padding: '8px 16px' }}>
-                                      Unlocked
+                                    <button className="btn-secondary" style={{ pointerEvents: 'none', opacity: 0.9, fontSize: '13px', padding: '8px 16px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: '700', borderRadius: '10px' }}>
+                                      ✓ Unlocked & Active
                                     </button>
                                     {expiry && (
                                       <div style={{ fontSize: '10px', color: 'var(--color-yellow)', fontWeight: '700', marginTop: '4px' }}>
