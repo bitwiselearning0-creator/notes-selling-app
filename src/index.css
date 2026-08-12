@@ -2490,18 +2490,18 @@ body.app-mode .form-toggle-link span {
 }
 
 /* ==========================================================================
-   Fluid Hero Zoom-In & Zoom-Out Hardware-Accelerated Motion Engine
+   Ultra-Smooth Apple ProMotion (120Hz) Hero Zoom Motion Engine
    ========================================================================== */
 
-/* 1. Zoom-In Transition (When opening a card -> View Zooms In from scale 0.84 -> 1.0) */
+/* 1. Ultra-Smooth Hero Zoom-In (Opening a card -> Fluid expansion) */
 @keyframes heroZoomInEnter {
   0% {
     opacity: 0;
-    transform: translate3d(0, 10px, 0) scale(0.84);
-    filter: blur(5px);
+    transform: translate3d(0, 14px, 0) scale(0.92);
+    filter: blur(4px);
   }
-  60% {
-    opacity: 1;
+  50% {
+    opacity: 0.9;
   }
   100% {
     opacity: 1;
@@ -2510,15 +2510,15 @@ body.app-mode .form-toggle-link span {
   }
 }
 
-/* 2. Zoom-Out Transition (When pressing Back -> View Zooms Out from scale 1.12 -> 1.0) */
+/* 2. Ultra-Smooth Hero Zoom-Out (Pressing Back -> Fluid contraction) */
 @keyframes heroZoomOutBack {
   0% {
     opacity: 0;
-    transform: translate3d(0, -8px, 0) scale(1.12);
-    filter: blur(5px);
+    transform: translate3d(0, -10px, 0) scale(1.06);
+    filter: blur(4px);
   }
-  60% {
-    opacity: 1;
+  50% {
+    opacity: 0.9;
   }
   100% {
     opacity: 1;
@@ -2530,18 +2530,20 @@ body.app-mode .form-toggle-link span {
 /* Page Transition Utility Classes */
 .page-transition-enter {
   will-change: transform, opacity, filter;
-  animation: heroZoomInEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: heroZoomInEnter 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  transform-origin: center center;
+  transform-style: preserve-3d;
+  transform-origin: center 20%;
 }
 
 .page-transition-back {
   will-change: transform, opacity, filter;
-  animation: heroZoomOutBack 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: heroZoomOutBack 0.30s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  transform-origin: center center;
+  transform-style: preserve-3d;
+  transform-origin: center 20%;
 }
 
 /* Rubberband Spring Physics on Interactive Cards & Buttons */
