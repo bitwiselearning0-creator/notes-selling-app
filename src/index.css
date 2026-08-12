@@ -13,7 +13,7 @@ input[type="number"] {
 :root {
   /* Colors */
   --bg-dark: #050814;
-  --bg-gradient: radial-gradient(circle at 50% 0%, #091126 0%, #050814 75%, #020308 100%);
+  --bg-gradient: #050814;
   --color-blue: #2563eb;
   --color-blue-light: #60a5fa;
   --color-blue-glow: rgba(37, 99, 235, 0.4);
@@ -116,7 +116,7 @@ html, body, *, ::-webkit-scrollbar {
   transform: translateZ(0);
 }
 body.app-mode .blob {
-  animation: none !important;
+  display: none !important;
 }
 .blob-1 {
   width: 550px;
