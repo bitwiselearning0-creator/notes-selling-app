@@ -12,8 +12,8 @@ input[type="number"] {
 
 :root {
   /* Colors */
-  --bg-dark: #070c1b;
-  --bg-gradient: radial-gradient(circle at 50% 0%, #0e1b3d 0%, #070c1b 75%, #03050c 100%);
+  --bg-dark: #050814;
+  --bg-gradient: radial-gradient(circle at 50% 0%, #091126 0%, #050814 75%, #020308 100%);
   --color-blue: #2563eb;
   --color-blue-light: #60a5fa;
   --color-blue-glow: rgba(37, 99, 235, 0.4);
