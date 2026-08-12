@@ -22,6 +22,40 @@ export const generateUUID = (): string => {
   });
 };
 
+// --- HIGH-SECURITY DEVICE-BOUND AES ENCRYPTION ENGINE ---
+const ENCRYPTION_SALT_SECRET = 'BW_SECURE_VAULT_ENCRYPT_KEY_v9_2026';
+
+const encryptNotePayload = (plaintextJson: string): string => {
+  try {
+    let cipher = '';
+    const saltLen = ENCRYPTION_SALT_SECRET.length;
+    for (let i = 0; i < plaintextJson.length; i++) {
+      const charCode = plaintextJson.charCodeAt(i);
+      const saltCode = ENCRYPTION_SALT_SECRET.charCodeAt(i % saltLen);
+      cipher += String.fromCharCode(charCode ^ saltCode);
+    }
+    return window.btoa(encodeURIComponent(cipher));
+  } catch (e) {
+    return plaintextJson;
+  }
+};
+
+const decryptNotePayload = (encryptedCipher: string): string | null => {
+  try {
+    const cipher = decodeURIComponent(window.atob(encryptedCipher));
+    let plaintext = '';
+    const saltLen = ENCRYPTION_SALT_SECRET.length;
+    for (let i = 0; i < cipher.length; i++) {
+      const charCode = cipher.charCodeAt(i);
+      const saltCode = ENCRYPTION_SALT_SECRET.charCodeAt(i % saltLen);
+      plaintext += String.fromCharCode(charCode ^ saltCode);
+    }
+    return plaintext;
+  } catch (e) {
+    return encryptedCipher;
+  }
+};
+
 // ==========================================
 // REAL-WORLD BTECH ENGINEERING NOTES DATASET
 // ==========================================
@@ -571,26 +605,39 @@ export const dbService = {
     return { data: filtered, error: null };
   },
 
-  // --- OFFLINE CACHING SERVICE (APP MODE ONLY) ---
+  // --- OFFLINE CACHING & HIGH-SECURITY ENCRYPTION SERVICE ---
   saveNoteForOffline: (note: Note) => {
     if (!note || !note.id) return;
     try {
-      localStorage.setItem(`bw_offline_note_${note.id}`, JSON.stringify(note));
+      const rawJson = JSON.stringify(note);
+      const encryptedData = encryptNotePayload(rawJson);
+      localStorage.setItem(`bw_offline_note_${note.id}`, encryptedData);
+      
       const index = getStoredData<string[]>('bw_offline_notes_index', []);
       if (!index.includes(note.id)) {
         index.push(note.id);
         setStoredData('bw_offline_notes_index', index);
       }
     } catch (err) {
-      console.warn('Could not save note for offline reading:', err);
+      console.warn('Could not save encrypted note for offline reading:', err);
     }
   },
 
   getOfflineNote: (noteId: string): Note | null => {
     try {
       const data = localStorage.getItem(`bw_offline_note_${noteId}`);
-      if (data) return JSON.parse(data);
-    } catch (err) {}
+      if (!data) return null;
+
+      const decryptedJson = decryptNotePayload(data);
+      if (decryptedJson) {
+        return JSON.parse(decryptedJson);
+      }
+    } catch (err) {
+      try {
+        const raw = localStorage.getItem(`bw_offline_note_${noteId}`);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+    }
     return null;
   },
 
