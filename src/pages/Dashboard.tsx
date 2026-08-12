@@ -442,9 +442,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '24px',
-                paddingBottom: '12px',
+                gap: '14px',
+                marginBottom: '20px',
+                paddingBottom: '14px',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
               }}>
                 <button 
@@ -460,18 +460,38 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     fontSize: '13px',
                     fontWeight: '600',
                     padding: '8px 16px',
-                    borderRadius: '12px'
+                    borderRadius: '12px',
+                    flexShrink: 0
                   }}
                 >
                   <ArrowLeft size={16} />
                   <span>Back</span>
                 </button>
 
-                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#fff', margin: 0 }}>
-                  {selectedCategory === 'notes' ? `${selectedSubject} - Study Notes` : `${selectedSubject} - Exam PYQs`}
-                </h3>
-
-                <div style={{ width: '60px' }} />
+                <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
+                  <span style={{ 
+                    fontSize: '11px', 
+                    color: selectedCategory === 'notes' ? '#60a5fa' : '#a78bfa', 
+                    fontWeight: '700', 
+                    textTransform: 'uppercase', 
+                    letterSpacing: '0.05em', 
+                    display: 'block',
+                    marginBottom: '2px'
+                  }}>
+                    {selectedCategory === 'notes' ? 'Study Notes' : 'Exam PYQs'}
+                  </span>
+                  <h3 style={{ 
+                    fontSize: '16px', 
+                    fontWeight: '800', 
+                    color: '#fff', 
+                    margin: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}>
+                    {selectedSubject}
+                  </h3>
+                </div>
               </div>
 
               {/* Directly Render Notes Cards / PYQ Cards Cleanly */}
