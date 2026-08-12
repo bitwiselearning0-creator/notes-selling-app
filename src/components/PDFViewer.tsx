@@ -9,12 +9,13 @@ interface PDFViewerProps {
   onUnlock: () => void;
 }
 
-// Sub-component to render individual PDF pages onto canvas securely with IntersectionObserver lazy rendering
+// Sub-component to render individual PDF pages onto canvas securely with smooth width scaling
 const CanvasPage: React.FC<{
   pageNumber: number;
   pdfDoc: any;
   rotation: number;
-}> = React.memo(({ pageNumber, pdfDoc, rotation }) => {
+  zoom: number;
+}> = React.memo(({ pageNumber, pdfDoc, rotation, zoom }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
@@ -55,8 +56,8 @@ const CanvasPage: React.FC<{
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Render at high-definition 1.6x crisp scale
-        const scale = 1.6;
+        // Render at ultra high-definition 2.0x scale for razor-sharp text
+        const scale = 2.0;
         const viewport = page.getViewport({ scale, rotation });
 
         canvas.height = viewport.height;
@@ -91,6 +92,8 @@ const CanvasPage: React.FC<{
     };
   }, [pdfDoc, pageNumber, rotation, isVisible]);
 
+  const targetWidth = Math.round(850 * (zoom / 100));
+
   return (
     <div 
       ref={containerRef}
@@ -102,8 +105,9 @@ const CanvasPage: React.FC<{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        width: '94vw',
-        maxWidth: '850px'
+        width: `${targetWidth}px`,
+        maxWidth: `${Math.max(94, Math.round(94 * (zoom / 100)))}vw`,
+        transition: 'width 0.15s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
       }}
     >
       <canvas 
@@ -123,7 +127,6 @@ const CanvasPage: React.FC<{
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, onUnlock }) => {
   const [zoom, setZoom] = useState(100);
-  const [focalOrigin, setFocalOrigin] = useState<string>('center center');
   const [rotation, setRotation] = useState(0);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [scrollPage, setScrollPage] = useState(1);
@@ -235,16 +238,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         );
         touchStartDistRef.current = dist;
         touchStartZoomRef.current = zoom;
-
-        // Calculate exact 2-finger touch midpoint (centroid)
-        const focalX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        const focalY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        const rect = container.getBoundingClientRect();
-        
-        const originXPercent = Math.max(0, Math.min(100, ((focalX - rect.left) / rect.width) * 100));
-        const originYPercent = Math.max(0, Math.min(100, ((focalY - rect.top) / rect.height) * 100));
-
-        setFocalOrigin(`${originXPercent.toFixed(1)}% ${originYPercent.toFixed(1)}%`);
       }
     };
 
@@ -748,10 +741,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             position: 'relative', 
             display: 'flex', 
             flexDirection: 'column', 
-            alignItems: 'center',
-            transform: `scale(${zoom / 100})`,
-            transformOrigin: focalOrigin,
-            transition: 'transform 0.1s cubic-bezier(0.16, 1, 0.3, 1)'
+            alignItems: 'center'
           }}>
             {/* Floating Security Watermark Overlay */}
             <div style={{
@@ -800,6 +790,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                     pageNumber={pageNum} 
                     pdfDoc={pdfDoc} 
                     rotation={rotation} 
+                    zoom={zoom}
                   />
                   
                   {isSecondPageLocked && (
