@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight, Sparkles, Clock } from 'lucide-react';
+import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight, Sparkles, Clock, FileText, Video } from 'lucide-react';
 import { dbService, cleanBundleDescription } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Playlist } from '../lib/supabase';
 import { openRazorpayCheckout } from '../lib/razorpay';
@@ -115,6 +115,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [activeSubjectTab, setActiveSubjectTab] = useState<'notes' | 'pyqs'>('notes');
   
   // Loading & payment states
   const [loading, setLoading] = useState(true);
@@ -569,176 +570,308 @@ export const Dashboard: React.FC<DashboardProps> = ({
             );
           })}
 
-          {/* Individual Unit Notes Section */}
-          <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-            <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700' }} className="blue-accent">
-              {selectedSubject} - Unit Study Notes (6 Months Validity)
-            </h3>
-            <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '20px' }}>
-              Choose specific unit notes to read or unlock.
-            </p>
-          </div>
-
-          {studyNotes.length > 0 ? (
-            <div className="notes-grid" style={{ marginBottom: '36px' }}>
-              {studyNotes.map(note => (
-                <NoteCard 
-                  key={note.id}
-                  note={note}
-                  isPurchased={purchasedIds.includes(note.id)}
-                  isLoggedIn={!!user}
-                  onPurchase={handlePurchaseTrigger}
-                  onRead={onReadNote}
-                  onNavigateToAuth={() => navigate('auth')}
-                  purchaseDetails={purchaseDetailsMap[note.id]}
-                />
-              ))}
-            </div>
-          ) : (
+          {/* 2 Square Category Cards in 1 Row (Study Notes & Exam PYQs) */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr', 
+            gap: '14px', 
+            margin: '24px 0 28px' 
+          }}>
+            {/* Square Card 1: Study Notes */}
             <div 
-              className="empty-state glass-card fade-in" 
-              style={{ 
-                padding: '36px 20px', 
-                borderRadius: '20px', 
-                border: '1px dashed rgba(245, 158, 11, 0.35)', 
-                background: 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(7, 12, 27, 0.6) 100%)', 
-                marginBottom: '36px',
-                textAlign: 'center',
+              className="glass-card fade-in"
+              onClick={() => setActiveSubjectTab('notes')}
+              style={{
+                padding: '20px 14px',
+                borderRadius: '20px',
+                border: activeSubjectTab === 'notes' ? '1.5px solid #60a5fa' : '1px solid rgba(255, 255, 255, 0.08)',
+                background: activeSubjectTab === 'notes' 
+                  ? 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.25) 0%, rgba(10, 17, 43, 0.9) 100%)'
+                  : 'radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.03) 0%, rgba(10, 17, 43, 0.75) 100%)',
+                cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.3)'
+                textAlign: 'center',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: activeSubjectTab === 'notes' ? '0 8px 25px rgba(37, 99, 235, 0.35)' : '0 4px 15px rgba(0, 0, 0, 0.2)',
+                transform: activeSubjectTab === 'notes' ? 'translateY(-2px)' : 'none'
               }}
             >
               <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                background: 'rgba(245, 158, 11, 0.12)',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
+                width: '46px',
+                height: '46px',
+                borderRadius: '14px',
+                background: activeSubjectTab === 'notes' ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                border: activeSubjectTab === 'notes' ? '1px solid rgba(96, 165, 250, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: '12px',
-                boxShadow: '0 0 20px rgba(245, 158, 11, 0.2)'
+                color: activeSubjectTab === 'notes' ? '#60a5fa' : 'var(--color-muted)',
+                marginBottom: '10px',
+                boxShadow: activeSubjectTab === 'notes' ? '0 0 15px rgba(96, 165, 250, 0.3)' : 'none'
               }}>
-                <Sparkles size={22} className="yellow-accent" />
+                <BookOpen size={22} />
               </div>
 
-              <span style={{
-                background: 'rgba(245, 158, 11, 0.12)',
-                color: 'var(--color-yellow)',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
-                padding: '3px 12px',
-                borderRadius: '20px',
-                fontSize: '11px',
-                fontWeight: '700',
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                marginBottom: '8px'
-              }}>
-                ⚡ Coming Soon • Launching Shortly
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#fff', margin: '0 0 2px 0' }}>
+                Study Notes
+              </h4>
+              <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                {studyNotes.length} Unit Files
               </span>
 
-              <h4 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-white)', marginBottom: '4px' }}>
-                Unit Study Notes for {selectedSubject}
-              </h4>
-
-              <p style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '460px', margin: '0 auto', lineHeight: '1.5' }}>
-                Our engineering team is actively compiling & verifying high-yield Unit Study Notes for <strong>{selectedSubject}</strong>. Stay tuned!
-              </p>
+              <span style={{
+                marginTop: '10px',
+                fontSize: '10px',
+                fontWeight: '700',
+                color: activeSubjectTab === 'notes' ? '#60a5fa' : 'var(--color-muted)',
+                background: activeSubjectTab === 'notes' ? 'rgba(96, 165, 250, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                padding: '3px 10px',
+                borderRadius: '100px',
+                border: activeSubjectTab === 'notes' ? '1px solid rgba(96, 165, 250, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)'
+              }}>
+                {activeSubjectTab === 'notes' ? '✓ Selected' : 'Tap to View'}
+              </span>
             </div>
-          )}
 
-          {/* Exam PYQs Section */}
-          <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-            <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700' }} className="blue-accent">
-              {selectedSubject} - Previous Year Questions (PYQs)
-            </h3>
-            <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '20px' }}>
-              Official past engineering exams with step-by-step solutions.
-            </p>
-          </div>
-
-          {pyqs.length > 0 ? (
-            <div className="notes-grid" style={{ marginBottom: '36px' }}>
-              {pyqs.map(note => (
-                <NoteCard 
-                  key={note.id}
-                  note={note}
-                  isPurchased={purchasedIds.includes(note.id)}
-                  isLoggedIn={!!user}
-                  onPurchase={handlePurchaseTrigger}
-                  onRead={onReadNote}
-                  onNavigateToAuth={() => navigate('auth')}
-                  purchaseDetails={purchaseDetailsMap[note.id]}
-                />
-              ))}
-            </div>
-          ) : (
+            {/* Square Card 2: Exam PYQs */}
             <div 
-              className="empty-state glass-card fade-in" 
-              style={{ 
-                padding: '36px 20px', 
-                borderRadius: '20px', 
-                border: '1px dashed rgba(96, 165, 250, 0.35)', 
-                background: 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(7, 12, 27, 0.6) 100%)', 
-                marginBottom: '36px',
-                textAlign: 'center',
+              className="glass-card fade-in"
+              onClick={() => setActiveSubjectTab('pyqs')}
+              style={{
+                padding: '20px 14px',
+                borderRadius: '20px',
+                border: activeSubjectTab === 'pyqs' ? '1.5px solid #a78bfa' : '1px solid rgba(255, 255, 255, 0.08)',
+                background: activeSubjectTab === 'pyqs' 
+                  ? 'radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.25) 0%, rgba(10, 17, 43, 0.9) 100%)'
+                  : 'radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.03) 0%, rgba(10, 17, 43, 0.75) 100%)',
+                cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.3)'
+                textAlign: 'center',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: activeSubjectTab === 'pyqs' ? '0 8px 25px rgba(139, 92, 246, 0.35)' : '0 4px 15px rgba(0, 0, 0, 0.2)',
+                transform: activeSubjectTab === 'pyqs' ? 'translateY(-2px)' : 'none'
               }}
             >
               <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                background: 'rgba(96, 165, 250, 0.12)',
-                border: '1px solid rgba(96, 165, 250, 0.3)',
+                width: '46px',
+                height: '46px',
+                borderRadius: '14px',
+                background: activeSubjectTab === 'pyqs' ? 'rgba(167, 139, 250, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                border: activeSubjectTab === 'pyqs' ? '1px solid rgba(167, 139, 250, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: '12px',
-                boxShadow: '0 0 20px rgba(96, 165, 250, 0.2)'
+                color: activeSubjectTab === 'pyqs' ? '#a78bfa' : 'var(--color-muted)',
+                marginBottom: '10px',
+                boxShadow: activeSubjectTab === 'pyqs' ? '0 0 15px rgba(167, 139, 250, 0.3)' : 'none'
               }}>
-                <Clock size={22} className="blue-accent" />
+                <FileText size={22} />
               </div>
 
-              <span style={{
-                background: 'rgba(96, 165, 250, 0.12)',
-                color: 'var(--color-blue-light)',
-                border: '1px solid rgba(96, 165, 250, 0.3)',
-                padding: '3px 12px',
-                borderRadius: '20px',
-                fontSize: '11px',
-                fontWeight: '700',
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                marginBottom: '8px'
-              }}>
-                📝 Previous Year Questions • Coming Soon
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#fff', margin: '0 0 2px 0' }}>
+                Exam PYQs
+              </h4>
+              <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                {pyqs.length} Solved Papers
               </span>
 
-              <h4 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-white)', marginBottom: '4px' }}>
-                PYQ Question Papers for {selectedSubject}
-              </h4>
-
-              <p style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '460px', margin: '0 auto', lineHeight: '1.5' }}>
-                Solved Past Exam Question Papers for <strong>{selectedSubject}</strong> are currently being digitized and verified. Check back soon!
-              </p>
+              <span style={{
+                marginTop: '10px',
+                fontSize: '10px',
+                fontWeight: '700',
+                color: activeSubjectTab === 'pyqs' ? '#a78bfa' : 'var(--color-muted)',
+                background: activeSubjectTab === 'pyqs' ? 'rgba(167, 139, 250, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                padding: '3px 10px',
+                borderRadius: '100px',
+                border: activeSubjectTab === 'pyqs' ? '1px solid rgba(167, 139, 250, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)'
+              }}>
+                {activeSubjectTab === 'pyqs' ? '✓ Selected' : 'Tap to View'}
+              </span>
             </div>
-          )}
+          </div>
 
-          {/* Video Solutions / Playlists Section */}
-          {filteredPlaylists.length > 0 && (
-            <section style={{ marginTop: '40px', paddingTop: '30px', borderTop: '1px solid var(--glass-border)' }}>
+          {/* Active Content Section (Study Notes vs Exam PYQs based on active card) */}
+          {activeSubjectTab === 'notes' ? (
+            <div className="fade-in">
               <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700' }} className="yellow-accent">
-                  {selectedSubject} - Video Lectures & YouTube Course Playlists
+                <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700' }} className="blue-accent">
+                  {selectedSubject} - Unit Study Notes (6 Months Validity)
+                </h3>
+                <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '20px' }}>
+                  Choose specific unit notes to read or unlock.
+                </p>
+              </div>
+
+              {studyNotes.length > 0 ? (
+                <div className="notes-grid" style={{ marginBottom: '36px' }}>
+                  {studyNotes.map(note => (
+                    <NoteCard 
+                      key={note.id}
+                      note={note}
+                      isPurchased={purchasedIds.includes(note.id)}
+                      isLoggedIn={!!user}
+                      onPurchase={handlePurchaseTrigger}
+                      onRead={onReadNote}
+                      onNavigateToAuth={() => navigate('auth')}
+                      purchaseDetails={purchaseDetailsMap[note.id]}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div 
+                  className="empty-state glass-card fade-in" 
+                  style={{ 
+                    padding: '36px 20px', 
+                    borderRadius: '20px', 
+                    border: '1px dashed rgba(245, 158, 11, 0.35)', 
+                    background: 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(7, 12, 27, 0.6) 100%)', 
+                    marginBottom: '36px',
+                    textAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.3)'
+                  }}
+                >
+                  <div style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '50%',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '12px',
+                    boxShadow: '0 0 20px rgba(245, 158, 11, 0.2)'
+                  }}>
+                    <Sparkles size={22} className="yellow-accent" />
+                  </div>
+
+                  <span style={{
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    color: 'var(--color-yellow)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    padding: '3px 12px',
+                    borderRadius: '20px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginBottom: '8px'
+                  }}>
+                    ⚡ Coming Soon • Launching Shortly
+                  </span>
+
+                  <h4 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-white)', marginBottom: '4px' }}>
+                    Unit Study Notes for {selectedSubject}
+                  </h4>
+
+                  <p style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '460px', margin: '0 auto', lineHeight: '1.5' }}>
+                    Our engineering team is actively compiling & verifying high-yield Unit Study Notes for <strong>{selectedSubject}</strong>. Stay tuned!
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="fade-in">
+              <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700' }} className="blue-accent">
+                  {selectedSubject} - Previous Year Questions (PYQs)
+                </h3>
+                <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '20px' }}>
+                  Official past engineering exams with step-by-step solutions.
+                </p>
+              </div>
+
+              {pyqs.length > 0 ? (
+                <div className="notes-grid" style={{ marginBottom: '36px' }}>
+                  {pyqs.map(note => (
+                    <NoteCard 
+                      key={note.id}
+                      note={note}
+                      isPurchased={purchasedIds.includes(note.id)}
+                      isLoggedIn={!!user}
+                      onPurchase={handlePurchaseTrigger}
+                      onRead={onReadNote}
+                      onNavigateToAuth={() => navigate('auth')}
+                      purchaseDetails={purchaseDetailsMap[note.id]}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div 
+                  className="empty-state glass-card fade-in" 
+                  style={{ 
+                    padding: '36px 20px', 
+                    borderRadius: '20px', 
+                    border: '1px dashed rgba(96, 165, 250, 0.35)', 
+                    background: 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(7, 12, 27, 0.6) 100%)', 
+                    marginBottom: '36px',
+                    textAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.3)'
+                  }}
+                >
+                  <div style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '50%',
+                    background: 'rgba(96, 165, 250, 0.12)',
+                    border: '1px solid rgba(96, 165, 250, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '12px',
+                    boxShadow: '0 0 20px rgba(96, 165, 250, 0.2)'
+                  }}>
+                    <Clock size={22} className="blue-accent" />
+                  </div>
+
+                  <span style={{
+                    background: 'rgba(96, 165, 250, 0.12)',
+                    color: 'var(--color-blue-light)',
+                    border: '1px solid rgba(96, 165, 250, 0.3)',
+                    padding: '3px 12px',
+                    borderRadius: '20px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginBottom: '8px'
+                  }}>
+                    📝 Previous Year Questions • Coming Soon
+                  </span>
+
+                  <h4 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-white)', marginBottom: '4px' }}>
+                    PYQ Question Papers for {selectedSubject}
+                  </h4>
+
+                  <p style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '460px', margin: '0 auto', lineHeight: '1.5' }}>
+                    Solved Past Exam Question Papers for <strong>{selectedSubject}</strong> are currently being digitized and verified. Check back soon!
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* YouTube Video Solutions / Playlists Section (Directly Below Notes & PYQ Cards) */}
+          {filteredPlaylists.length > 0 && (
+            <section style={{ marginTop: '36px', paddingTop: '24px', borderTop: '1px solid var(--glass-border)' }}>
+              <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }} className="yellow-accent">
+                  <Video size={20} className="yellow-accent" />
+                  {selectedSubject} - Video Lectures & YouTube Playlists
                 </h3>
                 <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '20px' }}>
                   Learn complex topics step-by-step through synced YouTube course playlists.
