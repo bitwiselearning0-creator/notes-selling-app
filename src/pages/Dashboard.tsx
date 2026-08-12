@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Loader2, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight, Sparkles, Clock, FileText, Video } from 'lucide-react';
+import { Search, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight, Sparkles, Clock, FileText, Video } from 'lucide-react';
 import { dbService } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Playlist } from '../lib/supabase';
 import { openRazorpayCheckout } from '../lib/razorpay';
@@ -975,11 +975,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          {/* Loading State */}
+          {/* Catalog Skeleton Loading State */}
           {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0', gap: '10px', alignItems: 'center', color: 'var(--color-muted)' }}>
-              <Loader2 className="animate-spin" size={24} color="var(--color-blue-light)" />
-              <span>Loading catalog materials...</span>
+            <div style={{ marginBottom: '40px' }} className="fade-in">
+              <div className="subject-cards-grid" style={{ marginBottom: '30px' }}>
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="glass-card" style={{ padding: '16px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div className="skeleton-box" style={{ width: '32px', height: '32px', borderRadius: '10px' }}></div>
+                      <div className="skeleton-box" style={{ width: '45px', height: '18px', borderRadius: '100px' }}></div>
+                    </div>
+                    <div className="skeleton-box" style={{ width: '80%', height: '16px', borderRadius: '6px' }}></div>
+                    <div className="skeleton-box" style={{ width: '60%', height: '12px', borderRadius: '4px' }}></div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : searchQuery.trim() ? (
             /* Live Search Results View */

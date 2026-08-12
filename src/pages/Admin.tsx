@@ -650,9 +650,12 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       )}
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0', gap: '10px', alignItems: 'center', color: 'var(--color-muted)' }}>
-          <Loader2 className="animate-spin" size={28} color="var(--color-blue-light)" />
-          <span>Syncing locker registry...</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '30px 0' }} className="fade-in">
+          <div className="skeleton-box" style={{ width: '100%', height: '140px', borderRadius: '18px' }}></div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="skeleton-box" style={{ width: '100%', height: '120px', borderRadius: '16px' }}></div>
+            <div className="skeleton-box" style={{ width: '100%', height: '120px', borderRadius: '16px' }}></div>
+          </div>
         </div>
       ) : (
         <>

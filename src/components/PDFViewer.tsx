@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Lock, Loader2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Lock, AlertTriangle } from 'lucide-react';
 import type { Note } from '../lib/supabase';
 
 interface PDFViewerProps {
@@ -705,9 +705,9 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
       >
         {/* Loading / Error States */}
         {(!pdfjsLoaded || loadingDoc || !pdfUrl) && (
-          <div style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', color: 'var(--color-muted)' }}>
-            <Loader2 className="animate-spin" size={36} style={{ color: 'var(--color-yellow)' }} />
-            <span style={{ fontSize: '14px', fontWeight: '600' }}>Decrypting and rendering document...</span>
+          <div style={{ margin: 'auto', width: '90%', maxWidth: '600px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '20px 0' }} className="fade-in">
+            <div className="skeleton-box" style={{ width: '100%', height: '520px', borderRadius: '16px' }}></div>
+            <div className="skeleton-box" style={{ width: '180px', height: '14px', borderRadius: '4px' }}></div>
           </div>
         )}
 
