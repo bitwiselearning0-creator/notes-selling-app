@@ -435,144 +435,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Dedicated Inside Subject Detail View */}
       {selectedSubject ? (
         <div className="subject-detail-view fade-in">
-          {/* Back Navigation Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: '24px' }}>
-            <button 
-              className="btn-secondary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', fontSize: '14px', fontWeight: '600' }}
-              onClick={() => {
-                setSelectedSubject(null);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            >
-              <ArrowLeft size={18} />
-              <span>Back to Catalog</span>
-            </button>
-          </div>
-
-          {/* Subject Hero Header */}
-          <div className="glass-card" style={{
-            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: '20px',
-            padding: '28px',
-            marginBottom: '32px',
-            textAlign: 'left',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '20px',
-            flexWrap: 'wrap',
-            boxShadow: '0 12px 30px rgba(0,0,0,0.3)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(96, 165, 250, 0.2) 0%, rgba(37, 99, 235, 0.1) 100%)',
-                width: '64px',
-                height: '64px',
-                borderRadius: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--color-blue-light)',
-                border: '1px solid rgba(96, 165, 250, 0.3)',
-                flexShrink: 0
-              }}>
-                <BookOpen size={32} />
-              </div>
-              <div>
-                <span className="semester-tag" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {selectedYear} • {selectedSemester !== null ? `Semester ${selectedSemester}` : 'Subject Portal'}
-                </span>
-                <h2 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-white)', margin: '4px 0 8px 0' }}>
-                  {selectedSubject}
-                </h2>
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--color-muted)' }}>
-                  <span>📚 {studyNotes.length} Unit Notes</span>
-                  <span>•</span>
-                  <span>📝 {pyqs.length} PYQ Papers</span>
-                  <span>•</span>
-                  <span>🎥 {filteredPlaylists.length} Video Playlists</span>
-                </div>
-              </div>
-            </div>
-
-            <button 
-              className="btn-secondary" 
-              onClick={() => {
-                setSelectedSubject(null);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              style={{ fontSize: '13px' }}
-            >
-              All Subjects
-            </button>
-          </div>
-
-          {/* Subject All-In-One Bundle Card (if any exists for this subject) */}
-          {bundles.filter(b => b.type === 'subject' && b.subject?.toLowerCase() === selectedSubject.toLowerCase()).map(bundle => {
-            const isPurchased = purchasedBundleIds.includes(bundle.id);
-            const expiry = bundlePurchaseDetailsMap[bundle.id];
-            const normalSum = bundle.notesIds.reduce((sum, id) => {
-              const note = notes.find(n => n.id === id);
-              return sum + (note ? note.price : 99);
-            }, 0);
-
-            return (
-              <div key={bundle.id} className="bundle-banner-card fade-in" style={{ marginBottom: '32px', borderColor: 'rgba(96, 165, 250, 0.3)' }}>
-                <div>
-                  <div className="bundle-banner-badge" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-                    {isPurchased ? 'Unlocked Subject Pack' : '⚡ Subject All-In-One Pack'}
-                  </div>
-                  <h4 className="bundle-banner-title">{bundle.title}</h4>
-                  <p className="bundle-banner-desc">{bundle.description}</p>
-                </div>
-                <div className="bundle-banner-includes">
-                  <div className="bundle-banner-includes-title">Includes Everything</div>
-                  <ul className="bundle-banner-includes-list">
-                    <li className="bundle-banner-includes-item">
-                      <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-                      <span>All Syllabus Units + PYQs & Solutions</span>
-                    </li>
-                  </ul>
-                </div>
-                <div className="bundle-banner-checkout">
-                  <div className="bundle-banner-price-box">
-                    {!isPurchased && (
-                      <span className="bundle-banner-original-price">₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}</span>
-                    )}
-                    <span className="bundle-banner-price">₹{bundle.price}</span>
-                  </div>
-                  {user ? (
-                    isPurchased ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
-                        <button className="btn-secondary w-full" style={{ pointerEvents: 'none', opacity: 0.8 }}>Unlocked</button>
-                        {expiry && (
-                          <span style={{ fontSize: '11px', color: 'var(--color-yellow)', fontWeight: '700' }}>
-                            {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`) : '6 Months Validity'}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <button className="btn-primary w-full" onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}>Unlock All Units</button>
-                    )
-                  ) : (
-                    <button className="btn-primary w-full" onClick={() => navigate('auth')}>Sign In to Unlock</button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
           {selectedCategory !== null ? (
-            /* LEVEL 3: Clean & Minimal Dedicated Card View */
+            /* LEVEL 3: Dedicated Card Page (ONLY ← Back + Notes/PYQs list, ZERO top clutter) */
             <div className="fade-in">
               {/* Single Step Back Navigation Button Bar */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                marginBottom: '20px',
+                marginBottom: '24px',
                 paddingBottom: '12px',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
               }}>
@@ -657,8 +528,137 @@ export const Dashboard: React.FC<DashboardProps> = ({
               )}
             </div>
           ) : (
-            /* LEVEL 2: Subject Portal View (2 Square Cards + YouTube Playlists) */
+            /* LEVEL 2: Subject Portal View (Back to Catalog + Subject Banner + Bundles + 2 Cards + YouTube Playlists) */
             <>
+              {/* Back Navigation Bar */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: '24px' }}>
+                <button 
+                  className="btn-secondary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', fontSize: '14px', fontWeight: '600' }}
+                  onClick={() => {
+                    setSelectedSubject(null);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                >
+                  <ArrowLeft size={18} />
+                  <span>Back to Catalog</span>
+                </button>
+              </div>
+
+              {/* Subject Hero Header */}
+              <div className="glass-card" style={{
+                background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '20px',
+                padding: '28px',
+                marginBottom: '32px',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '20px',
+                flexWrap: 'wrap',
+                boxShadow: '0 12px 30px rgba(0,0,0,0.3)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(96, 165, 250, 0.2) 0%, rgba(37, 99, 235, 0.1) 100%)',
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--color-blue-light)',
+                    border: '1px solid rgba(96, 165, 250, 0.3)',
+                    flexShrink: 0
+                  }}>
+                    <BookOpen size={32} />
+                  </div>
+                  <div>
+                    <span className="semester-tag" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {selectedYear} • {selectedSemester !== null ? `Semester ${selectedSemester}` : 'Subject Portal'}
+                    </span>
+                    <h2 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-white)', margin: '4px 0 8px 0' }}>
+                      {selectedSubject}
+                    </h2>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--color-muted)' }}>
+                      <span>📚 {studyNotes.length} Unit Notes</span>
+                      <span>•</span>
+                      <span>📝 {pyqs.length} PYQ Papers</span>
+                      <span>•</span>
+                      <span>🎥 {filteredPlaylists.length} Video Playlists</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  className="btn-secondary" 
+                  onClick={() => {
+                    setSelectedSubject(null);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  style={{ fontSize: '13px' }}
+                >
+                  All Subjects
+                </button>
+              </div>
+
+              {/* Subject All-In-One Bundle Card (if any exists for this subject) */}
+              {bundles.filter(b => b.type === 'subject' && b.subject?.toLowerCase() === selectedSubject.toLowerCase()).map(bundle => {
+                const isPurchased = purchasedBundleIds.includes(bundle.id);
+                const expiry = bundlePurchaseDetailsMap[bundle.id];
+                const normalSum = bundle.notesIds.reduce((sum, id) => {
+                  const note = notes.find(n => n.id === id);
+                  return sum + (note ? note.price : 99);
+                }, 0);
+
+                return (
+                  <div key={bundle.id} className="bundle-banner-card fade-in" style={{ marginBottom: '32px', borderColor: 'rgba(96, 165, 250, 0.3)' }}>
+                    <div>
+                      <div className="bundle-banner-badge" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                        {isPurchased ? 'Unlocked Subject Pack' : '⚡ Subject All-In-One Pack'}
+                      </div>
+                      <h4 className="bundle-banner-title">{bundle.title}</h4>
+                      <p className="bundle-banner-desc">{bundle.description}</p>
+                    </div>
+                    <div className="bundle-banner-includes">
+                      <div className="bundle-banner-includes-title">Includes Everything</div>
+                      <ul className="bundle-banner-includes-list">
+                        <li className="bundle-banner-includes-item">
+                          <CheckCircle2 size={14} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                          <span>All Syllabus Units + PYQs & Solutions</span>
+                        </li>
+                      </ul>
+                    </div>
+                    <div className="bundle-banner-checkout">
+                      <div className="bundle-banner-price-box">
+                        {!isPurchased && (
+                          <span className="bundle-banner-original-price">₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}</span>
+                        )}
+                        <span className="bundle-banner-price">₹{bundle.price}</span>
+                      </div>
+                      {user ? (
+                        isPurchased ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                            <button className="btn-secondary w-full" style={{ pointerEvents: 'none', opacity: 0.8 }}>Unlocked</button>
+                            {expiry && (
+                              <span style={{ fontSize: '11px', color: 'var(--color-yellow)', fontWeight: '700' }}>
+                                {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime Access' : `${expiry.daysLeft} Days Left`) : '6 Months Validity'}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <button className="btn-primary w-full" onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}>Unlock All Units</button>
+                        )
+                      ) : (
+                        <button className="btn-primary w-full" onClick={() => navigate('auth')}>Sign In to Unlock</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
               {/* 2 Square Cards in 1 Row */}
               <div style={{ 
                 display: 'grid', 
