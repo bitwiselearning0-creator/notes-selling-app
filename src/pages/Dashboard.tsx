@@ -637,131 +637,128 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     key={bundle.id} 
                     className="glass-card fade-in"
                     style={{
-                      background: 'radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%)',
-                      border: '1px solid rgba(96, 165, 250, 0.3)',
-                      borderRadius: '16px',
-                      padding: '14px 18px',
+                      background: 'radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.18) 0%, rgba(15, 23, 42, 0.96) 100%)',
+                      border: '1px solid rgba(96, 165, 250, 0.35)',
+                      borderRadius: '18px',
+                      padding: '16px 18px',
                       marginBottom: '16px',
-                      boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '14px',
-                      flexWrap: 'wrap',
+                      boxShadow: '0 8px 25px rgba(0, 0, 0, 0.35)',
                       position: 'relative',
                       overflow: 'hidden'
                     }}
                   >
-                    {/* Ambient Background Glow */}
+                    {/* Row 1: Badge & Access Duration */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: '800',
+                        color: '#60a5fa',
+                        background: 'rgba(59, 130, 246, 0.15)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        padding: '3px 10px',
+                        borderRadius: '100px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                      }}>
+                        {isPurchased ? 'Unlocked Subject Pack' : '⚡ Subject All-In-One Pack'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                        6 Months Access
+                      </span>
+                    </div>
+
+                    {/* Row 2: Title */}
+                    <h4 style={{ 
+                      fontSize: '15px', 
+                      fontWeight: '800', 
+                      color: '#fff', 
+                      margin: '0 0 12px 0', 
+                      textAlign: 'left',
+                      lineHeight: '1.3'
+                    }}>
+                      {bundle.title}
+                    </h4>
+
+                    {/* Row 3: Symmetrical Bottom Bar (Features on Left, Price & Action on Right) */}
                     <div style={{
-                      position: 'absolute',
-                      top: '-30px',
-                      right: '-30px',
-                      width: '120px',
-                      height: '120px',
-                      borderRadius: '50%',
-                      background: 'radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, rgba(0, 0, 0, 0) 70%)',
-                      pointerEvents: 'none'
-                    }} />
-
-                    {/* Left Column: Badge, Title & Compact Inclusions */}
-                    <div style={{ flex: 1, minWidth: '200px', textAlign: 'left' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                        <span style={{
-                          fontSize: '9px',
-                          fontWeight: '800',
-                          color: '#60a5fa',
-                          background: 'rgba(59, 130, 246, 0.15)',
-                          border: '1px solid rgba(59, 130, 246, 0.3)',
-                          padding: '2px 8px',
-                          borderRadius: '100px',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em'
-                        }}>
-                          {isPurchased ? 'Unlocked Subject Pack' : '⚡ Subject All-In-One Pack'}
-                        </span>
-                        <span style={{ fontSize: '10px', color: 'var(--color-muted)', fontWeight: '600' }}>
-                          6 Months Access
-                        </span>
-                      </div>
-
-                      <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#fff', margin: '0 0 6px 0' }}>
-                        {bundle.title}
-                      </h4>
-
-                      {/* Compact Inclusion Pills */}
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                      paddingTop: '10px',
+                      borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+                    }}>
+                      {/* Left: Compact Feature Badges */}
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         <span style={{
                           fontSize: '10px',
                           fontWeight: '600',
                           color: '#e2e8f0',
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          padding: '2px 8px',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          padding: '3px 8px',
                           borderRadius: '6px',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '3px'
+                          gap: '4px'
                         }}>
-                          <CheckCircle2 size={10} style={{ color: '#10b981' }} />
-                          All Syllabus Units
+                          <CheckCircle2 size={11} style={{ color: '#10b981' }} />
+                          All Units
                         </span>
                         <span style={{
                           fontSize: '10px',
                           fontWeight: '600',
                           color: '#e2e8f0',
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          padding: '2px 8px',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          padding: '3px 8px',
                           borderRadius: '6px',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '3px'
+                          gap: '4px'
                         }}>
-                          <CheckCircle2 size={10} style={{ color: '#10b981' }} />
-                          Solved Exam PYQs
+                          <CheckCircle2 size={11} style={{ color: '#10b981' }} />
+                          Solved PYQs
                         </span>
                       </div>
-                    </div>
 
-                    {/* Right Column: Price & Action */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                      <div style={{ textAlign: 'right' }}>
-                        {!isPurchased && (
-                          <div style={{ fontSize: '11px', color: 'var(--color-muted)', textDecoration: 'line-through' }}>
-                            ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
+                      {/* Right: Price Tag & Unlock Action */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                        <div style={{ textAlign: 'right' }}>
+                          {!isPurchased && (
+                            <div style={{ fontSize: '10px', color: 'var(--color-muted)', textDecoration: 'line-through', lineHeight: 1 }}>
+                              ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
+                            </div>
+                          )}
+                          <div style={{ fontSize: '18px', fontWeight: '900', color: '#60a5fa', lineHeight: 1.1, marginTop: '2px' }}>
+                            ₹{bundle.price}
                           </div>
-                        )}
-                        <div style={{ fontSize: '20px', fontWeight: '900', color: '#60a5fa', lineHeight: 1 }}>
-                          ₹{bundle.price}
                         </div>
-                      </div>
 
-                      {user ? (
-                        isPurchased ? (
-                          <div style={{ textAlign: 'center' }}>
+                        {user ? (
+                          isPurchased ? (
                             <button className="btn-secondary" style={{ pointerEvents: 'none', opacity: 0.8, fontSize: '12px', padding: '6px 12px' }}>
                               Unlocked
                             </button>
-                          </div>
+                          ) : (
+                            <button 
+                              className="btn-primary" 
+                              onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}
+                              style={{ fontSize: '12px', padding: '7px 14px', fontWeight: '700', borderRadius: '10px', boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)' }}
+                            >
+                              Unlock Pack
+                            </button>
+                          )
                         ) : (
                           <button 
                             className="btn-primary" 
-                            onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}
-                            style={{ fontSize: '12px', padding: '8px 16px', fontWeight: '700', borderRadius: '10px' }}
+                            onClick={() => navigate('auth')}
+                            style={{ fontSize: '12px', padding: '7px 14px', fontWeight: '700', borderRadius: '10px' }}
                           >
                             Unlock Pack
                           </button>
-                        )
-                      ) : (
-                        <button 
-                          className="btn-primary" 
-                          onClick={() => navigate('auth')}
-                          style={{ fontSize: '12px', padding: '8px 16px', fontWeight: '700', borderRadius: '10px' }}
-                        >
-                          Sign In to Unlock
-                        </button>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
