@@ -19,7 +19,18 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
 
   const fetchLibraryData = async () => {
     if (!user) return;
-    setLoading(true);
+
+    // 0ms Synchronous local cache hydration for instant offline loading!
+    const cachedCatalog = localStorage.getItem('bw_cached_notes_catalog') ? JSON.parse(localStorage.getItem('bw_cached_notes_catalog')!) : [];
+    const cachedBundles = localStorage.getItem('bw_cached_bundles') ? JSON.parse(localStorage.getItem('bw_cached_bundles')!) : [];
+    const cachedPurchases = localStorage.getItem(`bw_user_purchases_cache_${user.id}`) ? JSON.parse(localStorage.getItem(`bw_user_purchases_cache_${user.id}`)!) : [];
+    
+    if (cachedCatalog.length > 0 || cachedBundles.length > 0 || cachedPurchases.length > 0) {
+      setLoading(false); // Render immediately in 0ms!
+    } else {
+      setLoading(true);
+    }
+
     try {
       const [allNotesRes, notesRes, bundlesRes, purchaseState] = await Promise.all([
         dbService.getNotes(),

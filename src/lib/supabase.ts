@@ -1072,54 +1072,18 @@ export const dbService = {
     if (!user) return { data: [], error: 'User session not active.' };
     
     const now = new Date();
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
-    if (!isMock && supabase) {
-      const { data: allBundles, error: bundlesError } = await supabase.from('bundles').select('*');
-      if (bundlesError) return { data: [], error: bundlesError.message };
-
-      if (user.role === 'admin') {
-        const adminResults = (allBundles || []).map(b => ({
-          bundle: b,
-          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 180).toISOString(),
-          daysLeft: 9999
-        }));
-        return { data: adminResults, error: null };
-      }
-
-      const { data: dbPurchases, error: purchasesError } = await supabase
-        .from('purchases')
-        .select('*')
-        .eq('userId', user.id)
-        .eq('itemType', 'bundle')
-        .gt('expiresAt', now.toISOString());
-
-      if (purchasesError) return { data: [], error: purchasesError.message };
-
+    const getLocalBundles = () => {
       const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
-      if (dbPurchases && allBundles) {
-        for (const purchase of dbPurchases) {
-          const bundle = allBundles.find(b => b.id === purchase.itemId);
-          if (bundle) {
-            const expDate = new Date(purchase.expiresAt);
-            const diffTime = expDate.getTime() - now.getTime();
-            const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            results.push({
-              bundle,
-              expiresAt: purchase.expiresAt,
-              daysLeft
-            });
-          }
-        }
-      }
-      return { data: results, error: null };
-    } else {
-      const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
+      const cachedPurchases = getStoredData<Purchase[]>(`bw_user_purchases_cache_${user.id}`, mockPurchasesV2);
+      const cachedBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles);
 
-      for (const purchase of mockPurchasesV2) {
+      for (const purchase of cachedPurchases) {
         if (purchase.itemType === 'bundle') {
           const expDate = new Date(purchase.expiresAt);
           if (expDate > now || user.role === 'admin') {
-            const bundle = mockBundles.find(b => b.id === purchase.itemId);
+            const bundle = cachedBundles.find(b => b.id === purchase.itemId) || mockBundles.find(b => b.id === purchase.itemId);
             if (bundle) {
               const diffTime = expDate.getTime() - now.getTime();
               const daysLeft = user.role === 'admin' ? 9999 : Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -1132,7 +1096,48 @@ export const dbService = {
           }
         }
       }
-      return { data: results, error: null };
+      return results;
+    };
+
+    if (isOffline || isMock || !supabase) {
+      return { data: getLocalBundles(), error: null };
+    }
+
+    try {
+      const [bundlesRes, purchasesRes] = await fetchWithTimeout(Promise.all([
+        supabase.from('bundles').select('*'),
+        supabase.from('purchases').select('*').eq('userId', user.id).eq('itemType', 'bundle').gt('expiresAt', now.toISOString())
+      ]), 800);
+
+      const allBundles = (bundlesRes?.data || []).map((b: any) => decodeBundleFromDb(b));
+      const dbPurchases = purchasesRes?.data || [];
+
+      if (user.role === 'admin') {
+        const adminResults = allBundles.map(b => ({
+          bundle: b,
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 180).toISOString(),
+          daysLeft: 9999
+        }));
+        return { data: adminResults, error: null };
+      }
+
+      const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
+      for (const purchase of dbPurchases) {
+        const bundle = allBundles.find(b => b.id === purchase.itemId);
+        if (bundle) {
+          const expDate = new Date(purchase.expiresAt);
+          const diffTime = expDate.getTime() - now.getTime();
+          const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          results.push({
+            bundle,
+            expiresAt: purchase.expiresAt,
+            daysLeft
+          });
+        }
+      }
+      return { data: results.length > 0 ? results : getLocalBundles(), error: null };
+    } catch (e) {
+      return { data: getLocalBundles(), error: null };
     }
   },
 
