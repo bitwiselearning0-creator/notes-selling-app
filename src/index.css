@@ -2456,6 +2456,27 @@ body.app-mode .form-toggle-link span {
   margin-top: 0 !important;
 }
 
+/* Shimmering Skeleton Loader Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-box {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.12) 37%,
+    rgba(255, 255, 255, 0.04) 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
 /* Hide scrollbars completely in App Mode for clean native mobile look */
 ::-webkit-scrollbar {
   display: none !important;

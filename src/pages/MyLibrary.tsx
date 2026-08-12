@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, FolderOpen, ChevronRight, Loader2, ArrowRight, ChevronDown, ChevronUp, Clock, FileText } from 'lucide-react';
+import { BookOpen, FolderOpen, ChevronRight, ArrowRight, ChevronDown, ChevronUp, Clock, FileText } from 'lucide-react';
 import { dbService } from '../lib/supabase';
 import type { Note, UserProfile, Bundle } from '../lib/supabase';
 
@@ -22,11 +22,18 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
 
     // 0ms Synchronous local cache hydration for instant offline loading!
     const cachedCatalog = localStorage.getItem('bw_cached_notes_catalog') ? JSON.parse(localStorage.getItem('bw_cached_notes_catalog')!) : [];
-    const cachedBundles = localStorage.getItem('bw_cached_bundles') ? JSON.parse(localStorage.getItem('bw_cached_bundles')!) : [];
     const cachedPurchases = localStorage.getItem(`bw_user_purchases_cache_${user.id}`) ? JSON.parse(localStorage.getItem(`bw_user_purchases_cache_${user.id}`)!) : [];
     
-    if (cachedCatalog.length > 0 || cachedBundles.length > 0 || cachedPurchases.length > 0) {
-      setLoading(false); // Render immediately in 0ms!
+    // Hydrate state from cache synchronously if available
+    if (cachedCatalog.length > 0) {
+      setAllNotes(cachedCatalog);
+      const purchasedSet = new Set<string>(cachedPurchases.map((p: any) => p.note_id || p.id));
+      const unlockedFromCache = cachedCatalog.filter((n: Note) => purchasedSet.has(n.id));
+      if (unlockedFromCache.length > 0) setLibraryNotes(unlockedFromCache);
+    }
+
+    if (cachedPurchases.length > 0) {
+      setLoading(false);
     } else {
       setLoading(true);
     }
@@ -143,20 +150,45 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
           My Library
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: 0 }}>
-          {libraryBundles.length + studyNotes.length + pyqs.length > 0
-            ? `${libraryBundles.length + studyNotes.length + pyqs.length} items purchased`
-            : 'Nothing here yet'
+          {loading
+            ? 'Loading your purchased notes...'
+            : libraryBundles.length + studyNotes.length + pyqs.length > 0
+              ? `${libraryBundles.length + studyNotes.length + pyqs.length} items purchased`
+              : 'Nothing here yet'
           }
         </p>
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0', gap: '10px', alignItems: 'center', color: 'var(--color-muted)' }}>
-          <Loader2 className="animate-spin" size={22} color="var(--color-yellow)" />
-          <span style={{ fontSize: '13px' }}>Loading...</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} className="fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+            <div className="skeleton-box" style={{ width: '120px', height: '14px', borderRadius: '6px' }}></div>
+            <div className="skeleton-box" style={{ width: '30px', height: '14px', borderRadius: '6px' }}></div>
+          </div>
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="glass-card"
+              style={{
+                padding: '16px 18px',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '14px',
+                border: '1px solid rgba(255, 255, 255, 0.08)'
+              }}
+            >
+              <div className="skeleton-box" style={{ width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0 }}></div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="skeleton-box" style={{ width: '65%', height: '16px', borderRadius: '6px' }}></div>
+                <div className="skeleton-box" style={{ width: '40%', height: '12px', borderRadius: '4px' }}></div>
+              </div>
+              <div className="skeleton-box" style={{ width: '48px', height: '20px', borderRadius: '100px', flexShrink: 0 }}></div>
+            </div>
+          ))}
         </div>
       ) : (libraryBundles.length === 0 && studyNotes.length === 0 && pyqs.length === 0) ? (
-        <div className="glass-card" style={{ padding: '48px 24px', borderRadius: '20px', textAlign: 'center' }}>
+        <div className="glass-card fade-in" style={{ padding: '48px 24px', borderRadius: '20px', textAlign: 'center' }}>
           <FolderOpen size={40} style={{ color: 'var(--color-muted)', marginBottom: '16px' }} />
           <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>No purchases yet</h3>
           <p style={{ color: 'var(--color-muted)', fontSize: '13px', margin: '0 0 24px', lineHeight: 1.5 }}>
