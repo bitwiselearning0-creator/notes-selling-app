@@ -567,7 +567,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {selectedCategory !== null ? (
             /* LEVEL 3: Clean & Minimal Dedicated Card View */
             <div className="fade-in">
-              {/* Ultra-Clean Minimal Top Bar */}
+              {/* Single Step Back Navigation Button Bar */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -586,30 +586,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    fontSize: '12px',
+                    fontSize: '13px',
                     fontWeight: '600',
-                    padding: '6px 14px',
-                    borderRadius: '10px'
+                    padding: '8px 16px',
+                    borderRadius: '12px'
                   }}
                 >
-                  <ArrowLeft size={14} />
-                  <span>{selectedSubject}</span>
+                  <ArrowLeft size={16} />
+                  <span>Back</span>
                 </button>
 
-                <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#fff', margin: 0 }}>
-                  {selectedCategory === 'notes' ? 'Study Notes' : 'Previous Year Papers (PYQs)'}
+                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#fff', margin: 0 }}>
+                  {selectedCategory === 'notes' ? `${selectedSubject} - Study Notes` : `${selectedSubject} - Exam PYQs`}
                 </h3>
 
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  color: selectedCategory === 'notes' ? '#60a5fa' : '#a78bfa',
-                  background: selectedCategory === 'notes' ? 'rgba(96, 165, 250, 0.15)' : 'rgba(167, 139, 250, 0.15)',
-                  padding: '3px 10px',
-                  borderRadius: '12px'
-                }}>
-                  {selectedCategory === 'notes' ? `${studyNotes.length} Notes` : `${pyqs.length} PYQs`}
-                </span>
+                <div style={{ width: '60px' }} />
               </div>
 
               {/* Directly Render Notes Cards / PYQ Cards Cleanly */}
