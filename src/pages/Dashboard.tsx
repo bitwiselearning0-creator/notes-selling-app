@@ -115,7 +115,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-  const [activeSubjectTab, setActiveSubjectTab] = useState<'notes' | 'pyqs' | null>('notes');
+  const [selectedCategory, setSelectedCategory] = useState<'notes' | 'pyqs' | null>(null);
   
   // Loading & payment states
   const [loading, setLoading] = useState(true);
@@ -175,10 +175,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     loadDashboardData();
   }, [selectedYear, user]);
 
-  // Handle physical/browser back button for Dashboard Subject Detail View, Search, & Semester Filter
+  // Handle physical/browser back button for Dashboard Card View, Subject View, Search, & Semester Filter
   useEffect(() => {
     if (onRegisterBackHandler) {
       onRegisterBackHandler(() => {
+        if (selectedCategory !== null) {
+          setSelectedCategory(null);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return true;
+        }
         if (selectedSubject !== null) {
           setSelectedSubject(null);
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -197,7 +202,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
 
     const handlePopState = () => {
-      if (selectedSubject !== null) {
+      if (selectedCategory !== null) {
+        setSelectedCategory(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (selectedSubject !== null) {
         setSelectedSubject(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (searchQuery.trim() !== '') {
@@ -211,7 +219,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [selectedSubject, searchQuery, selectedSemester, onRegisterBackHandler]);
+  }, [selectedCategory, selectedSubject, searchQuery, selectedSemester, onRegisterBackHandler]);
 
   // Determine semesters in active year
   const getSemestersForYear = () => {
@@ -570,155 +578,75 @@ export const Dashboard: React.FC<DashboardProps> = ({
             );
           })}
 
-          {/* 2 Square Category Cards in 1 Row (Study Notes & Exam PYQs) */}
-          <div style={{ margin: '24px 0 28px' }}>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '1fr 1fr', 
-              gap: '14px', 
-              marginBottom: '16px' 
-            }}>
-              {/* Square Card 1: Study Notes */}
-              <div 
-                className="glass-card fade-in"
-                onClick={() => setActiveSubjectTab(activeSubjectTab === 'notes' ? null : 'notes')}
-                style={{
-                  padding: '18px 14px',
-                  borderRadius: '20px',
-                  border: activeSubjectTab === 'notes' ? '1.5px solid #60a5fa' : '1px solid rgba(255, 255, 255, 0.08)',
-                  background: activeSubjectTab === 'notes' 
-                    ? 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.3) 0%, rgba(10, 17, 43, 0.95) 100%)'
-                    : 'radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.03) 0%, rgba(10, 17, 43, 0.75) 100%)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  textAlign: 'center',
-                  transition: 'all 0.2s ease',
-                  boxShadow: activeSubjectTab === 'notes' ? '0 8px 25px rgba(37, 99, 235, 0.35)' : '0 4px 15px rgba(0, 0, 0, 0.2)'
-                }}
-              >
-                <div style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '14px',
-                  background: activeSubjectTab === 'notes' ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255, 255, 255, 0.06)',
-                  border: activeSubjectTab === 'notes' ? '1px solid rgba(96, 165, 250, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: activeSubjectTab === 'notes' ? '#60a5fa' : 'var(--color-muted)',
-                  marginBottom: '10px'
-                }}>
-                  <BookOpen size={22} />
-                </div>
+          {selectedCategory !== null ? (
+            /* LEVEL 3: Dedicated Inner View Inside Tapped Card */
+            <div className="fade-in">
+              {/* Back Button to Subject Portal */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                <button 
+                  className="btn-secondary"
+                  onClick={() => {
+                    setSelectedCategory(null);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '6px 14px' }}
+                >
+                  <ArrowLeft size={16} />
+                  <span>Back to {selectedSubject}</span>
+                </button>
 
-                <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#fff', margin: '0 0 2px 0' }}>
-                  Study Notes
-                </h4>
-                <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
-                  {studyNotes.length} Unit Files
-                </span>
-
-                <span style={{
-                  marginTop: '10px',
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  color: activeSubjectTab === 'notes' ? '#60a5fa' : 'var(--color-muted)',
-                  background: activeSubjectTab === 'notes' ? 'rgba(96, 165, 250, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                  padding: '3px 10px',
-                  borderRadius: '100px',
-                  border: activeSubjectTab === 'notes' ? '1px solid rgba(96, 165, 250, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)'
-                }}>
-                  {activeSubjectTab === 'notes' ? '▲ Close Card' : '▼ Open Notes'}
+                <span style={{ fontSize: '12px', fontWeight: '700', color: selectedCategory === 'notes' ? '#60a5fa' : '#a78bfa' }}>
+                  {selectedCategory === 'notes' ? `📖 ${studyNotes.length} Unit Files` : `📝 ${pyqs.length} Solved Papers`}
                 </span>
               </div>
 
-              {/* Square Card 2: Exam PYQs */}
-              <div 
-                className="glass-card fade-in"
-                onClick={() => setActiveSubjectTab(activeSubjectTab === 'pyqs' ? null : 'pyqs')}
-                style={{
-                  padding: '18px 14px',
-                  borderRadius: '20px',
-                  border: activeSubjectTab === 'pyqs' ? '1.5px solid #a78bfa' : '1px solid rgba(255, 255, 255, 0.08)',
-                  background: activeSubjectTab === 'pyqs' 
-                    ? 'radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.3) 0%, rgba(10, 17, 43, 0.95) 100%)'
-                    : 'radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.03) 0%, rgba(10, 17, 43, 0.75) 100%)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  textAlign: 'center',
-                  transition: 'all 0.2s ease',
-                  boxShadow: activeSubjectTab === 'pyqs' ? '0 8px 25px rgba(139, 92, 246, 0.35)' : '0 4px 15px rgba(0, 0, 0, 0.2)'
-                }}
-              >
-                <div style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '14px',
-                  background: activeSubjectTab === 'pyqs' ? 'rgba(167, 139, 250, 0.2)' : 'rgba(255, 255, 255, 0.06)',
-                  border: activeSubjectTab === 'pyqs' ? '1px solid rgba(167, 139, 250, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: activeSubjectTab === 'pyqs' ? '#a78bfa' : 'var(--color-muted)',
-                  marginBottom: '10px'
-                }}>
-                  <FileText size={22} />
-                </div>
-
-                <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#fff', margin: '0 0 2px 0' }}>
-                  Exam PYQs
-                </h4>
-                <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
-                  {pyqs.length} Solved Papers
-                </span>
-
-                <span style={{
-                  marginTop: '10px',
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  color: activeSubjectTab === 'pyqs' ? '#a78bfa' : 'var(--color-muted)',
-                  background: activeSubjectTab === 'pyqs' ? 'rgba(167, 139, 250, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                  padding: '3px 10px',
-                  borderRadius: '100px',
-                  border: activeSubjectTab === 'pyqs' ? '1px solid rgba(167, 139, 250, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)'
-                }}>
-                  {activeSubjectTab === 'pyqs' ? '▲ Close Card' : '▼ Open PYQs'}
-                </span>
-              </div>
-            </div>
-
-            {/* Inner Content Container inside Card Box */}
-            {activeSubjectTab === 'notes' && (
-              <div className="glass-card fade-in" style={{
-                padding: '20px',
+              {/* Dedicated Card View Banner */}
+              <div className="glass-card" style={{
+                padding: '24px',
                 borderRadius: '20px',
-                border: '1px solid rgba(96, 165, 250, 0.3)',
-                background: 'rgba(14, 23, 51, 0.95)',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)',
-                marginBottom: '24px'
+                border: selectedCategory === 'notes' ? '1px solid rgba(96, 165, 250, 0.35)' : '1px solid rgba(167, 139, 250, 0.35)',
+                background: selectedCategory === 'notes' 
+                  ? 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.25) 0%, rgba(10, 17, 43, 0.95) 100%)'
+                  : 'radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.25) 0%, rgba(10, 17, 43, 0.95) 100%)',
+                marginBottom: '28px',
+                textAlign: 'left',
+                boxShadow: '0 12px 30px rgba(0, 0, 0, 0.4)'
               }}>
-                <div style={{ textAlign: 'left', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '16px',
+                    background: selectedCategory === 'notes' ? 'rgba(96, 165, 250, 0.2)' : 'rgba(167, 139, 250, 0.2)',
+                    border: selectedCategory === 'notes' ? '1px solid rgba(96, 165, 250, 0.4)' : '1px solid rgba(167, 139, 250, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: selectedCategory === 'notes' ? '#60a5fa' : '#a78bfa',
+                    flexShrink: 0
+                  }}>
+                    {selectedCategory === 'notes' ? <BookOpen size={26} /> : <FileText size={26} />}
+                  </div>
                   <div>
-                    <h3 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }} className="blue-accent">
-                      📖 Study Notes for {selectedSubject}
-                    </h3>
-                    <p style={{ color: 'var(--color-muted)', fontSize: '12px', margin: '2px 0 0 0' }}>
-                      Choose specific unit notes to read or unlock.
+                    <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {selectedSubject} • {selectedCategory === 'notes' ? 'Study Notes' : 'Exam PYQs'}
+                    </span>
+                    <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', margin: '2px 0 4px 0' }}>
+                      {selectedCategory === 'notes' ? `${selectedSubject} - Unit Study Notes` : `${selectedSubject} - Previous Year Papers (PYQs)`}
+                    </h2>
+                    <p style={{ fontSize: '12px', color: 'var(--color-muted)', margin: 0 }}>
+                      {selectedCategory === 'notes' 
+                        ? 'Comprehensive unit-wise notes covering syllabus concepts, diagrams, and exam preparation.' 
+                        : 'Official past engineering exam question papers with step-by-step verified solutions.'}
                     </p>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#60a5fa', background: 'rgba(96, 165, 250, 0.15)', padding: '3px 10px', borderRadius: '12px' }}>
-                    {studyNotes.length} Files
-                  </span>
                 </div>
+              </div>
 
-                {studyNotes.length > 0 ? (
-                  <div className="notes-grid">
+              {/* Grid of Files Inside Card View */}
+              {selectedCategory === 'notes' ? (
+                studyNotes.length > 0 ? (
+                  <div className="notes-grid" style={{ marginBottom: '40px' }}>
                     {studyNotes.map(note => (
                       <NoteCard 
                         key={note.id}
@@ -733,40 +661,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <div className="empty-state" style={{ padding: '24px 16px', textAlign: 'center' }}>
-                    <Sparkles size={24} className="yellow-accent" style={{ marginBottom: '8px' }} />
-                    <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#fff' }}>Study Notes Launching Soon</h4>
-                    <p style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Notes for {selectedSubject} are currently being compiled.</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeSubjectTab === 'pyqs' && (
-              <div className="glass-card fade-in" style={{
-                padding: '20px',
-                borderRadius: '20px',
-                border: '1px solid rgba(167, 139, 250, 0.3)',
-                background: 'rgba(20, 15, 45, 0.95)',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)',
-                marginBottom: '24px'
-              }}>
-                <div style={{ textAlign: 'left', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <h3 style={{ fontSize: '16px', fontWeight: '700', margin: 0, color: '#a78bfa' }}>
-                      📝 Previous Year Questions (PYQs)
-                    </h3>
-                    <p style={{ color: 'var(--color-muted)', fontSize: '12px', margin: '2px 0 0 0' }}>
-                      Official past exam papers with step-by-step solutions.
+                  <div className="empty-state glass-card" style={{ padding: '40px 20px', textAlign: 'center', borderRadius: '20px', marginBottom: '40px' }}>
+                    <Sparkles size={28} className="yellow-accent" style={{ marginBottom: '12px' }} />
+                    <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>Unit Study Notes Launching Soon</h4>
+                    <p style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '400px', margin: '0 auto' }}>
+                      Our academic team is finalizing high-yield Unit Study Notes for <strong>{selectedSubject}</strong>. Check back shortly!
                     </p>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#a78bfa', background: 'rgba(167, 139, 250, 0.15)', padding: '3px 10px', borderRadius: '12px' }}>
-                    {pyqs.length} PYQs
-                  </span>
-                </div>
-
-                {pyqs.length > 0 ? (
-                  <div className="notes-grid">
+                )
+              ) : (
+                pyqs.length > 0 ? (
+                  <div className="notes-grid" style={{ marginBottom: '40px' }}>
                     {pyqs.map(note => (
                       <NoteCard 
                         key={note.id}
@@ -781,35 +686,172 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <div className="empty-state" style={{ padding: '24px 16px', textAlign: 'center' }}>
-                    <Clock size={24} className="blue-accent" style={{ marginBottom: '8px' }} />
-                    <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#fff' }}>PYQs Launching Soon</h4>
-                    <p style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Solved papers for {selectedSubject} are being prepared.</p>
+                  <div className="empty-state glass-card" style={{ padding: '40px 20px', textAlign: 'center', borderRadius: '20px', marginBottom: '40px' }}>
+                    <Clock size={28} className="blue-accent" style={{ marginBottom: '12px' }} />
+                    <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>Exam PYQs Launching Soon</h4>
+                    <p style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '400px', margin: '0 auto' }}>
+                      Solved past exam papers for <strong>{selectedSubject}</strong> are being verified & digitized. Check back soon!
+                    </p>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                )
+              )}
+            </div>
+          ) : (
+            /* LEVEL 2: Subject Portal View (2 Square Cards + YouTube Playlists) */
+            <>
+              {/* 2 Square Cards in 1 Row */}
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr', 
+                gap: '14px', 
+                margin: '24px 0 32px' 
+              }}>
+                {/* Square Card 1: Study Notes */}
+                <div 
+                  className="glass-card fade-in"
+                  onClick={() => {
+                    setSelectedCategory('notes');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  style={{
+                    padding: '24px 16px',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(96, 165, 250, 0.25)',
+                    background: 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.18) 0%, rgba(10, 17, 43, 0.85) 100%)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3)'
+                  }}
+                >
+                  <div style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '16px',
+                    background: 'rgba(96, 165, 250, 0.15)',
+                    border: '1px solid rgba(96, 165, 250, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#60a5fa',
+                    marginBottom: '12px',
+                    boxShadow: '0 0 20px rgba(96, 165, 250, 0.2)'
+                  }}>
+                    <BookOpen size={24} />
+                  </div>
 
-          {/* YouTube Video Solutions / Playlists Section (Directly Below Notes & PYQ Cards) */}
-          {filteredPlaylists.length > 0 && (
-            <section style={{ marginTop: '36px', paddingTop: '24px', borderTop: '1px solid var(--glass-border)' }}>
-              <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }} className="yellow-accent">
-                  <Video size={20} className="yellow-accent" />
-                  {selectedSubject} - Video Lectures & YouTube Playlists
-                </h3>
-                <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '20px' }}>
-                  Learn complex topics step-by-step through synced YouTube course playlists.
-                </p>
+                  <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#fff', margin: '0 0 4px 0' }}>
+                    Study Notes
+                  </h4>
+                  <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                    {studyNotes.length} Unit Files
+                  </span>
+
+                  <span style={{
+                    marginTop: '14px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    color: '#60a5fa',
+                    background: 'rgba(96, 165, 250, 0.15)',
+                    padding: '4px 14px',
+                    borderRadius: '100px',
+                    border: '1px solid rgba(96, 165, 250, 0.3)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    Open Card <ArrowRight size={12} />
+                  </span>
+                </div>
+
+                {/* Square Card 2: Exam PYQs */}
+                <div 
+                  className="glass-card fade-in"
+                  onClick={() => {
+                    setSelectedCategory('pyqs');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  style={{
+                    padding: '24px 16px',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(167, 139, 250, 0.25)',
+                    background: 'radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.18) 0%, rgba(10, 17, 43, 0.85) 100%)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3)'
+                  }}
+                >
+                  <div style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '16px',
+                    background: 'rgba(167, 139, 250, 0.15)',
+                    border: '1px solid rgba(167, 139, 250, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#a78bfa',
+                    marginBottom: '12px',
+                    boxShadow: '0 0 20px rgba(167, 139, 250, 0.2)'
+                  }}>
+                    <FileText size={24} />
+                  </div>
+
+                  <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#fff', margin: '0 0 4px 0' }}>
+                    Exam PYQs
+                  </h4>
+                  <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                    {pyqs.length} Solved Papers
+                  </span>
+
+                  <span style={{
+                    marginTop: '14px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    color: '#a78bfa',
+                    background: 'rgba(167, 139, 250, 0.15)',
+                    padding: '4px 14px',
+                    borderRadius: '100px',
+                    border: '1px solid rgba(167, 139, 250, 0.3)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    Open Card <ArrowRight size={12} />
+                  </span>
+                </div>
               </div>
-              
-              <div className="video-grid">
-                {filteredPlaylists.map((p) => (
-                  <VideoCard key={p.id} playlist={p} />
-                ))}
-              </div>
-            </section>
+
+              {/* YouTube Video Solutions / Playlists Section (Directly Below the 2 Square Cards) */}
+              {filteredPlaylists.length > 0 && (
+                <section style={{ marginTop: '36px', paddingTop: '24px', borderTop: '1px solid var(--glass-border)' }}>
+                  <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                    <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-heading)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }} className="yellow-accent">
+                      <Video size={20} className="yellow-accent" />
+                      {selectedSubject} - Video Lectures & YouTube Playlists
+                    </h3>
+                    <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '20px' }}>
+                      Learn complex topics step-by-step through synced YouTube course playlists.
+                    </p>
+                  </div>
+                  
+                  <div className="video-grid">
+                    {filteredPlaylists.map((p) => (
+                      <VideoCard key={p.id} playlist={p} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
           )}
         </div>
       ) : (
