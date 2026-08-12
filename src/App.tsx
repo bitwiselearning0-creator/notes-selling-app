@@ -347,7 +347,8 @@ function App() {
     }
 
     setReadingNote(note);
-    const unlocked = await dbService.checkNoteAccess(note.id);
+    const isFromLibrary = currentPage === 'library';
+    const unlocked = isFromLibrary || (await dbService.checkNoteAccess(note.id));
     setReadingNoteUnlocked(unlocked || note.price === 0);
     setCurrentPage('viewer');
 
