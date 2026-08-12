@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, FolderOpen, ChevronRight, Loader2, ArrowRight, ChevronDown, ChevronUp, FileText, Clock } from 'lucide-react';
+import { BookOpen, FolderOpen, ChevronRight, Loader2, ArrowRight, ChevronDown, ChevronUp, Key, Sparkles, FileText, Clock } from 'lucide-react';
 import { dbService } from '../lib/supabase';
 import type { Note, UserProfile, Bundle } from '../lib/supabase';
 
@@ -19,30 +19,27 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
 
   const fetchLibraryData = async () => {
     if (!user) return;
-    if (allNotes.length === 0 && libraryNotes.length === 0) {
-      setLoading(true);
-    }
+    setLoading(true);
     try {
-      const [allNotesRes, notesRes, bundlesRes, purchaseState] = await Promise.all([
-        dbService.getNotes(),
-        dbService.getPurchasedNotes(),
-        dbService.getPurchasedBundles(),
-        dbService.getAllUserPurchasesState()
-      ]);
+      const allNotesRes = await dbService.getNotes();
+      setAllNotes(allNotesRes.data || []);
 
-      const fullCatalog = allNotesRes.data || [];
-      setAllNotes(fullCatalog);
-
-      // Guarantee 100% unlocked notes are populated in state
-      const purchasedSet = new Set<string>([
-        ...(notesRes.data || []).map(n => n.id),
-        ...purchaseState.purchasedNoteIds
-      ]);
-
-      const unlockedNotesList = fullCatalog.filter(n => purchasedSet.has(n.id));
-      setLibraryNotes(unlockedNotesList.length > 0 ? unlockedNotesList : (notesRes.data || []));
+      const notesRes = await dbService.getPurchasedNotes();
+      const bundlesRes = await dbService.getPurchasedBundles();
+      
+      const activeNotes = notesRes.data || [];
+      setLibraryNotes(activeNotes);
       setLibraryBundles(bundlesRes.data || []);
-      setNotesDetails(purchaseState.noteDetailsMap);
+
+      // Load specific license details for each note
+      const detailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
+      for (const note of activeNotes) {
+        const details = await dbService.getPurchaseDetails(note.id);
+        if (details.purchased) {
+          detailsMap[note.id] = { expiresAt: details.expiresAt, daysLeft: details.daysLeft };
+        }
+      }
+      setNotesDetails(detailsMap);
     } catch (err) {
       console.error('Error fetching library notes:', err);
     } finally {
@@ -57,255 +54,301 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
   if (!user) {
     return (
       <div className="container section-padding fade-in" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <div className="glass-card" style={{ textAlign: 'center', padding: '40px 28px', maxWidth: '360px', borderRadius: '20px' }}>
-          <FolderOpen size={36} style={{ color: 'var(--color-muted)', marginBottom: '16px' }} />
-          <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>Sign in to continue</h3>
-          <p style={{ color: 'var(--color-muted)', fontSize: '13px', margin: '0 0 20px' }}>
-            Your purchased notes will appear here.
+        <div className="auth-card glass-card" style={{ textAlign: 'center', padding: '36px 28px', maxWidth: '420px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'var(--color-yellow)' }}>
+            <Key size={32} />
+          </div>
+          <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '8px' }}>Locker Access Required</h3>
+          <p style={{ color: 'var(--color-muted)', fontSize: '13px', margin: '0 0 24px', lineHeight: 1.5 }}>
+            Please sign in to access your personal study locker and view your unlocked notes & combo packs.
           </p>
           <button className="btn-primary" onClick={() => navigate('auth')} style={{ width: '100%', padding: '12px', borderRadius: '12px', fontSize: '14px', fontWeight: '700' }}>
-            Sign In
+            Sign In Now <ArrowRight size={16} style={{ marginLeft: '6px' }} />
           </button>
         </div>
       </div>
     );
   }
 
-  // Show ALL purchased & unlocked notes directly in Notes & PYQ sections
-  const studyNotes = libraryNotes.filter(n => n.type !== 'pyqs');
-  const pyqs = libraryNotes.filter(n => n.type === 'pyqs');
+  // Filter notes that are purchased INDIVIDUALLY (not unlocked via a bundle)
+  const individualPurchasedNotes = libraryNotes.filter(note => {
+    const unlockedViaBundle = libraryBundles.some(({ bundle }) => bundle.notesIds.includes(note.id));
+    return !unlockedViaBundle;
+  });
 
-  // Validity badge helper
-  const ValidityBadge = ({ daysLeft }: { daysLeft: number | null }) => (
-    <span style={{
-      fontSize: '11px',
-      fontWeight: '700',
-      color: daysLeft !== null && daysLeft <= 30 ? '#f87171' : '#4ade80',
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '4px',
-      whiteSpace: 'nowrap'
-    }}>
-      <Clock size={11} />
-      {daysLeft !== null ? (daysLeft > 365 ? '∞' : `${daysLeft}d`) : '180d'}
-    </span>
-  );
+  const studyNotes = individualPurchasedNotes.filter(n => n.type !== 'pyqs');
+  const pyqs = individualPurchasedNotes.filter(n => n.type === 'pyqs');
 
-  // Reusable note row component
-  const NoteRow = ({ note, icon, accentColor }: { note: Note; icon: React.ReactNode; accentColor: string }) => {
-    const details = notesDetails[note.id];
-    const daysLeft = details ? details.daysLeft : null;
-
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '14px',
-          padding: '14px 16px',
-          background: 'rgba(255, 255, 255, 0.025)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
-          borderRadius: '14px',
-          cursor: 'pointer',
-          transition: 'background 0.15s ease'
-        }}
-        onClick={() => onReadNote(note)}
-      >
-        <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '10px',
-          background: `${accentColor}15`,
-          border: `1px solid ${accentColor}30`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: accentColor,
-          flexShrink: 0
-        }}>
-          {icon}
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {note.title}
-          </h4>
-          <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>
-            {note.subject} · {note.pagesCount} pg
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-          <ValidityBadge daysLeft={daysLeft} />
-          <ChevronRight size={16} style={{ color: 'var(--color-muted)' }} />
-        </div>
-      </div>
-    );
-  };
-
-  // Section header helper
-  const SectionHeader = ({ title, count, color }: { title: string; count: number; color: string }) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-      <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'rgba(255,255,255,0.7)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-        {title}
-      </h3>
-      <span style={{ fontSize: '12px', fontWeight: '700', color, opacity: 0.8 }}>
-        {count}
-      </span>
-    </div>
-  );
-
-  const hasContent = libraryBundles.length > 0 || studyNotes.length > 0 || pyqs.length > 0;
+  // Total items unlocked calculation
+  let totalUnlockedNotesCount = individualPurchasedNotes.length;
+  libraryBundles.forEach(({ bundle }) => {
+    totalUnlockedNotesCount += (bundle.notesIds || []).length;
+  });
 
   return (
-    <div className="container section-padding fade-in" style={{ paddingBottom: '90px', maxWidth: '720px', margin: '0 auto' }}>
+    <div className="container section-padding fade-in" style={{ paddingBottom: '90px', maxWidth: '960px', margin: '0 auto' }}>
+      {/* Liquid Ambient Background */}
       <div className="liquid-bg">
         <div className="blob blob-1"></div>
         <div className="blob blob-2"></div>
       </div>
 
-      {/* Page Title — clean & minimal */}
-      <div style={{ marginBottom: '28px', textAlign: 'left' }}>
-        <h1 style={{ fontSize: '26px', fontWeight: '800', color: '#fff', margin: '0 0 4px', letterSpacing: '-0.03em' }}>
-          My Library
-        </h1>
-        <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: 0 }}>
-          {hasContent
-            ? `${libraryBundles.length + studyNotes.length + pyqs.length} items purchased`
-            : 'Nothing here yet'
-          }
-        </p>
+      {/* Hero Welcome Banner */}
+      <div className="glass-card" style={{
+        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 41, 59, 0.65) 100%)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        borderRadius: '24px',
+        padding: '24px 28px',
+        marginBottom: '24px',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.4)'
+      }}>
+        {/* Glow decoration */}
+        <div style={{
+          position: 'absolute',
+          top: '-60px',
+          right: '-60px',
+          width: '160px',
+          height: '160px',
+          background: 'radial-gradient(circle, rgba(251, 191, 36, 0.15) 0%, transparent 70%)',
+          pointerEvents: 'none'
+        }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+          {/* Key Icon Badge */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(217, 119, 6, 0.08) 100%)',
+            width: '60px',
+            height: '60px',
+            borderRadius: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--color-yellow)',
+            border: '1px solid rgba(251, 191, 36, 0.35)',
+            flexShrink: 0,
+            boxShadow: '0 0 20px rgba(251, 191, 36, 0.15)'
+          }}>
+            <Key size={30} />
+          </div>
+
+          <div style={{ flex: '1 1 240px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--color-yellow)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                ✦ Personal Locker Room
+              </span>
+              <span style={{
+                background: 'rgba(34, 197, 94, 0.12)',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+                borderRadius: '100px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                color: '#4ade80',
+                fontWeight: '700'
+              }}>
+                SECURED ACCESS
+              </span>
+            </div>
+
+            <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
+              {user ? `${user.name.split(' ')[0]}'s` : 'My'} Unlocked Materials
+            </h2>
+            <p style={{ margin: '4px 0 0 0', color: 'var(--color-muted)', fontSize: '13px', lineHeight: 1.4 }}>
+              Instant offline reading access for all your purchased semester packages and subject notes.
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Stats Summary Strip */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+          gap: '12px',
+          marginTop: '20px',
+          paddingTop: '20px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+        }}>
+          <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', padding: '10px 14px', border: '1px solid rgba(255, 255, 255, 0.05)', textAlign: 'left' }}>
+            <div style={{ fontSize: '10px', color: 'var(--color-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Combo Packs</div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-yellow)', marginTop: '2px' }}>{libraryBundles.length}</div>
+          </div>
+
+          <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', padding: '10px 14px', border: '1px solid rgba(255, 255, 255, 0.05)', textAlign: 'left' }}>
+            <div style={{ fontSize: '10px', color: 'var(--color-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Subject Notes</div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#60a5fa', marginTop: '2px' }}>{studyNotes.length}</div>
+          </div>
+
+          <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', padding: '10px 14px', border: '1px solid rgba(255, 255, 255, 0.05)', textAlign: 'left' }}>
+            <div style={{ fontSize: '10px', color: 'var(--color-muted)', fontWeight: '700', textTransform: 'uppercase' }}>PYQ Papers</div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#a78bfa', marginTop: '2px' }}>{pyqs.length}</div>
+          </div>
+
+          <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', padding: '10px 14px', border: '1px solid rgba(255, 255, 255, 0.05)', textAlign: 'left' }}>
+            <div style={{ fontSize: '10px', color: 'var(--color-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Total Unlocked</div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#4ade80', marginTop: '2px' }}>{totalUnlockedNotesCount} Files</div>
+          </div>
+        </div>
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0', gap: '10px', alignItems: 'center', color: 'var(--color-muted)' }}>
-          <Loader2 className="animate-spin" size={22} color="var(--color-yellow)" />
-          <span style={{ fontSize: '13px' }}>Loading...</span>
-        </div>
-      ) : !hasContent ? (
-        /* Empty state — clean */
-        <div className="glass-card" style={{ padding: '48px 24px', borderRadius: '20px', textAlign: 'center' }}>
-          <FolderOpen size={40} style={{ color: 'var(--color-muted)', marginBottom: '16px' }} />
-          <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>No purchases yet</h3>
-          <p style={{ color: 'var(--color-muted)', fontSize: '13px', margin: '0 0 24px', lineHeight: 1.5 }}>
-            Your unlocked notes and combo packs will show up here after purchase.
-          </p>
-          <button className="btn-primary" onClick={() => navigate('dashboard')} style={{ padding: '12px 28px', borderRadius: '12px', fontSize: '14px', fontWeight: '700' }}>
-            Browse Catalog <ArrowRight size={16} style={{ marginLeft: '4px' }} />
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0', gap: '12px', alignItems: 'center', color: 'var(--color-muted)' }}>
+          <Loader2 className="animate-spin" size={24} color="var(--color-yellow)" />
+          <span style={{ fontSize: '14px', fontWeight: '600' }}>Unlocking study locker room...</span>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
-          {/* Combo Packs */}
+          {/* Section 1: Semester Combo Packs */}
           {libraryBundles.length > 0 && (
-            <div>
-              <SectionHeader title="Combo Packs" count={libraryBundles.length} color="var(--color-yellow)" />
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ background: 'rgba(251, 191, 36, 0.12)', padding: '8px', borderRadius: '10px', color: 'var(--color-yellow)' }}>
+                    <FolderOpen size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#fff', margin: 0, letterSpacing: '-0.01em' }}>
+                      Unlocked Semester Combo Packs
+                    </h3>
+                    <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                      Full semester bundles including all subject notes
+                    </span>
+                  </div>
+                </div>
+                <span style={{ background: 'rgba(251, 191, 36, 0.1)', color: 'var(--color-yellow)', border: '1px solid rgba(251, 191, 36, 0.25)', padding: '3px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+                  {libraryBundles.length} PACKS
+                </span>
+              </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {libraryBundles.map(({ bundle, daysLeft }) => {
                   const isExpanded = expandedBundleId === bundle.id;
 
                   return (
-                    <div
-                      key={bundle.id}
-                      className="glass-card"
-                      style={{
-                        borderRadius: '16px',
-                        border: '1px solid rgba(251, 191, 36, 0.15)',
-                        overflow: 'hidden'
+                    <div 
+                      key={bundle.id} 
+                      className="glass-card" 
+                      style={{ 
+                        padding: '20px', 
+                        borderRadius: '20px', 
+                        border: '1px solid rgba(251, 191, 36, 0.25)', 
+                        background: 'linear-gradient(145deg, rgba(20, 30, 60, 0.7), rgba(10, 16, 38, 0.9))',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                        transition: 'all 0.2s ease'
                       }}
                     >
-                      {/* Bundle header — tappable */}
-                      <div
-                        style={{
-                          padding: '16px 18px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '14px',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => setExpandedBundleId(isExpanded ? null : bundle.id)}
-                      >
-                        <div style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: '12px',
-                          background: 'rgba(251,191,36,0.12)',
-                          border: '1px solid rgba(251,191,36,0.25)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'var(--color-yellow)',
-                          flexShrink: 0
-                        }}>
-                          <FolderOpen size={20} />
-                        </div>
-
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#fff', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {bundle.title}
-                          </h4>
-                          <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>
-                            {bundle.notesIds.length} subjects · Sem {bundle.semester}
-                          </span>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            color: daysLeft <= 30 ? '#f87171' : '#4ade80',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: '1 1 300px' }}>
+                          <div style={{ 
+                            background: 'linear-gradient(135deg, rgba(251,191,36,0.2) 0%, rgba(245,158,11,0.05) 100%)', 
+                            width: '48px', 
+                            height: '48px', 
+                            borderRadius: '14px', 
+                            border: '1px solid rgba(251,191,36,0.3)',
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            color: 'var(--color-yellow)', 
+                            flexShrink: 0 
                           }}>
-                            <Clock size={11} />
-                            {daysLeft > 365 ? '∞' : `${daysLeft}d`}
-                          </span>
-                          {isExpanded ? <ChevronUp size={16} style={{ color: 'var(--color-muted)' }} /> : <ChevronDown size={16} style={{ color: 'var(--color-muted)' }} />}
+                            <FolderOpen size={22} />
+                          </div>
+                          
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '10px', fontWeight: '800', background: 'rgba(251,191,36,0.12)', color: 'var(--color-yellow)', padding: '2px 8px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                                Sem {bundle.semester} • {bundle.year}
+                              </span>
+                              <span style={{ fontSize: '11px', color: '#4ade80', fontWeight: '700' }}>
+                                ✓ Unlocked
+                              </span>
+                            </div>
+                            <h4 style={{ fontSize: '16px', marginTop: '4px', color: '#fff', fontWeight: '800', margin: '4px 0 2px' }}>
+                              {bundle.title}
+                            </h4>
+                            <p style={{ fontSize: '12px', color: 'var(--color-muted)', margin: 0 }}>
+                              Includes {bundle.notesIds.length} complete subject note files
+                            </p>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto', flexWrap: 'wrap' }}>
+                          <div style={{ textAlign: 'right', fontSize: '12px' }}>
+                            <div style={{ color: 'var(--color-muted)', fontSize: '10px', textTransform: 'uppercase', fontWeight: '700' }}>Validity</div>
+                            <div style={{ color: 'var(--color-yellow)', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Clock size={12} />
+                              {daysLeft > 365 ? 'Lifetime Admin' : `${daysLeft} Days Left`}
+                            </div>
+                          </div>
+
+                          <button 
+                            className="btn-primary" 
+                            style={{ 
+                              padding: '10px 18px', 
+                              borderRadius: '12px',
+                              fontSize: '13px',
+                              fontWeight: '700',
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '6px',
+                              boxShadow: '0 4px 15px rgba(251, 191, 36, 0.25)'
+                            }} 
+                            onClick={() => setExpandedBundleId(isExpanded ? null : bundle.id)}
+                          >
+                            {isExpanded ? (
+                              <>Hide Folder <ChevronUp size={16} /></>
+                            ) : (
+                              <>Explore Subjects <ChevronDown size={16} /></>
+                            )}
+                          </button>
                         </div>
                       </div>
 
-                      {/* Expanded subjects */}
+                      {/* Collapsible subjects drawer */}
                       {isExpanded && (
-                        <div className="fade-in" style={{
-                          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-                          padding: '12px 14px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '8px',
-                          background: 'rgba(0,0,0,0.15)'
-                        }}>
+                        <div className="fade-in" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--color-yellow)', fontWeight: '800', letterSpacing: '0.05em', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Sparkles size={13} /> Select Subject Note to Read:
+                          </div>
+
                           {bundle.notesIds.map(noteId => {
                             const noteItem = allNotes.find(n => n.id === noteId);
                             if (!noteItem) return null;
 
                             return (
-                              <div
-                                key={noteId}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '12px',
-                                  padding: '10px 12px',
-                                  background: 'rgba(255, 255, 255, 0.03)',
-                                  borderRadius: '10px',
-                                  cursor: 'pointer',
-                                  transition: 'background 0.15s ease'
+                              <div 
+                                key={noteId} 
+                                style={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'space-between', 
+                                  background: 'rgba(255, 255, 255, 0.03)', 
+                                  border: '1px solid rgba(255, 255, 255, 0.08)', 
+                                  borderRadius: '14px', 
+                                  padding: '12px 16px', 
+                                  gap: '12px', 
+                                  flexWrap: 'wrap',
+                                  transition: 'all 0.15s ease'
                                 }}
-                                onClick={() => onReadNote(noteItem)}
                               >
-                                <BookOpen size={16} style={{ color: '#60a5fa', flexShrink: 0 }} />
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <span style={{ fontSize: '13px', color: '#fff', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                                    {noteItem.title}
-                                  </span>
-                                  <span style={{ fontSize: '10px', color: 'var(--color-muted)' }}>
-                                    {noteItem.pagesCount} pages
-                                  </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', flex: '1 1 200px' }}>
+                                  <div style={{ background: 'rgba(37,99,235,0.15)', padding: '8px', borderRadius: '10px', color: '#60a5fa', flexShrink: 0 }}>
+                                    <BookOpen size={18} />
+                                  </div>
+                                  <div>
+                                    <h5 style={{ fontSize: '14px', color: '#fff', fontWeight: '700', margin: 0 }}>{noteItem.title}</h5>
+                                    <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>{noteItem.subject} • {noteItem.pagesCount} Pages</span>
+                                  </div>
                                 </div>
-                                <ChevronRight size={14} style={{ color: 'var(--color-muted)', flexShrink: 0 }} />
+
+                                <button 
+                                  className="btn-secondary" 
+                                  style={{ padding: '8px 16px', fontSize: '12px', fontWeight: '700', borderRadius: '10px' }} 
+                                  onClick={() => onReadNote(noteItem)}
+                                >
+                                  Open PDF Reader <ChevronRight size={14} style={{ marginLeft: '4px' }} />
+                                </button>
                               </div>
                             );
                           })}
@@ -318,27 +361,215 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
             </div>
           )}
 
-          {/* Subject Notes */}
-          {studyNotes.length > 0 && (
-            <div>
-              <SectionHeader title="Notes" count={studyNotes.length} color="#60a5fa" />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {studyNotes.map(note => (
-                  <NoteRow key={note.id} note={note} icon={<BookOpen size={18} />} accentColor="#60a5fa" />
-                ))}
+          {/* Section 2: Unlocked Subject Notes */}
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ background: 'rgba(37, 99, 235, 0.12)', padding: '8px', borderRadius: '10px', color: '#60a5fa' }}>
+                  <BookOpen size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#fff', margin: 0, letterSpacing: '-0.01em' }}>
+                    Unlocked Subject Notes
+                  </h3>
+                  <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                    Individual full syllabus units and study guides
+                  </span>
+                </div>
               </div>
+              <span style={{ background: 'rgba(37, 99, 235, 0.1)', color: '#60a5fa', border: '1px solid rgba(37, 99, 235, 0.25)', padding: '3px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+                {studyNotes.length} NOTES
+              </span>
             </div>
-          )}
+            
+            {studyNotes.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {studyNotes.map(note => {
+                  const details = notesDetails[note.id];
+                  const daysLeft = details ? details.daysLeft : null;
 
-          {/* PYQs */}
-          {pyqs.length > 0 && (
-            <div>
-              <SectionHeader title="Previous Year Papers" count={pyqs.length} color="#a78bfa" />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {pyqs.map(note => (
-                  <NoteRow key={note.id} note={note} icon={<FileText size={18} />} accentColor="#a78bfa" />
-                ))}
+                  return (
+                    <div 
+                      key={note.id} 
+                      className="glass-card" 
+                      style={{ 
+                        padding: '18px 22px', 
+                        borderRadius: '18px', 
+                        border: '1px solid rgba(59, 130, 246, 0.2)', 
+                        background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.7), rgba(10, 16, 38, 0.85))',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        flexWrap: 'wrap', 
+                        gap: '16px',
+                        boxShadow: '0 6px 20px rgba(0,0,0,0.25)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: '1 1 280px' }}>
+                        <div style={{ background: 'linear-gradient(135deg, rgba(37,99,235,0.2) 0%, rgba(29,78,216,0.05) 100%)', width: '44px', height: '44px', borderRadius: '12px', border: '1px solid rgba(37,99,235,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60a5fa', flexShrink: 0 }}>
+                          <BookOpen size={20} />
+                        </div>
+
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '10px', fontWeight: '800', background: 'rgba(37,99,235,0.12)', color: '#60a5fa', padding: '2px 7px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                              Sem {note.semester} • {note.year}
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#4ade80', fontWeight: '700' }}>
+                              ✓ Unlocked
+                            </span>
+                          </div>
+                          <h4 style={{ fontSize: '15px', color: '#fff', fontWeight: '800', margin: '4px 0 2px' }}>{note.title}</h4>
+                          <p style={{ fontSize: '12px', color: 'var(--color-muted)', margin: 0 }}>
+                            Subject: <strong style={{ color: 'var(--color-white)' }}>{note.subject}</strong> • {note.pagesCount} Pages
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto', flexWrap: 'wrap' }}>
+                        <div style={{ textAlign: 'right', fontSize: '12px' }}>
+                          <div style={{ color: 'var(--color-muted)', fontSize: '10px', textTransform: 'uppercase', fontWeight: '700' }}>Validity</div>
+                          <div style={{ color: 'var(--color-yellow)', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Clock size={12} />
+                            {daysLeft !== null ? (
+                              daysLeft > 365 ? 'Lifetime Admin' : `${daysLeft} Days Left`
+                            ) : '6 Months'}
+                          </div>
+                        </div>
+
+                        <button 
+                          className="btn-primary" 
+                          style={{ padding: '10px 20px', borderRadius: '12px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 15px rgba(37,99,235,0.25)' }} 
+                          onClick={() => onReadNote(note)}
+                        >
+                          Open PDF Reader <ChevronRight size={16} style={{ marginLeft: '4px' }} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            ) : (
+              <div className="empty-state glass-card" style={{ padding: '24px 20px', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.01)', textAlign: 'center' }}>
+                <span style={{ fontSize: '13px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                  No individual subject study notes unlocked yet.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: Exam PYQs Section */}
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ background: 'rgba(167, 139, 250, 0.12)', padding: '8px', borderRadius: '10px', color: '#a78bfa' }}>
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#fff', margin: 0, letterSpacing: '-0.01em' }}>
+                    Unlocked Previous Year Questions (PYQs)
+                  </h3>
+                  <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                    AKTU solved question papers and exam solutions
+                  </span>
+                </div>
+              </div>
+              <span style={{ background: 'rgba(167, 139, 250, 0.1)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.25)', padding: '3px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+                {pyqs.length} PAPERS
+              </span>
+            </div>
+            
+            {pyqs.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {pyqs.map(note => {
+                  const details = notesDetails[note.id];
+                  const daysLeft = details ? details.daysLeft : null;
+
+                  return (
+                    <div 
+                      key={note.id} 
+                      className="glass-card" 
+                      style={{ 
+                        padding: '18px 22px', 
+                        borderRadius: '18px', 
+                        border: '1px solid rgba(167, 139, 250, 0.25)', 
+                        background: 'linear-gradient(145deg, rgba(25, 20, 50, 0.7), rgba(10, 16, 38, 0.85))',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        flexWrap: 'wrap', 
+                        gap: '16px',
+                        boxShadow: '0 6px 20px rgba(0,0,0,0.25)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: '1 1 280px' }}>
+                        <div style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.2) 0%, rgba(139,92,246,0.05) 100%)', width: '44px', height: '44px', borderRadius: '12px', border: '1px solid rgba(167,139,250,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a78bfa', flexShrink: 0 }}>
+                          <FileText size={20} />
+                        </div>
+
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '10px', fontWeight: '800', background: 'rgba(167,139,250,0.12)', color: '#a78bfa', padding: '2px 7px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                              PYQ Solved • Sem {note.semester}
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#4ade80', fontWeight: '700' }}>
+                              ✓ Unlocked
+                            </span>
+                          </div>
+                          <h4 style={{ fontSize: '15px', color: '#fff', fontWeight: '800', margin: '4px 0 2px' }}>{note.title}</h4>
+                          <p style={{ fontSize: '12px', color: 'var(--color-muted)', margin: 0 }}>
+                            Subject: <strong style={{ color: 'var(--color-white)' }}>{note.subject}</strong> • {note.pagesCount} Pages
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto', flexWrap: 'wrap' }}>
+                        <div style={{ textAlign: 'right', fontSize: '12px' }}>
+                          <div style={{ color: 'var(--color-muted)', fontSize: '10px', textTransform: 'uppercase', fontWeight: '700' }}>Validity</div>
+                          <div style={{ color: 'var(--color-yellow)', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Clock size={12} />
+                            {daysLeft !== null ? (
+                              daysLeft > 365 ? 'Lifetime Admin' : `${daysLeft} Days Left`
+                            ) : '6 Months'}
+                          </div>
+                        </div>
+
+                        <button 
+                          className="btn-primary" 
+                          style={{ padding: '10px 20px', borderRadius: '12px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 15px rgba(167,139,250,0.25)' }} 
+                          onClick={() => onReadNote(note)}
+                        >
+                          Open PDF Reader <ChevronRight size={16} style={{ marginLeft: '4px' }} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="empty-state glass-card" style={{ padding: '24px 20px', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.01)', textAlign: 'center' }}>
+                <span style={{ fontSize: '13px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                  No exam PYQ papers unlocked yet.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Empty Locker State when 0 items unlocked */}
+          {libraryBundles.length === 0 && studyNotes.length === 0 && pyqs.length === 0 && (
+            <div className="empty-state glass-card" style={{ maxWidth: '520px', margin: '20px auto 0 auto', padding: '40px 24px', borderRadius: '24px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#60a5fa' }}>
+                <FolderOpen size={30} />
+              </div>
+              <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '8px' }}>
+                Your Study Locker is Empty
+              </h3>
+              <p style={{ color: 'var(--color-muted)', fontSize: '13px', margin: '0 0 24px', lineHeight: 1.5 }}>
+                You haven't unlocked any engineering study guides or combo packs yet. Browse our catalog to get started.
+              </p>
+              <button className="btn-primary" onClick={() => navigate('dashboard')} style={{ margin: '0 auto', padding: '12px 28px', borderRadius: '12px', fontSize: '14px', fontWeight: '700' }}>
+                Browse Notes Catalog <ArrowRight size={16} style={{ marginLeft: '6px' }} />
+              </button>
             </div>
           )}
 
