@@ -2540,10 +2540,54 @@ body.app-mode .form-toggle-link span {
 /* Respect user accessibility settings */
 @media (prefers-reduced-motion: reduce) {
   .page-transition-enter,
-  .page-transition-back {
+  .page-transition-back,
+  .tab-transition-right,
+  .tab-transition-left {
     animation: none !important;
     transition: opacity 0.15s linear !important;
   }
+}
+
+/* ==========================================================================
+   Horizontal Tab Slide Transitions (Catalog ↔ Library ↔ Profile)
+   ========================================================================== */
+
+/* Slide Right (Enter from Right when moving to a higher tab) */
+@keyframes tabSlideRightEnter {
+  0% {
+    opacity: 0.2;
+    transform: translate3d(60px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Slide Left (Enter from Left when moving to a lower tab or back) */
+@keyframes tabSlideLeftEnter {
+  0% {
+    opacity: 0.2;
+    transform: translate3d(-60px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.tab-transition-right {
+  will-change: transform, opacity;
+  animation: tabSlideRightEnter 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  backface-visibility: hidden;
+  width: 100%;
+}
+
+.tab-transition-left {
+  will-change: transform, opacity;
+  animation: tabSlideLeftEnter 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  backface-visibility: hidden;
+  width: 100%;
 }
 
 

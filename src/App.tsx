@@ -296,9 +296,28 @@ function App() {
     return () => clearInterval(interval);
   }, [currentUser]);
 
-  // Custom navigate wrapper to sync hash and views synchronously
+  const [tabSlideDir, setTabSlideDir] = useState<'right' | 'left'>('right');
+
+  const getTabRank = (page: string) => {
+    if (page === 'dashboard' || page === 'landing') return 0;
+    if (page === 'library') return 1;
+    if (page === 'profile' || page === 'auth') return 2;
+    if (page === 'admin') return 3;
+    return 0;
+  };
+
+  // Custom navigate wrapper to sync hash and views synchronously with horizontal slide direction
   const navigate = (page: string) => {
+    const currentRank = getTabRank(currentPage);
+    const nextRank = getTabRank(page);
+    if (nextRank >= currentRank) {
+      setTabSlideDir('right');
+    } else {
+      setTabSlideDir('left');
+    }
+    setPreviousPage(currentPage);
     setCurrentPage(page);
+
     if (page === 'landing') {
       window.location.hash = '#home';
     } else if (page === 'dashboard') {
@@ -314,6 +333,7 @@ function App() {
     } else if (page === 'profile') {
       window.location.hash = '#profile';
     }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleLoginSuccess = (user: UserProfile) => {
@@ -328,7 +348,8 @@ function App() {
   const handleLogout = async () => {
     await dbService.signOut();
     setCurrentUser(null);
-    window.location.hash = '#home';
+    setCurrentPage('dashboard');
+    window.location.hash = '#catalog';
   };
 
   // Navigates to PDF viewer securely checking if the notes are purchased
@@ -388,8 +409,7 @@ function App() {
 
   // Helper for rendering policies pages easily
   const handlePolicyNav = (type: 'terms' | 'refund' | 'privacy' | 'contact') => {
-    setCurrentPage(`policy-${type}`);
-    window.scrollTo(0, 0);
+    navigate(`policy-${type}`);
   };
 
   return (
@@ -454,80 +474,86 @@ function App() {
         />
       )}
 
-      {/* Main Pages Content Router */}
-      <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        {currentPage === 'landing' && (
-          <LandingPage 
-            navigate={navigate} 
-            setSelectedYear={setSelectedYear} 
-          />
-        )}
-        
-        {currentPage === 'dashboard' && (
-          <Dashboard 
-            user={currentUser}
-            selectedYear={selectedYear}
-            setSelectedYear={setSelectedYear}
-            onReadNote={handleReadNote}
-            navigate={navigate}
-            onRegisterBackHandler={(fn) => { childBackHandlerRef.current = fn; }}
-          />
-        )}
+      {/* Main Pages Content Router with Horizontal Tab Slide Animations */}
+      <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
+        <div 
+          key={currentPage} 
+          className={tabSlideDir === 'right' ? 'tab-transition-right' : 'tab-transition-left'}
+          style={{ width: '100%', flexGrow: 1, display: 'flex', flexDirection: 'column' }}
+        >
+          {currentPage === 'landing' && (
+            <LandingPage 
+              navigate={navigate} 
+              setSelectedYear={setSelectedYear} 
+            />
+          )}
+          
+          {currentPage === 'dashboard' && (
+            <Dashboard 
+              user={currentUser}
+              selectedYear={selectedYear}
+              setSelectedYear={setSelectedYear}
+              onReadNote={handleReadNote}
+              navigate={navigate}
+              onRegisterBackHandler={(fn) => { childBackHandlerRef.current = fn; }}
+            />
+          )}
 
-        {currentPage === 'auth' && (
-          <Auth 
-            onLoginSuccess={handleLoginSuccess} 
-            navigate={navigate} 
-          />
-        )}
+          {currentPage === 'auth' && (
+            <Auth 
+              onLoginSuccess={handleLoginSuccess} 
+              navigate={navigate} 
+            />
+          )}
 
-        {currentPage === 'library' && (
-          <MyLibrary 
-            user={currentUser}
-            onReadNote={handleReadNote}
-            navigate={navigate}
-          />
-        )}
+          {currentPage === 'library' && (
+            <MyLibrary 
+              user={currentUser}
+              onReadNote={handleReadNote}
+              navigate={navigate}
+            />
+          )}
 
-        {currentPage === 'admin-login' && (
-          <AdminLogin 
-            onLoginSuccess={handleLoginSuccess} 
-            navigate={navigate} 
-          />
-        )}
+          {currentPage === 'admin-login' && (
+            <AdminLogin 
+              onLoginSuccess={handleLoginSuccess} 
+              navigate={navigate} 
+            />
+          )}
 
-        {currentPage === 'admin' && (
-          <Admin 
-            user={currentUser} 
-            navigate={navigate} 
-          />
-        )}
+          {currentPage === 'admin' && (
+            <Admin 
+              user={currentUser} 
+              navigate={navigate} 
+            />
+          )}
 
-        {currentPage === 'profile' && (
-          <Profile 
-            user={currentUser} 
-            onLogout={handleLogout} 
-            navigate={navigate} 
-          />
-        )}
+          {currentPage === 'profile' && (
+            <Profile 
+              user={currentUser} 
+              onLogout={handleLogout} 
+              navigate={navigate} 
+            />
+          )}
 
-        {currentPage === 'viewer' && readingNote && (
-          <PDFViewer 
-            note={readingNote} 
-            isUnlocked={readingNoteUnlocked}
-            onBack={() => {
-              setReadingNote(null);
-              setCurrentPage(previousPage || 'dashboard');
-            }}
-            onUnlock={handleUnlockInViewer}
-          />
-        )}
+          {currentPage === 'viewer' && readingNote && (
+            <PDFViewer 
+              note={readingNote} 
+              isUnlocked={readingNoteUnlocked}
+              onBack={() => {
+                setReadingNote(null);
+                navigate(previousPage || 'dashboard');
+              }}
+              onUnlock={handleUnlockInViewer}
+            />
+          )}
 
-        {currentPage.startsWith('policy-') && (
-          <Policies 
-            policyType={currentPage.replace('policy-', '') as any} 
-          />
-        )}
+          {currentPage.startsWith('policy-') && (
+            <Policies 
+              policyType={currentPage.replace('policy-', '') as any} 
+            />
+          )}
+        </div>
 
         {/* App Mode Glowing Card Footer (Hidden in Profile or Viewer Mode) */}
         {isAppMode && currentPage !== 'viewer' && currentPage !== 'profile' && (
