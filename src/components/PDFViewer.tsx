@@ -16,7 +16,7 @@ const CanvasPage: React.FC<{
   rotation: number;
   zoom: number;
   isPinching?: boolean;
-}> = React.memo(({ pageNumber, pdfDoc, rotation, zoom, isPinching }) => {
+}> = React.memo(({ pageNumber, pdfDoc, rotation, zoom }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
@@ -111,7 +111,7 @@ const CanvasPage: React.FC<{
         width: `${targetWidth}px`,
         maxWidth: 'none',
         boxSizing: 'border-box',
-        transition: isPinching ? 'none' : 'width 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+        transition: 'none'
       }}
     >
       <canvas 
@@ -846,7 +846,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             transform: isPinching && pinchScale !== 1 ? `scale(${pinchScale})` : 'none',
             transformOrigin: pinchOrigin,
             willChange: isPinching ? 'transform' : 'auto',
-            transition: isPinching ? 'none' : 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+            transition: 'none',
             backfaceVisibility: 'hidden',
             WebkitBackfaceVisibility: 'hidden'
           }}>
