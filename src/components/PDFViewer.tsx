@@ -454,13 +454,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
   return (
     <div 
-      className="pdf-viewer-container fade-in" 
-      style={{ 
+      className="pdf-viewer-root"
+      style={{
         position: 'fixed',
         top: 0,
         left: 0,
+        right: 0,
+        bottom: 0,
         width: '100vw',
-        height: '100vh',
+        height: '100dvh',
         zIndex: 999999,
         background: '#060913',
         margin: 0,
@@ -813,10 +815,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         onScroll={handleScroll}
         onClick={toggleControls}
         style={{ 
-          width: '100vw', 
-          height: '100vh', 
-          padding: '70px 0 70px 0', 
-          overflowY: 'scroll', 
+          flex: 1,
+          width: '100%', 
+          height: '100%', 
+          padding: '75px 0 calc(24px + env(safe-area-inset-bottom, 0px)) 0', 
+          overflowY: 'auto', 
           overflowX: 'auto',
           WebkitOverflowScrolling: 'touch',
           touchAction: 'pan-x pan-y pinch-zoom',
@@ -825,7 +828,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           alignItems: zoom > 100 ? 'flex-start' : 'center', 
           justifyContent: 'flex-start',
           scrollBehavior: 'auto',
-          background: 'radial-gradient(circle at center, #0a1127 0%, #03060d 100%)'
+          background: '#060913',
+          boxSizing: 'border-box'
         }}
       >
         {/* Loading / Error States */}
