@@ -236,7 +236,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     setJumpPageInput(scrollPage.toString());
   }, [scrollPage]);
 
-  // 4. Ultra-Smooth GPU Hardware-Accelerated 60/120 FPS Pinch-to-Zoom & Pan Motion Engine
+  // 4. Clean GPU Hardware-Accelerated Pinch-to-Zoom Engine (Native 120fps 1-Finger Pan Scrolling)
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartZoomRef = useRef<number>(100);
   const touchStartScrollLeftRef = useRef<number>(0);
@@ -245,11 +245,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   const touchStartMidYRef = useRef<number>(0);
   const touchLastMidXRef = useRef<number>(0);
   const touchLastMidYRef = useRef<number>(0);
-  const panTouchStartRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
-
-  const targetScaleRef = useRef<number>(1);
-  const smoothedScaleRef = useRef<number>(1);
-  const rAFRef = useRef<number | null>(null);
+  const currentScaleRef = useRef<number>(1);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -257,7 +253,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
-        panTouchStartRef.current = null;
         const dist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
@@ -278,25 +273,16 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           touchStartScrollLeftRef.current = container.scrollLeft;
           touchStartScrollTopRef.current = container.scrollTop;
 
-          // CRITICAL: Transform origin in document space (adding scrollLeft & scrollTop)
-          // so GPU scales document anchored at exact finger location on current scrolled page
+          // Transform origin in document space (adding scrollLeft & scrollTop)
+          // so GPU scales document anchored at exact finger coordinates on current scrolled page
           const docX = midX + container.scrollLeft;
           const docY = midY + container.scrollTop;
           setPinchOrigin(`${docX}px ${docY}px`);
 
-          targetScaleRef.current = 1;
-          smoothedScaleRef.current = 1;
+          currentScaleRef.current = 1;
           setPinchScale(1);
           setIsPinching(true);
         }
-      } else if (e.touches.length === 1 && zoomRef.current > 100) {
-        // 1-Finger Smooth Pan Tracking when Zoomed In (> 100%)
-        panTouchStartRef.current = {
-          x: e.touches[0].clientX,
-          y: e.touches[0].clientY,
-          scrollLeft: container.scrollLeft,
-          scrollTop: container.scrollTop
-        };
       }
     };
 
@@ -309,59 +295,23 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           e.touches[0].clientY - e.touches[1].clientY
         );
 
-        const rect = container.getBoundingClientRect();
-        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
-        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
-        touchLastMidXRef.current = midX;
-        touchLastMidYRef.current = midY;
-
         const rawScale = currentDist / touchStartDistRef.current;
         const startZoom = touchStartZoomRef.current;
         const maxScale = 200 / startZoom;
         const minScale = 100 / startZoom;
 
         const clampedScale = Math.min(maxScale, Math.max(minScale, rawScale));
-        targetScaleRef.current = clampedScale;
-
-        if (rAFRef.current === null) {
-          rAFRef.current = requestAnimationFrame(function animateScale() {
-            const current = smoothedScaleRef.current;
-            const target = targetScaleRef.current;
-            const next = current + (target - current) * 0.45;
-
-            smoothedScaleRef.current = next;
-            setPinchScale(next);
-
-            if (Math.abs(target - next) > 0.001) {
-              rAFRef.current = requestAnimationFrame(animateScale);
-            } else {
-              rAFRef.current = null;
-            }
-          });
-        }
-      } else if (e.touches.length === 1 && panTouchStartRef.current && zoomRef.current > 100) {
-        // 1-Finger Instant Pan Motion Left/Right/Up/Down when Zoomed In
-        if (e.cancelable) e.preventDefault();
-        const deltaX = e.touches[0].clientX - panTouchStartRef.current.x;
-        const deltaY = e.touches[0].clientY - panTouchStartRef.current.y;
-
-        container.scrollLeft = panTouchStartRef.current.scrollLeft - deltaX;
-        container.scrollTop = panTouchStartRef.current.scrollTop - deltaY;
+        currentScaleRef.current = clampedScale;
+        setPinchScale(clampedScale);
       }
     };
 
     const finishPinch = () => {
-      panTouchStartRef.current = null;
       if (touchStartDistRef.current !== null) {
-        if (rAFRef.current !== null) {
-          cancelAnimationFrame(rAFRef.current);
-          rAFRef.current = null;
-        }
-
-        const finalScale = smoothedScaleRef.current;
+        const finalScale = currentScaleRef.current;
         const startZoom = touchStartZoomRef.current;
         const rawTargetZoom = startZoom * finalScale;
-        const finalZoom = Math.min(200, Math.max(100, Math.round(rawTargetZoom * 10) / 10));
+        const finalZoom = Math.min(200, Math.max(100, Math.round(rawTargetZoom / 5) * 5));
 
         const zoomRatio = finalZoom / startZoom;
         const startMidX = touchStartMidXRef.current;
@@ -376,8 +326,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         const newScrollLeft = Math.max(0, (startScrollLeft + startMidX) * zoomRatio - lastMidX);
         const newScrollTop = Math.max(0, (startScrollTop + startMidY) * zoomRatio - lastMidY);
 
-        targetScaleRef.current = 1;
-        smoothedScaleRef.current = 1;
         setPinchScale(1);
         setIsPinching(false);
 
@@ -385,7 +333,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         setZoom(finalZoom);
 
         // Defer scroll offset assignment until React completes DOM layout commit
-        // so browser doesn't clamp scrollLeft against un-expanded container scrollWidth!
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             if (container) {
@@ -415,13 +362,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
       container.removeEventListener('touchcancel', finishPinch);
-      if (rAFRef.current !== null) {
-        cancelAnimationFrame(rAFRef.current);
-      }
     };
   }, []);
-
-  // 5. Anti-copying and anti-printing bindings
   useEffect(() => {
     const preventSelection = (e: Event) => {
       e.preventDefault();
