@@ -764,12 +764,13 @@ export const dbService = {
     if (!currentUser) return false;
     if (currentUser.role === 'admin') return true;
 
-    // Offline check: If device is offline and note is saved locally, grant access!
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const offlineIndex = dbService.getOfflineNotesIndex();
-      if (offlineIndex.includes(notesId) || dbService.getOfflineNote(notesId)) {
-        return true;
-      }
+    // Check if item or purchase is blacklisted/revoked
+    const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
+    const revokedItems = getStoredData<string[]>('bw_revoked_item_ids', []);
+    const isGlobalRevoked = typeof localStorage !== 'undefined' && localStorage.getItem('bw_all_licenses_revoked') === 'true';
+
+    if (isGlobalRevoked || revokedIds.includes(notesId) || revokedItems.includes(notesId)) {
+      return false;
     }
 
     const { purchasedNoteIds } = await dbService.getAllUserPurchasesState();
@@ -780,11 +781,13 @@ export const dbService = {
     if (!currentUser) return { purchased: false, expiresAt: null, daysLeft: null };
     if (currentUser.role === 'admin') return { purchased: true, expiresAt: null, daysLeft: null };
 
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const offlineIndex = dbService.getOfflineNotesIndex();
-      if (offlineIndex.includes(notesId) || dbService.getOfflineNote(notesId)) {
-        return { purchased: true, expiresAt: '2099-01-01T00:00:00.000Z', daysLeft: 180 };
-      }
+    // Check if item or purchase is blacklisted/revoked
+    const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
+    const revokedItems = getStoredData<string[]>('bw_revoked_item_ids', []);
+    const isGlobalRevoked = typeof localStorage !== 'undefined' && localStorage.getItem('bw_all_licenses_revoked') === 'true';
+
+    if (isGlobalRevoked || revokedIds.includes(notesId) || revokedItems.includes(notesId)) {
+      return { purchased: false, expiresAt: null, daysLeft: null };
     }
 
     const { purchasedNoteIds, noteDetailsMap } = await dbService.getAllUserPurchasesState();
@@ -1254,6 +1257,13 @@ export const dbService = {
 
   // --- MANUAL STUDENT LICENSING ENGINE ---
   grantManualLicense: async (email: string, itemId: string, itemType: 'notes' | 'bundle', months: number): Promise<{ success: boolean; error: string | null }> => {
+    // Clear global revocation flag when new license is granted
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('bw_all_licenses_revoked');
+    }
+    const revokedItems = getStoredData<string[]>('bw_revoked_item_ids', []).filter(id => id !== itemId);
+    setStoredData('bw_revoked_item_ids', revokedItems);
+
     const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
     const userId = user ? user.id : 'user_manual_' + Math.random().toString(36).substr(2, 9);
     
@@ -1355,17 +1365,15 @@ export const dbService = {
   },
 
   revokeAllLicenses: async (): Promise<{ success: boolean; error: string | null }> => {
-    // 1. Fetch current purchases and add all IDs to blacklisted list
-    const current = await dbService.getAllPurchases();
-    const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
-    if (current.data && current.data.length > 0) {
-      current.data.forEach(p => {
-        if (p.id && !revokedIds.includes(p.id)) revokedIds.push(p.id);
-      });
+    // 1. Set global revocation flag in localStorage so mobile app & web immediately block access
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bw_all_licenses_revoked', 'true');
     }
-    setStoredData('bw_revoked_purchase_ids', revokedIds);
 
-    // 2. Clear local storage maps completely
+    // 2. Clear all offline cached notes (index and payloads) on mobile device
+    dbService.clearOfflineNotes();
+
+    // 3. Clear local storage maps completely
     setStoredData('bw_mock_purchases_map_v2', {});
     setStoredData('bw_mock_purchases_v2', []);
     mockPurchasesV2 = [];
@@ -1380,7 +1388,7 @@ export const dbService = {
       }
     } catch (e) {}
 
-    // 3. Issue DB delete if online
+    // 4. Issue DB delete if online
     if (!isMock && supabase) {
       try {
         const { error } = await supabase.from('purchases').delete().neq('itemId', 'session_tracker');
