@@ -204,10 +204,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
 
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('bw_purchases_updated', handleFocus);
     const interval = setInterval(loadDashboardData, 10000);
 
     return () => {
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('bw_purchases_updated', handleFocus);
       clearInterval(interval);
     };
   }, [selectedYear, user]);

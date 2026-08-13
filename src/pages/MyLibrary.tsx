@@ -50,6 +50,18 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
 
   useEffect(() => {
     fetchLibraryData();
+
+    const handleFocus = () => {
+      fetchLibraryData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('bw_purchases_updated', handleFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('bw_purchases_updated', handleFocus);
+    };
   }, [user]);
 
   if (!user) {

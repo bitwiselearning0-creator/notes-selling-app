@@ -10,6 +10,29 @@ export const isMock = !supabaseUrl || !supabaseAnonKey;
 // Initialize Supabase client if keys are present
 export const supabase = !isMock ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
+// Initialize Supabase Realtime Channel Listener for cross-platform 0ms instant purchase sync
+if (!isMock && supabase) {
+  try {
+    supabase
+      .channel('public:purchases_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, (payload) => {
+        if (typeof localStorage !== 'undefined') {
+          const user = dbService.getCurrentUser();
+          if (user) {
+            localStorage.removeItem(`bw_user_purchases_cache_${user.id}`);
+          }
+          localStorage.removeItem('bw_all_licenses_revoked');
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('bw_purchases_updated', { detail: payload }));
+        }
+      })
+      .subscribe();
+  } catch (e) {
+    console.warn('Realtime subscription setup warning:', e);
+  }
+}
+
 // Helper to generate valid 36-character PostgreSQL UUIDs
 export const generateUUID = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

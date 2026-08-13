@@ -358,10 +358,12 @@ function App() {
     syncPurchases();
     const interval = setInterval(syncPurchases, 10000);
     window.addEventListener('focus', syncPurchases);
+    window.addEventListener('bw_purchases_updated', syncPurchases);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', syncPurchases);
+      window.removeEventListener('bw_purchases_updated', syncPurchases);
     };
   }, [currentUser]);
 
