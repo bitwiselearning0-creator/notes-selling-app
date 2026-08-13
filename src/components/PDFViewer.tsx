@@ -601,8 +601,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           gap: '12px'
         }}
       >
-        {/* Left Section: Icon-Only Back Button & Note Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+        {/* Left Section: Prominent Large Back Button & Note Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
           <button 
             className="btn-secondary" 
             onClick={onBack} 
@@ -611,21 +611,23 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               display: 'inline-flex', 
               alignItems: 'center', 
               justifyContent: 'center',
-              width: '34px',
-              height: '34px',
+              width: '42px',
+              height: '42px',
               padding: 0,
-              borderRadius: '10px', 
+              borderRadius: '12px', 
               flexShrink: 0,
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid var(--glass-border)'
+              background: 'rgba(255, 255, 255, 0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              color: '#ffffff',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
             }}
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={26} strokeWidth={2.5} />
           </button>
           
           <div className="viewer-title-area" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, overflow: 'hidden' }}>
             <h2 className="viewer-title" style={{ 
-              fontSize: '13px', 
+              fontSize: '14px', 
               fontWeight: '700', 
               color: 'var(--color-white)', 
               overflow: 'hidden', 
@@ -637,12 +639,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               {note.title}
             </h2>
             <span className="viewer-subtitle" style={{ 
-              fontSize: '9px', 
-              color: isUnlocked ? '#22c55e' : 'var(--color-yellow)', 
+              fontSize: '10px', 
+              color: isUnlocked ? '#34d399' : '#fbbf24', 
               fontWeight: '700', 
               textTransform: 'uppercase', 
-              letterSpacing: '0.3px',
-              marginTop: '1px',
+              letterSpacing: '0.4px',
+              marginTop: '2px',
               lineHeight: 1.1,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -654,18 +656,18 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           </div>
         </div>
 
-        {/* Right Section: Optimally Spread Page Navigator & Rotate Button */}
+        {/* Right Section: Crisp Page Counter & Rotate Button */}
         <div className="viewer-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {/* Spacious Page Navigator Pill */}
+          {/* Clean High-Contrast Page Counter Pill */}
           <div className="page-jump-pill" style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '6px',
-            background: 'rgba(255, 255, 255, 0.06)',
-            border: '1px solid var(--glass-border)',
+            gap: '8px',
+            background: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.18)',
             padding: '4px 10px',
-            borderRadius: '20px',
-            height: '34px',
+            borderRadius: '24px',
+            height: '40px',
             boxSizing: 'border-box',
             whiteSpace: 'nowrap'
           }}>
@@ -677,86 +679,28 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               disabled={scrollPage <= 1}
               title="Previous Page"
               style={{
-                background: 'none',
+                background: 'rgba(255, 255, 255, 0.08)',
                 border: 'none',
-                color: scrollPage <= 1 ? 'rgba(255,255,255,0.2)' : 'var(--color-white)',
+                color: scrollPage <= 1 ? 'rgba(255, 255, 255, 0.2)' : 'var(--color-white)',
                 cursor: scrollPage <= 1 ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '0',
-                width: '20px',
-                height: '20px',
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
                 flexShrink: 0
               }}
             >
               <ChevronLeft size={16} />
             </button>
 
-            <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '600', whiteSpace: 'nowrap', lineHeight: 1 }}>Pg</span>
-            
-            <input 
-              type="number"
-              min={1}
-              max={totalPages}
-              value={jumpPageInput}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => setJumpPageInput(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') {
-                  handleJumpToPage();
-                }
-              }}
-              onFocus={(e) => e.target.select()}
-              style={{
-                width: '38px',
-                height: '24px',
-                background: 'rgba(0, 0, 0, 0.6)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '6px',
-                color: 'var(--color-white)',
-                fontSize: '12px',
-                fontWeight: '700',
-                textAlign: 'center',
-                padding: '0',
-                outline: 'none',
-                boxSizing: 'border-box',
-                lineHeight: '24px',
-                display: 'inline-block',
-                verticalAlign: 'middle'
-              }}
-            />
-
-            <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '600', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
-              / {totalPages}
+            {/* Clear, Bold Page Counter Display */}
+            <span style={{ fontSize: '14px', fontWeight: '800', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+              <span>{scrollPage}</span>
+              <span style={{ color: 'rgba(255, 255, 255, 0.45)', fontWeight: '600', fontSize: '12px' }}>/ {totalPages}</span>
             </span>
-
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                handleJumpToPage();
-              }}
-              title="Jump to Page"
-              style={{
-                background: 'var(--color-yellow)',
-                color: '#000',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '2px 9px',
-                fontSize: '11px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                height: '22px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                lineHeight: 1,
-                flexShrink: 0
-              }}
-            >
-              Go
-            </button>
 
             <button 
               onClick={(e) => {
@@ -766,16 +710,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               disabled={scrollPage >= totalPages}
               title="Next Page"
               style={{
-                background: 'none',
+                background: 'rgba(255, 255, 255, 0.08)',
                 border: 'none',
-                color: scrollPage >= totalPages ? 'rgba(255,255,255,0.2)' : 'var(--color-white)',
+                color: scrollPage >= totalPages ? 'rgba(255, 255, 255, 0.2)' : 'var(--color-white)',
                 cursor: scrollPage >= totalPages ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '0',
-                width: '20px',
-                height: '20px',
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
                 flexShrink: 0
               }}
             >
@@ -783,7 +728,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             </button>
           </div>
 
-          {/* Rotation Button (Kept as is at the end) */}
+          {/* Rotation Button */}
           <button 
             onClick={(e) => {
               e.stopPropagation();
@@ -791,10 +736,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             }} 
             title="Rotate Page" 
             style={{ 
-              width: '34px', 
-              height: '34px', 
-              borderRadius: '10px', 
-              border: '1px solid var(--glass-border)', 
+              width: '40px', 
+              height: '40px', 
+              borderRadius: '12px', 
+              border: '1px solid rgba(255, 255, 255, 0.18)', 
               background: 'rgba(255, 255, 255, 0.08)', 
               display: 'flex', 
               alignItems: 'center', 
@@ -804,7 +749,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               flexShrink: 0
             }}
           >
-            <RotateCw size={15} />
+            <RotateCw size={17} />
           </button>
         </div>
       </div>
