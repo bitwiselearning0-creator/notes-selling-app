@@ -240,6 +240,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   const touchStartScrollTopRef = useRef<number>(0);
   const touchStartMidXRef = useRef<number>(0);
   const touchStartMidYRef = useRef<number>(0);
+  const touchLastMidXRef = useRef<number>(0);
+  const touchLastMidYRef = useRef<number>(0);
   const rAFRef = useRef<number | null>(null);
   const currentScaleRef = useRef<number>(1);
 
@@ -263,10 +265,18 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
           touchStartMidXRef.current = midX;
           touchStartMidYRef.current = midY;
+          touchLastMidXRef.current = midX;
+          touchLastMidYRef.current = midY;
+
           touchStartScrollLeftRef.current = container.scrollLeft;
           touchStartScrollTopRef.current = container.scrollTop;
 
-          setPinchOrigin(`${midX}px ${midY}px`);
+          // CRITICAL FIX: Transform origin must be in document space (adding scrollLeft & scrollTop)
+          // so GPU scales the document anchored at exact finger coordinates on current scrolled page!
+          const docX = midX + container.scrollLeft;
+          const docY = midY + container.scrollTop;
+          setPinchOrigin(`${docX}px ${docY}px`);
+
           currentScaleRef.current = 1;
           setPinchScale(1);
           setIsPinching(true);
@@ -282,6 +292,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
+
+        const rect = container.getBoundingClientRect();
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+        touchLastMidXRef.current = midX;
+        touchLastMidYRef.current = midY;
 
         const rawScale = currentDist / touchStartDistRef.current;
         const startZoom = touchStartZoomRef.current;
@@ -313,13 +329,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         const finalZoom = Math.min(200, Math.max(100, Math.round(rawTargetZoom * 10) / 10));
 
         const zoomRatio = finalZoom / startZoom;
-        const midX = touchStartMidXRef.current;
-        const midY = touchStartMidYRef.current;
+        const startMidX = touchStartMidXRef.current;
+        const startMidY = touchStartMidYRef.current;
+        const lastMidX = touchLastMidXRef.current || startMidX;
+        const lastMidY = touchLastMidYRef.current || startMidY;
+
         const startScrollLeft = touchStartScrollLeftRef.current;
         const startScrollTop = touchStartScrollTopRef.current;
 
-        const newScrollLeft = (startScrollLeft + midX) * zoomRatio - midX;
-        const newScrollTop = (startScrollTop + midY) * zoomRatio - midY;
+        // Precise scroll position adjustment keeping finger location anchored
+        const newScrollLeft = (startScrollLeft + startMidX) * zoomRatio - lastMidX;
+        const newScrollTop = (startScrollTop + startMidY) * zoomRatio - lastMidY;
 
         setPinchScale(1);
         setIsPinching(false);
