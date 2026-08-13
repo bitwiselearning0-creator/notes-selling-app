@@ -198,6 +198,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   useEffect(() => {
     loadDashboardData();
+
+    const handleFocus = () => {
+      loadDashboardData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    const interval = setInterval(loadDashboardData, 10000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
   }, [selectedYear, user]);
 
   // Handle physical/browser back button for Dashboard Card View, Subject View, Search, & Semester Filter

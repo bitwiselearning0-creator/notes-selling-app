@@ -345,6 +345,26 @@ function App() {
     }
   };
 
+  // Auto-sync active purchases for currentUser in background every 10 seconds & on tab focus
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const syncPurchases = async () => {
+      try {
+        await dbService.getAllUserPurchasesState();
+      } catch (e) {}
+    };
+
+    syncPurchases();
+    const interval = setInterval(syncPurchases, 10000);
+    window.addEventListener('focus', syncPurchases);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', syncPurchases);
+    };
+  }, [currentUser]);
+
   const handleLogout = async () => {
     await dbService.signOut();
     setCurrentUser(null);
