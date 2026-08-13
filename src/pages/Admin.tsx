@@ -1361,48 +1361,66 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                           <tr>
                             <th>Combo Title</th>
                             <th>Year & Sem</th>
-                            <th>Included Subjects</th>
+                            <th>Included Subjects (Priority View)</th>
                             <th>Price (Disc / Orig)</th>
-                            <th>Contents</th>
                             <th style={{ textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {semesterCombos.length > 0 ? (
-                            semesterCombos.map(b => (
-                              <tr key={b.id}>
-                                <td style={{ fontWeight: '600' }}>{b.title}</td>
-                                <td style={{ color: 'var(--color-muted)' }}>{b.year} (Sem {b.semester})</td>
-                                <td style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {b.subjects && b.subjects.length > 0 ? b.subjects.join(', ') : 'All Semester Subjects'}
-                                </td>
-                                <td className="yellow-accent" style={{ fontWeight: '700' }}>
-                                  ₹{b.price} <span style={{ textDecoration: 'line-through', color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal', marginLeft: '4px' }}>₹{b.originalPrice ?? (b.price + 100)}</span>
-                                </td>
-                                <td>{b.notesIds.length} syllabus subfiles</td>
-                                <td style={{ textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                    <button 
-                                      className="btn-secondary" 
-                                      style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                      onClick={() => setEditingBundle(b)}
-                                    >
-                                      <Edit2 size={12} /> Edit
-                                    </button>
-                                    <button 
-                                      className="btn-secondary" 
-                                      style={{ padding: '6px 12px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                      onClick={() => handleDeleteBundle(b.id)}
-                                    >
-                                      <Trash2 size={12} /> Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))
+                            semesterCombos.map(b => {
+                              const includedSubjs = (b.subjects && b.subjects.length > 0) 
+                                ? b.subjects 
+                                : getPredefinedSubjects(b.year, b.semester);
+
+                              return (
+                                <tr key={b.id}>
+                                  <td style={{ fontWeight: '600' }}>{b.title}</td>
+                                  <td style={{ color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>{b.year} (Sem {b.semester})</td>
+                                  <td>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxWidth: '420px', padding: '4px 0' }}>
+                                      {includedSubjs.map((subj, sIdx) => (
+                                        <span key={sIdx} style={{
+                                          background: 'rgba(245, 158, 11, 0.12)',
+                                          color: '#fcd34d',
+                                          border: '1px solid rgba(245, 158, 11, 0.28)',
+                                          borderRadius: '6px',
+                                          padding: '3px 9px',
+                                          fontSize: '11px',
+                                          fontWeight: '600'
+                                        }}>
+                                          {subj}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td className="yellow-accent" style={{ fontWeight: '700', whiteSpace: 'nowrap' }}>
+                                    ₹{b.price} <span style={{ textDecoration: 'line-through', color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal', marginLeft: '4px' }}>₹{b.originalPrice ?? (b.price + 100)}</span>
+                                  </td>
+                                  <td style={{ textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                      <button 
+                                        className="btn-secondary" 
+                                        style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        onClick={() => setEditingBundle(b)}
+                                      >
+                                        <Edit2 size={12} /> Edit
+                                      </button>
+                                      <button 
+                                        className="btn-secondary" 
+                                        style={{ padding: '6px 12px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        onClick={() => handleDeleteBundle(b.id)}
+                                      >
+                                        <Trash2 size={12} /> Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
                           ) : (
                             <tr>
-                              <td colSpan={6} style={{ textAlign: 'center', color: 'var(--color-muted)', fontStyle: 'italic', padding: '20px' }}>
+                              <td colSpan={5} style={{ textAlign: 'center', color: 'var(--color-muted)', fontStyle: 'italic', padding: '20px' }}>
                                 No semester combo packs created yet.
                               </td>
                             </tr>
