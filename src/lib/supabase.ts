@@ -1243,19 +1243,32 @@ export const dbService = {
     }
 
     const { data: allBundlesData } = await dbService.getBundles();
-    const allBundles = allBundlesData || [];
+    const allBundles = allBundlesData || getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
 
     const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
     for (const bid of purchasedBundleIds) {
-      const bundle = allBundles.find(b => b.id === bid) || mockBundles.find(b => b.id === bid);
-      if (bundle) {
-        const details = bundleDetailsMap[bid];
-        results.push({
-          bundle,
-          expiresAt: details?.expiresAt || new Date().toISOString(),
-          daysLeft: details?.daysLeft || 0
-        });
+      let bundle = allBundles.find(b => b.id.toLowerCase() === bid.toLowerCase() || b.title.toLowerCase().includes(bid.toLowerCase())) || mockBundles.find(b => b.id.toLowerCase() === bid.toLowerCase());
+      
+      if (!bundle) {
+        bundle = {
+          id: bid,
+          title: bid.startsWith('Subject Combo:') ? bid : `Semester Combo Pack (${bid})`,
+          year: '2nd Year',
+          semester: 4,
+          price: 0,
+          originalPrice: 0,
+          description: `Complete syllabus notes, PYQs & important questions bundle for ${bid}`,
+          subjects: bid.includes('Subject Combo:') ? [bid.replace('Subject Combo: ', '')] : [],
+          notesIds: []
+        };
       }
+
+      const details = bundleDetailsMap[bid];
+      results.push({
+        bundle,
+        expiresAt: details?.expiresAt || new Date().toISOString(),
+        daysLeft: details?.daysLeft || 0
+      });
     }
 
     return { data: results, error: null };

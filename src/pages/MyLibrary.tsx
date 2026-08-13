@@ -76,23 +76,21 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
   // Helper to resolve all subject notes belonging to a bundle
   const getBundleSubjectNotes = (bundle: Bundle): Note[] => {
     const subjects = Array.isArray(bundle.subjects) && bundle.subjects.length > 0 ? bundle.subjects : [];
+    const notesMap = new Map<string, Note>();
 
-    // 1. If admin set explicit included subjects, display EVERY SINGLE included subject (no extra, no missing!)
+    // 1. Match by explicit subjects
     if (subjects.length > 0) {
-      const resultNotes: Note[] = [];
-      
       subjects.forEach((subjectName, idx) => {
         const matchingNotes = allNotes.filter(n =>
-          n.subject.toLowerCase() === subjectName.toLowerCase() &&
-          (n.semester === bundle.semester || !n.semester)
+          n.subject && n.subject.toLowerCase() === subjectName.toLowerCase()
         );
 
         if (matchingNotes.length > 0) {
-          resultNotes.push(...matchingNotes);
+          matchingNotes.forEach(mn => notesMap.set(mn.id, mn));
         } else {
-          // If no note object uploaded in catalog yet, provide subject note card so ALL included subjects appear
-          resultNotes.push({
-            id: `bundle_sub_${bundle.id}_${idx}`,
+          const synthId = `bundle_sub_${bundle.id}_${idx}`;
+          notesMap.set(synthId, {
+            id: synthId,
             title: `${subjectName} - Complete Unit 1-5 Notes & PYQs`,
             subject: subjectName,
             year: (bundle.year as any) || '2nd Year',
@@ -100,28 +98,35 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
             price: 0,
             originalPrice: 0,
             description: `Complete syllabus notes, important questions & solved papers for ${subjectName}. Included in ${bundle.title}.`,
-            previewUrl: 'https://cdn.jsdelivr.net/gh/mozilla/pdf.js@master/web/compressed.tracemonkey-pldi-09.pdf',
+            previewUrl: '',
             pagesCount: 80,
             topics: ['Complete Syllabus Unit 1-5', 'Important Exam Questions', 'AKTU Solved Papers'],
             type: 'notes'
           });
         }
       });
-
-      return resultNotes;
     }
 
-    // 2. Fallback if no subjects array: match by notesIds
+    // 2. Match by notesIds array
     if (Array.isArray(bundle.notesIds) && bundle.notesIds.length > 0) {
-      const matchedById = bundle.notesIds
-        .map(id => allNotes.find(n => n.id === id))
-        .filter((n): n is Note => Boolean(n));
-      if (matchedById.length > 0) return matchedById;
+      bundle.notesIds.forEach(id => {
+        const found = allNotes.find(n => n.id === id);
+        if (found) notesMap.set(found.id, found);
+      });
     }
 
-    // 3. Fallback: notes matching bundle semester
-    const semNotes = allNotes.filter(n => n.semester === bundle.semester);
-    return semNotes;
+    // 3. Match by bundle semester
+    if (bundle.semester) {
+      const semNotes = allNotes.filter(n => n.semester === bundle.semester);
+      semNotes.forEach(sn => notesMap.set(sn.id, sn));
+    }
+
+    // 4. Fallback if still empty: match all notes in catalog
+    if (notesMap.size === 0 && allNotes.length > 0) {
+      allNotes.slice(0, 5).forEach(n => notesMap.set(n.id, n));
+    }
+
+    return Array.from(notesMap.values());
   };
 
   return (
