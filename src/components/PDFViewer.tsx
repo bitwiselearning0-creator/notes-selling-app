@@ -15,7 +15,8 @@ const CanvasPage: React.FC<{
   pdfDoc: any;
   rotation: number;
   zoom: number;
-}> = React.memo(({ pageNumber, pdfDoc, rotation, zoom }) => {
+  isPinching?: boolean;
+}> = React.memo(({ pageNumber, pdfDoc, rotation, zoom, isPinching }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
@@ -102,12 +103,12 @@ const CanvasPage: React.FC<{
         borderRadius: '12px',
         overflow: 'hidden',
         background: 'transparent',
-        display: 'flex',
-        justifyContent: 'center',
+        display: 'flex', 
+        justifyContent: 'center', 
         alignItems: 'center',
         width: `${targetWidth}px`,
         maxWidth: `${Math.max(94, Math.round(94 * (zoom / 100)))}vw`,
-        transition: 'width 0.15s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+        transition: isPinching ? 'none' : 'width 0.15s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
       }}
     >
       <canvas 
@@ -127,6 +128,16 @@ const CanvasPage: React.FC<{
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, onUnlock }) => {
   const [zoom, setZoom] = useState(100);
+  const [isPinching, setIsPinching] = useState(false);
+  const [pinchScale, setPinchScale] = useState<number>(1);
+  const [pinchOrigin, setPinchOrigin] = useState<string>('center center');
+
+  const zoomRef = useRef(zoom);
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+
   const [rotation, setRotation] = useState(0);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [scrollPage, setScrollPage] = useState(1);
@@ -222,9 +233,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     setJumpPageInput(scrollPage.toString());
   }, [scrollPage]);
 
-  // 4. Multi-touch 2-Finger Focal-Point Pinch-to-Zoom Gesture for mobile screens
+  // 4. Ultra-Smooth GPU Hardware-Accelerated 60/120 FPS Pinch-to-Zoom Engine
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartZoomRef = useRef<number>(100);
+  const touchStartScrollLeftRef = useRef<number>(0);
+  const touchStartScrollTopRef = useRef<number>(0);
+  const touchStartMidXRef = useRef<number>(0);
+  const touchStartMidYRef = useRef<number>(0);
+  const rAFRef = useRef<number | null>(null);
+  const currentScaleRef = useRef<number>(1);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -236,40 +253,109 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
-        touchStartDistRef.current = dist;
-        touchStartZoomRef.current = zoom;
+        if (dist > 10) {
+          touchStartDistRef.current = dist;
+          touchStartZoomRef.current = zoomRef.current;
+
+          const rect = container.getBoundingClientRect();
+          const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+          const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+
+          touchStartMidXRef.current = midX;
+          touchStartMidYRef.current = midY;
+          touchStartScrollLeftRef.current = container.scrollLeft;
+          touchStartScrollTopRef.current = container.scrollTop;
+
+          setPinchOrigin(`${midX}px ${midY}px`);
+          currentScaleRef.current = 1;
+          setPinchScale(1);
+          setIsPinching(true);
+        }
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      if (e.touches.length === 2 && touchStartDistRef.current && touchStartDistRef.current > 0) {
         if (e.cancelable) e.preventDefault();
+
         const currentDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
-        const scale = currentDist / touchStartDistRef.current;
-        const newZoom = Math.min(260, Math.max(60, Math.round(touchStartZoomRef.current * scale)));
-        setZoom(newZoom);
+
+        const rawScale = currentDist / touchStartDistRef.current;
+        const startZoom = touchStartZoomRef.current;
+        const maxScale = 200 / startZoom;
+        const minScale = 100 / startZoom;
+
+        const clampedScale = Math.min(maxScale, Math.max(minScale, rawScale));
+        currentScaleRef.current = clampedScale;
+
+        if (rAFRef.current === null) {
+          rAFRef.current = requestAnimationFrame(() => {
+            rAFRef.current = null;
+            setPinchScale(currentScaleRef.current);
+          });
+        }
       }
     };
 
-    const handleTouchEnd = () => {
-      touchStartDistRef.current = null;
+    const finishPinch = () => {
+      if (touchStartDistRef.current !== null) {
+        if (rAFRef.current !== null) {
+          cancelAnimationFrame(rAFRef.current);
+          rAFRef.current = null;
+        }
+
+        const finalScale = currentScaleRef.current;
+        const startZoom = touchStartZoomRef.current;
+        const rawTargetZoom = startZoom * finalScale;
+        const finalZoom = Math.min(200, Math.max(100, Math.round(rawTargetZoom * 10) / 10));
+
+        const zoomRatio = finalZoom / startZoom;
+        const midX = touchStartMidXRef.current;
+        const midY = touchStartMidYRef.current;
+        const startScrollLeft = touchStartScrollLeftRef.current;
+        const startScrollTop = touchStartScrollTopRef.current;
+
+        const newScrollLeft = (startScrollLeft + midX) * zoomRatio - midX;
+        const newScrollTop = (startScrollTop + midY) * zoomRatio - midY;
+
+        setPinchScale(1);
+        setIsPinching(false);
+        zoomRef.current = finalZoom;
+        setZoom(finalZoom);
+
+        if (container) {
+          container.scrollLeft = newScrollLeft;
+          container.scrollTop = newScrollTop;
+        }
+
+        touchStartDistRef.current = null;
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        finishPinch();
+      }
     };
 
     container.addEventListener('touchstart', handleTouchStart, { passive: true });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd);
-    container.addEventListener('touchcancel', handleTouchEnd);
+    container.addEventListener('touchcancel', finishPinch);
 
     return () => {
       container.removeEventListener('touchstart', handleTouchStart);
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
-      container.removeEventListener('touchcancel', handleTouchEnd);
+      container.removeEventListener('touchcancel', finishPinch);
+      if (rAFRef.current !== null) {
+        cancelAnimationFrame(rAFRef.current);
+      }
     };
-  }, [zoom]);
+  }, []);
 
   // 5. Anti-copying and anti-printing bindings
   useEffect(() => {
@@ -714,7 +800,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           flexDirection: 'column',
           alignItems: 'center', 
           justifyContent: 'flex-start',
-          scrollBehavior: 'smooth',
+          scrollBehavior: isPinching ? 'auto' : 'smooth',
           background: 'radial-gradient(circle at center, #0a1127 0%, #03060d 100%)'
         }}
       >
@@ -737,11 +823,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         {/* PDF Page Renderer */}
         {pdfjsLoaded && pdfDoc && !loadError && (
           <div style={{ 
-            width: '100%', 
+            minWidth: '100%',
+            width: 'max-content',
             position: 'relative', 
             display: 'flex', 
             flexDirection: 'column', 
-            alignItems: 'center'
+            alignItems: 'center',
+            padding: '0 12px',
+            transform: isPinching && pinchScale !== 1 ? `scale(${pinchScale})` : 'none',
+            transformOrigin: pinchOrigin,
+            willChange: isPinching ? 'transform' : 'auto',
+            transition: isPinching ? 'none' : 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
           }}>
             {/* Floating Security Watermark Overlay */}
             <div style={{
@@ -791,6 +883,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                     pdfDoc={pdfDoc} 
                     rotation={rotation} 
                     zoom={zoom}
+                    isPinching={isPinching}
                   />
                   
                   {isSecondPageLocked && (

@@ -60,6 +60,36 @@ const getPredefinedSubjects = (year: string, sem: number | string): string[] => 
   return [];
 };
 
+const getSemesterOptionsForYear = (year: string): { value: number; label: string }[] => {
+  switch (year) {
+    case '1st Year':
+      return [
+        { value: 1, label: 'Semester 1' },
+        { value: 2, label: 'Semester 2' }
+      ];
+    case '2nd Year':
+      return [
+        { value: 3, label: 'Semester 3' },
+        { value: 4, label: 'Semester 4' }
+      ];
+    case '3rd Year':
+      return [
+        { value: 5, label: 'Semester 5' },
+        { value: 6, label: 'Semester 6' }
+      ];
+    case '4th Year':
+      return [
+        { value: 7, label: 'Semester 7' },
+        { value: 8, label: 'Semester 8' }
+      ];
+    default:
+      return [
+        { value: 1, label: 'Semester 1' },
+        { value: 2, label: 'Semester 2' }
+      ];
+  }
+};
+
 interface AdminProps {
   user: UserProfile | null;
   navigate: (page: string) => void;
@@ -218,6 +248,35 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
       setIsCustomSubjBundleSubject(true);
     }
   }, [subjBundleYear, subjBundleSemester]);
+
+  // Auto-adjust selected semester when Year changes across forms
+  useEffect(() => {
+    const validSems = getSemesterOptionsForYear(noteYear);
+    if (!validSems.some(s => s.value === noteSemester)) {
+      setNoteSemester(validSems[0].value);
+    }
+  }, [noteYear]);
+
+  useEffect(() => {
+    const validSems = getSemesterOptionsForYear(subjBundleYear);
+    if (!validSems.some(s => s.value === subjBundleSemester)) {
+      setSubjBundleSemester(validSems[0].value);
+    }
+  }, [subjBundleYear]);
+
+  useEffect(() => {
+    const validSems = getSemesterOptionsForYear(bundleYear);
+    if (!validSems.some(s => s.value === bundleSemester)) {
+      setBundleSemester(validSems[0].value);
+    }
+  }, [bundleYear]);
+
+  useEffect(() => {
+    const validSems = getSemesterOptionsForYear(playYear);
+    if (!validSems.some(s => s.value === playSemester)) {
+      setPlaySemester(validSems[0].value);
+    }
+  }, [playYear]);
 
   const showNotification = (msg: string) => {
     setSuccessMsg(msg);
@@ -737,13 +796,14 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                       <div className="form-group">
                         <label>Semester</label>
-                        <input 
-                          type="number" 
-                          min="1" 
-                          max="8"
+                        <select 
                           value={noteSemester}
                           onChange={(e) => setNoteSemester(Number(e.target.value))}
-                        />
+                        >
+                          {getSemesterOptionsForYear(noteYear).map(sem => (
+                            <option key={sem.value} value={sem.value}>{sem.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
@@ -860,13 +920,14 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                       <div className="form-group">
                         <label>Semester</label>
-                        <input 
-                          type="number" 
-                          min="1" 
-                          max="8"
+                        <select 
                           value={subjBundleSemester}
                           onChange={(e) => setSubjBundleSemester(Number(e.target.value))}
-                        />
+                        >
+                          {getSemesterOptionsForYear(subjBundleYear).map(sem => (
+                            <option key={sem.value} value={sem.value}>{sem.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
@@ -1006,13 +1067,14 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                       <div className="form-group">
                         <label>Semester</label>
-                        <input 
-                          type="number" 
-                          min="1" 
-                          max="8"
+                        <select 
                           value={bundleSemester}
                           onChange={(e) => setBundleSemester(Number(e.target.value))}
-                        />
+                        >
+                          {getSemesterOptionsForYear(bundleYear).map(sem => (
+                            <option key={sem.value} value={sem.value}>{sem.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
@@ -1157,13 +1219,14 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                       <div className="form-group">
                         <label>Semester</label>
-                        <input 
-                          type="number" 
-                          min="1" 
-                          max="8"
+                        <select 
                           value={playSemester}
                           onChange={(e) => setPlaySemester(Number(e.target.value))}
-                        />
+                        >
+                          {getSemesterOptionsForYear(playYear).map(sem => (
+                            <option key={sem.value} value={sem.value}>{sem.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
@@ -1578,7 +1641,16 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                   <label>Year</label>
                   <select 
                     value={editingNote.year} 
-                    onChange={(e) => setEditingNote({ ...editingNote, year: e.target.value as any })}
+                    onChange={(e) => {
+                      const newYear = e.target.value as any;
+                      const validSems = getSemesterOptionsForYear(newYear);
+                      const isSemValid = validSems.some(s => s.value === editingNote.semester);
+                      setEditingNote({ 
+                        ...editingNote, 
+                        year: newYear,
+                        semester: isSemValid ? editingNote.semester : validSems[0].value
+                      });
+                    }}
                   >
                     <option value="1st Year">1st Year</option>
                     <option value="2nd Year">2nd Year</option>
@@ -1589,13 +1661,14 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                 <div className="form-group">
                   <label>Semester</label>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    max="8"
+                  <select 
                     value={editingNote.semester}
                     onChange={(e) => setEditingNote({ ...editingNote, semester: Number(e.target.value) })}
-                  />
+                  >
+                    {getSemesterOptionsForYear(editingNote.year).map(sem => (
+                      <option key={sem.value} value={sem.value}>{sem.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1729,7 +1802,16 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                   <label>Year</label>
                   <select 
                     value={editingBundle.year} 
-                    onChange={(e) => setEditingBundle({ ...editingBundle, year: e.target.value as any })}
+                    onChange={(e) => {
+                      const newYear = e.target.value as any;
+                      const validSems = getSemesterOptionsForYear(newYear);
+                      const isSemValid = validSems.some(s => s.value === editingBundle.semester);
+                      setEditingBundle({ 
+                        ...editingBundle, 
+                        year: newYear,
+                        semester: isSemValid ? editingBundle.semester : validSems[0].value
+                      });
+                    }}
                   >
                     <option value="1st Year">1st Year</option>
                     <option value="2nd Year">2nd Year</option>
@@ -1740,13 +1822,14 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                 <div className="form-group">
                   <label>Semester</label>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    max="8"
+                  <select 
                     value={editingBundle.semester}
                     onChange={(e) => setEditingBundle({ ...editingBundle, semester: Number(e.target.value) })}
-                  />
+                  >
+                    {getSemesterOptionsForYear(editingBundle.year).map(sem => (
+                      <option key={sem.value} value={sem.value}>{sem.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
