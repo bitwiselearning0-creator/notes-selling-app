@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Lock, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Lock, AlertTriangle, Loader2 } from 'lucide-react';
 import type { Note } from '../lib/supabase';
 
 interface PDFViewerProps {
@@ -400,8 +400,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     };
   }, []);
 
-  // Calculate total pages count
-  const totalPages = isUnlocked ? (pdfDoc ? pdfDoc.numPages : note.pagesCount) : Math.min(2, pdfDoc ? pdfDoc.numPages : 2);
+  // Calculate total pages count (0 when locked/revoked)
+  const totalPages = isUnlocked ? (pdfDoc ? pdfDoc.numPages : note.pagesCount) : 0;
 
   // 5. Jump directly to specific page number function
   const handleJumpToPage = (targetNum?: number) => {
@@ -640,7 +640,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             </h2>
             <span className="viewer-subtitle" style={{ 
               fontSize: '10px', 
-              color: isUnlocked ? '#34d399' : '#fbbf24', 
+              color: isUnlocked ? '#34d399' : '#f87171', 
               fontWeight: '700', 
               textTransform: 'uppercase', 
               letterSpacing: '0.4px',
@@ -651,7 +651,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               textOverflow: 'ellipsis',
               display: 'block'
             }}>
-              {isUnlocked ? '✦ Full Access Unlocked' : '✦ Free Preview Mode'}
+              {isUnlocked ? '✦ Full Access Unlocked' : '🔒 Access Locked (License Required)'}
             </span>
           </div>
         </div>
@@ -810,7 +810,65 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         )}
 
         {/* PDF Page Renderer */}
-        {pdfjsLoaded && pdfDoc && !loadError && (
+        {!pdfjsLoaded ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '16px' }}>
+            <Loader2 className="spinner" size={42} style={{ color: 'var(--color-yellow)' }} />
+            <p style={{ color: 'var(--color-muted)', fontSize: '14px', margin: 0 }}>Rendering HD Document PDF...</p>
+          </div>
+        ) : !isUnlocked ? (
+          /* ============================================================== */
+          /* STRICT ACCESS LOCKED SCREEN (0 PAGES RENDERED WHEN REVOKED / UNPURCHASED) */
+          /* ============================================================== */
+          <div style={{
+            minHeight: '75vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '40px 20px',
+            textAlign: 'center',
+            zIndex: 100
+          }}>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '2px solid #ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '20px',
+              boxShadow: '0 0 30px rgba(239, 68, 68, 0.2)'
+            }}>
+              <Lock size={40} style={{ color: '#ef4444' }} />
+            </div>
+
+            <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#ffffff', marginBottom: '10px' }}>
+              🔒 Access Locked - License Required
+            </h2>
+            <p style={{ fontSize: '14px', color: '#94a3b8', maxWidth: '440px', lineHeight: '1.6', marginBottom: '28px' }}>
+              Your access to <strong style={{ color: '#ffffff' }}>{note.title}</strong> has been revoked or is not active. Please purchase or contact administrator to grant access.
+            </p>
+
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <button 
+                className="btn-primary" 
+                onClick={onUnlock}
+                style={{ padding: '12px 28px', fontSize: '14px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)' }}
+              >
+                <Lock size={16} /> Unlock Full Resource (₹{note.price})
+              </button>
+              <button 
+                className="btn-secondary" 
+                onClick={onBack}
+                style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '600' }}
+              >
+                Back to Catalog
+              </button>
+            </div>
+          </div>
+        ) : pdfDoc ? (
           <div 
             ref={pagesWrapperRef}
             style={{ 
@@ -822,31 +880,27 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               flexDirection: 'column', 
               alignItems: 'center',
               padding: '0 12px',
-              boxSizing: 'border-box',
-              backfaceVisibility: 'hidden',
-              WebkitBackfaceVisibility: 'hidden'
+              boxSizing: 'border-box'
             }}
           >
-            {/* Floating Security Watermark Overlay */}
+            {/* Watermark Background Layer */}
             <div style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 9,
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%) rotate(-30deg)',
               pointerEvents: 'none',
+              zIndex: 10,
+              opacity: 0.035,
               display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
+              flexDirection: 'column',
               alignItems: 'center',
-              overflow: 'hidden',
-              opacity: 0.04
+              gap: '80px',
+              width: '120%'
             }}>
-              {Array.from({ length: Math.min(25, (isUnlocked ? pdfDoc.numPages : 2) * 2) }).map((_, i) => (
+              {Array.from({ length: Math.min(25, pdfDoc.numPages * 2) }).map((_, i) => (
                 <div key={i} style={{
-                  transform: 'rotate(-35deg)',
-                  fontSize: '28px',
+                  fontSize: '48px',
                   fontWeight: 'bold',
                   color: 'var(--color-white)',
                   margin: '120px 80px',
@@ -859,10 +913,9 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               ))}
             </div>
 
-            {/* Render pages: all pages if unlocked, or up to 2 pages if in preview mode */}
-            {Array.from({ length: isUnlocked ? pdfDoc.numPages : Math.min(2, pdfDoc.numPages) }).map((_, idx) => {
+            {/* Render pages: all pages when unlocked */}
+            {Array.from({ length: pdfDoc.numPages }).map((_, idx) => {
               const pageNum = idx + 1;
-              const isSecondPageLocked = !isUnlocked && pageNum === 2;
 
               return (
                 <div 
@@ -876,61 +929,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                     rotation={rotation} 
                     zoom={zoom}
                   />
-                  
-                  {isSecondPageLocked && (
-                    <div className="locked-preview-overlay" style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: `${Math.min(typeof window !== 'undefined' ? window.innerWidth - 24 : 800, 850) * (zoom / 100)}px`,
-                      maxWidth: 'none',
-                      height: '100%',
-                      borderRadius: '12px',
-                      background: 'rgba(10, 17, 36, 0.92)',
-                      backdropFilter: 'blur(22px)',
-                      WebkitBackdropFilter: 'blur(22px)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      zIndex: 15
-                    }}>
-                      <div className="locked-overlay-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '24px', textAlign: 'center' }}>
-                        <div className="locked-shield-icon" style={{
-                          width: '60px',
-                          height: '60px',
-                          borderRadius: '50%',
-                          background: 'rgba(245, 158, 11, 0.1)',
-                          border: '1.5px solid var(--color-yellow)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          marginBottom: '6px'
-                        }}>
-                          <Lock size={28} style={{ color: 'var(--color-yellow)' }} />
-                        </div>
-                        <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-white)', margin: 0 }}>🔒 End of Free Preview</h3>
-                        <p style={{ fontSize: '13px', color: 'var(--color-muted)', textAlign: 'center', maxWidth: '320px', lineHeight: '1.6', margin: '0 0 10px 0' }}>
-                          You have read all 2 free preview pages. Unlock to read all {pdfDoc.numPages} pages.
-                        </p>
-                        <button 
-                          className="btn-primary" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onUnlock();
-                          }} 
-                          style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)' }}
-                        >
-                          Unlock Full Syllabus (₹{note.price})
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
             })}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Floating Pill Page Indicator & Jump Bar (Auto-hides on scroll) */}
