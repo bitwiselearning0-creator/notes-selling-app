@@ -1056,10 +1056,19 @@ export const dbService = {
     const user = dbService.getCurrentUser();
     if (!user) return { data: [], error: 'User session not active.' };
 
+    const isGlobalRevoked = typeof localStorage !== 'undefined' && localStorage.getItem('bw_all_licenses_revoked') === 'true';
+    if (isGlobalRevoked) {
+      return { data: [], error: null };
+    }
+
     const { data: allNotes } = await dbService.getNotes();
 
     // Batch fetch all purchases for current user in 1 fast query (checks DB + local cache + offline index)
     const { purchasedNoteIds } = await dbService.getAllUserPurchasesState();
+
+    if (purchasedNoteIds.length === 0) {
+      return { data: [], error: null };
+    }
 
     const noteMap = new Map<string, Note>();
     (allNotes || []).forEach(n => noteMap.set(n.id, n));
