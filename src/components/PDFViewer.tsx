@@ -658,77 +658,52 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
         {/* Right Section: Crisp Page Counter & Rotate Button */}
         <div className="viewer-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {/* Clean High-Contrast Page Counter Pill */}
+          {/* Spacious Direct Page Jump Pill (No Chevron Buttons) */}
           <div className="page-jump-pill" style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
             background: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.18)',
-            padding: '4px 10px',
-            borderRadius: '24px',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            padding: '4px 12px',
+            borderRadius: '16px',
             height: '40px',
             boxSizing: 'border-box',
             whiteSpace: 'nowrap'
           }}>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                handleJumpToPage(scrollPage - 1);
-              }}
-              disabled={scrollPage <= 1}
-              title="Previous Page"
-              style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: 'none',
-                color: scrollPage <= 1 ? 'rgba(255, 255, 255, 0.2)' : 'var(--color-white)',
-                cursor: scrollPage <= 1 ? 'not-allowed' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0',
-                width: '26px',
-                height: '26px',
-                borderRadius: '50%',
-                flexShrink: 0
-              }}
-            >
-              <ChevronLeft size={16} />
-            </button>
+            <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.65)', fontWeight: '700' }}>Pg</span>
 
-            {/* Direct Editable Page Jump Input */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <input 
-                type="number"
-                min={1}
-                max={totalPages}
-                value={jumpPageInput}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => setJumpPageInput(e.target.value)}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === 'Enter') {
-                    handleJumpToPage();
-                  }
-                }}
-                onFocus={(e) => e.target.select()}
-                style={{
-                  width: '36px',
-                  height: '26px',
-                  background: 'rgba(0, 0, 0, 0.55)',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  borderRadius: '8px',
-                  color: '#ffffff',
-                  fontSize: '14px',
-                  fontWeight: '800',
-                  textAlign: 'center',
-                  padding: '0',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-              <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontWeight: '600', fontSize: '13px' }}>/ {totalPages}</span>
-            </div>
+            <input 
+              type="number"
+              min={1}
+              max={totalPages}
+              value={jumpPageInput}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setJumpPageInput(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                  handleJumpToPage();
+                }
+              }}
+              onFocus={(e) => e.target.select()}
+              style={{
+                width: '42px',
+                height: '28px',
+                background: 'rgba(0, 0, 0, 0.6)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '8px',
+                color: '#ffffff',
+                fontSize: '14px',
+                fontWeight: '800',
+                textAlign: 'center',
+                padding: '0',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+
+            <span style={{ color: 'rgba(255, 255, 255, 0.65)', fontWeight: '700', fontSize: '13px' }}>/ {totalPages}</span>
 
             <button 
               onClick={(e) => {
@@ -741,45 +716,20 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                 color: '#000000',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '3px 8px',
-                fontSize: '11px',
+                padding: '0 12px',
+                fontSize: '12px',
                 fontWeight: '800',
                 cursor: 'pointer',
-                height: '24px',
+                height: '28px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 lineHeight: 1,
                 flexShrink: 0,
-                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
+                boxShadow: '0 2px 10px rgba(245, 158, 11, 0.35)'
               }}
             >
               Go
-            </button>
-
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                handleJumpToPage(scrollPage + 1);
-              }}
-              disabled={scrollPage >= totalPages}
-              title="Next Page"
-              style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: 'none',
-                color: scrollPage >= totalPages ? 'rgba(255, 255, 255, 0.2)' : 'var(--color-white)',
-                cursor: scrollPage >= totalPages ? 'not-allowed' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0',
-                width: '26px',
-                height: '26px',
-                borderRadius: '50%',
-                flexShrink: 0
-              }}
-            >
-              <ChevronRight size={16} />
             </button>
           </div>
 
