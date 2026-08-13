@@ -11,27 +11,33 @@ export const isMock = !supabaseUrl || !supabaseAnonKey;
 export const supabase = !isMock ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 // Initialize Supabase Realtime Channel Listener for cross-platform 0ms instant purchase sync
-if (!isMock && supabase) {
-  try {
-    supabase
-      .channel('public:purchases_sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, (payload) => {
-        if (typeof localStorage !== 'undefined') {
-          const user = dbService.getCurrentUser();
-          if (user) {
-            localStorage.removeItem(`bw_user_purchases_cache_${user.id}`);
+// Deferred to avoid referencing dbService before declaration
+const setupRealtimeSync = () => {
+  if (!isMock && supabase) {
+    try {
+      supabase
+        .channel('public:purchases_sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, (_payload) => {
+          if (typeof localStorage !== 'undefined') {
+            // Use module-level currentUser directly (not dbService which may not be ready)
+            const user = currentUser || getStoredData<any>('bw_mock_current_user', null);
+            if (user) {
+              localStorage.removeItem(`bw_user_purchases_cache_${user.id}`);
+            }
+            localStorage.removeItem('bw_all_licenses_revoked');
           }
-          localStorage.removeItem('bw_all_licenses_revoked');
-        }
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('bw_purchases_updated', { detail: payload }));
-        }
-      })
-      .subscribe();
-  } catch (e) {
-    console.warn('Realtime subscription setup warning:', e);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('bw_purchases_updated'));
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Realtime subscription setup warning:', e);
+    }
   }
-}
+};
+// Execute after a microtask to ensure module is fully initialized
+setTimeout(setupRealtimeSync, 0);
 
 // Helper to generate valid 36-character PostgreSQL UUIDs
 export const generateUUID = (): string => {
@@ -391,9 +397,36 @@ export const dbService = {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) return { data: null, error: error.message };
       if (data.user) {
-        const profile = { id: data.user.id, name, email, phone, role: 'student' as const };
-        const { error: dbError } = await supabase.from('profiles').insert([profile]);
-        if (dbError) return { data: null, error: dbError.message };
+        const authId = data.user.id;
+        const profile = { id: authId, name, email, phone, role: 'student' as const };
+
+        // Check if admin already created a placeholder profile for this email (via grantManualLicense)
+        try {
+          const { data: existingProfiles } = await supabase.from('profiles').select('id').ilike('email', email.trim().toLowerCase());
+          if (existingProfiles && existingProfiles.length > 0) {
+            const oldProfileId = existingProfiles[0].id;
+            if (oldProfileId !== authId) {
+              // Migrate all purchases from old placeholder profile ID to new Auth UUID
+              try {
+                await supabase.from('purchases').update({ userId: authId }).eq('userId', oldProfileId);
+              } catch (e) {
+                console.warn('Purchase migration warning:', e);
+              }
+              // Delete old placeholder profile and insert new one with Auth UUID
+              try {
+                await supabase.from('profiles').delete().eq('id', oldProfileId);
+              } catch (e) {}
+            }
+          }
+        } catch (e) {}
+
+        // Insert (or upsert) the profile with the Auth UUID
+        const { error: dbError } = await supabase.from('profiles').upsert([profile], { onConflict: 'id' });
+        if (dbError) {
+          // Fallback: try plain insert if upsert fails
+          const { error: insertErr } = await supabase.from('profiles').insert([profile]);
+          if (insertErr) return { data: null, error: insertErr.message };
+        }
         currentUser = profile;
         setStoredData('bw_mock_current_user', currentUser);
         await dbService.registerDeviceSession(profile.id);
@@ -429,10 +462,32 @@ export const dbService = {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return { data: null, error: error.message };
       if (data.user) {
-        const { data: profile, error: dbError } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
+        const authId = data.user.id;
+
+        // Migrate any admin-created placeholder profile purchases to Auth UUID
+        try {
+          const { data: otherProfiles } = await supabase.from('profiles').select('id').ilike('email', email.trim().toLowerCase()).neq('id', authId);
+          if (otherProfiles && otherProfiles.length > 0) {
+            for (const old of otherProfiles) {
+              try {
+                await supabase.from('purchases').update({ userId: authId }).eq('userId', old.id);
+                await supabase.from('profiles').delete().eq('id', old.id);
+              } catch (e) {}
+            }
+          }
+        } catch (e) {}
+
+        const { data: profile, error: dbError } = await supabase.from('profiles').select('*').eq('id', authId).single();
         if (dbError) return { data: null, error: dbError.message };
         currentUser = profile;
         setStoredData('bw_mock_current_user', currentUser);
+
+        // Clear stale purchase caches to force fresh DB sync
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(`bw_user_purchases_cache_${authId}`);
+          localStorage.removeItem('bw_all_licenses_revoked');
+        }
+
         await dbService.registerDeviceSession(profile.id);
         return { data: profile, error: null };
       }
@@ -884,10 +939,16 @@ export const dbService = {
             if (matchedProfiles && matchedProfiles.length > 0) {
               matchedProfiles.forEach((p: any) => userIdsToQuery.add(p.id));
             }
-          } catch (e) {}
+          } catch (e) {
+            // RLS may block cross-profile reads — that's OK, we continue with what we have
+          }
         }
 
+        // Also search purchases table directly for any rows linked to alternate profile IDs
+        // This catches admin-granted licenses where the profile ID differs from Auth UUID
         const idsArray = Array.from(userIdsToQuery);
+        
+        // Primary query: by all known user IDs
         let query = supabase.from('purchases').select('*').gt('expiresAt', now.toISOString());
         
         if (idsArray.length === 1) {
@@ -896,7 +957,7 @@ export const dbService = {
           query = query.in('userId', idsArray);
         }
 
-        const res: any = await fetchWithTimeout(query as any, 1500);
+        const res: any = await fetchWithTimeout(query as any, 2500);
 
         if (res?.data !== undefined && res?.data !== null) {
           const allRows = res.data || [];
