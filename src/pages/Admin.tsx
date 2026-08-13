@@ -1347,70 +1347,137 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                 </div>
               </div>
 
-              {/* Bundles Inventory */}
-              <div className="admin-list-card glass-card" style={{ padding: '24px' }}>
-                <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }} className="yellow-accent">
-                  <Layers size={20} /> Semester Combo Packs Editor ({bundles.length} Bundles)
-                </h3>
-                <div className="admin-table-wrapper">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Bundle Name</th>
-                        <th>Type / Subject</th>
-                        <th>Year & Sem</th>
-                        <th>Price (Disc / Orig)</th>
-                        <th>Contents</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bundles.map(b => (
-                        <tr key={b.id}>
-                          <td style={{ fontWeight: '600' }}>{b.title}</td>
-                          <td>
-                            <span className="bundle-banner-badge" style={{ 
-                              background: b.type === 'subject' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                              color: b.type === 'subject' ? '#60a5fa' : '#fbbf24',
-                              border: b.type === 'subject' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontSize: '10px',
-                              fontWeight: 'bold',
-                              display: 'inline-block'
-                            }}>
-                              {b.type === 'subject' ? `Subject: ${b.subject}` : 'Semester Combo'}
-                            </span>
-                          </td>
-                          <td style={{ color: 'var(--color-muted)' }}>{b.year} (Sem {b.semester})</td>
-                          <td className="yellow-accent" style={{ fontWeight: '700' }}>
-                            ₹{b.price} <span style={{ textDecoration: 'line-through', color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal', marginLeft: '4px' }}>₹{b.originalPrice ?? (b.price + 100)}</span>
-                          </td>
-                          <td>{b.notesIds.length} syllabus subfiles</td>
-                          <td style={{ textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                              <button 
-                                className="btn-secondary" 
-                                style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                onClick={() => setEditingBundle(b)}
-                              >
-                                <Edit2 size={12} /> Edit
-                              </button>
-                              <button 
-                                className="btn-secondary" 
-                                style={{ padding: '6px 12px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                onClick={() => handleDeleteBundle(b.id)}
-                              >
-                                <Trash2 size={12} /> Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              {/* Semester Combo Packs Inventory */}
+              {(() => {
+                const semesterCombos = bundles.filter(b => b.type === 'semester' || !b.type);
+                return (
+                  <div className="admin-list-card glass-card" style={{ padding: '24px' }}>
+                    <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }} className="yellow-accent">
+                      <Layers size={20} /> Semester Combo Packs Editor ({semesterCombos.length} Combos)
+                    </h3>
+                    <div className="admin-table-wrapper">
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>Combo Title</th>
+                            <th>Year & Sem</th>
+                            <th>Included Subjects</th>
+                            <th>Price (Disc / Orig)</th>
+                            <th>Contents</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {semesterCombos.length > 0 ? (
+                            semesterCombos.map(b => (
+                              <tr key={b.id}>
+                                <td style={{ fontWeight: '600' }}>{b.title}</td>
+                                <td style={{ color: 'var(--color-muted)' }}>{b.year} (Sem {b.semester})</td>
+                                <td style={{ fontSize: '12px', color: 'var(--color-muted)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {b.subjects && b.subjects.length > 0 ? b.subjects.join(', ') : 'All Semester Subjects'}
+                                </td>
+                                <td className="yellow-accent" style={{ fontWeight: '700' }}>
+                                  ₹{b.price} <span style={{ textDecoration: 'line-through', color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal', marginLeft: '4px' }}>₹{b.originalPrice ?? (b.price + 100)}</span>
+                                </td>
+                                <td>{b.notesIds.length} syllabus subfiles</td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                    <button 
+                                      className="btn-secondary" 
+                                      style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                      onClick={() => setEditingBundle(b)}
+                                    >
+                                      <Edit2 size={12} /> Edit
+                                    </button>
+                                    <button 
+                                      className="btn-secondary" 
+                                      style={{ padding: '6px 12px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                      onClick={() => handleDeleteBundle(b.id)}
+                                    >
+                                      <Trash2 size={12} /> Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={6} style={{ textAlign: 'center', color: 'var(--color-muted)', fontStyle: 'italic', padding: '20px' }}>
+                                No semester combo packs created yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Individual Subject Bundles Inventory */}
+              {(() => {
+                const subjectBundles = bundles.filter(b => b.type === 'subject');
+                return (
+                  <div className="admin-list-card glass-card" style={{ padding: '24px' }}>
+                    <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }} className="blue-accent">
+                      <Layers size={20} /> Individual Subject Bundles Editor ({subjectBundles.length} Bundles)
+                    </h3>
+                    <div className="admin-table-wrapper">
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>Bundle Title</th>
+                            <th>Subject Name</th>
+                            <th>Year & Sem</th>
+                            <th>Price (Disc / Orig)</th>
+                            <th>Notes Count</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {subjectBundles.length > 0 ? (
+                            subjectBundles.map(b => (
+                              <tr key={b.id}>
+                                <td style={{ fontWeight: '600' }}>{b.title}</td>
+                                <td style={{ color: '#60a5fa', fontWeight: '600' }}>{b.subject || 'Custom Subject'}</td>
+                                <td style={{ color: 'var(--color-muted)' }}>{b.year} (Sem {b.semester})</td>
+                                <td className="blue-accent" style={{ fontWeight: '700' }}>
+                                  ₹{b.price} <span style={{ textDecoration: 'line-through', color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal', marginLeft: '4px' }}>₹{b.originalPrice ?? (b.price + 100)}</span>
+                                </td>
+                                <td>{b.notesIds.length} note files</td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                    <button 
+                                      className="btn-secondary" 
+                                      style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                      onClick={() => setEditingBundle(b)}
+                                    >
+                                      <Edit2 size={12} /> Edit
+                                    </button>
+                                    <button 
+                                      className="btn-secondary" 
+                                      style={{ padding: '6px 12px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                      onClick={() => handleDeleteBundle(b.id)}
+                                    >
+                                      <Trash2 size={12} /> Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={6} style={{ textAlign: 'center', color: 'var(--color-muted)', fontStyle: 'italic', padding: '20px' }}>
+                                No individual subject bundles created yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* YouTube Playlists Inventory */}
               <div className="admin-list-card glass-card" style={{ padding: '24px' }}>
