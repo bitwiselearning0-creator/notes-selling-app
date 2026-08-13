@@ -1005,6 +1005,7 @@ export const dbService = {
     
     mockBundles.unshift(newBundle);
     setStoredData('bw_mock_bundles', mockBundles);
+    setStoredData('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
 
     if (!isMock && supabase) {
       const { subjects, ...dbPayload } = newBundle as any;
@@ -1202,6 +1203,7 @@ export const dbService = {
     // 1. Update local cache immediately so subjects state is saved locally and instantly active
     mockBundles = mockBundles.map(b => b.id === id ? { ...b, ...bundle } : b);
     setStoredData('bw_mock_bundles', mockBundles);
+    setStoredData('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
 
     if (!isMock && supabase) {
       // 2. Strip 'subjects' column from payload & encode into description before DB call
@@ -1220,12 +1222,13 @@ export const dbService = {
   },
 
   deleteBundle: async (id: string): Promise<{ success: boolean; error: string | null }> => {
+    mockBundles = mockBundles.filter(b => b.id !== id);
+    setStoredData('bw_mock_bundles', mockBundles);
+    setStoredData('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
     if (!isMock && supabase) {
       const { error } = await supabase.from('bundles').delete().eq('id', id);
       return { success: !error, error: error ? error.message : null };
     } else {
-      mockBundles = mockBundles.filter(b => b.id !== id);
-      setStoredData('bw_mock_bundles', mockBundles);
       return { success: true, error: null };
     }
   },
