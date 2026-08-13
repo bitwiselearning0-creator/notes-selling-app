@@ -154,8 +154,19 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   });
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const pendingScrollRef = useRef<{ left: number; top: number } | null>(null);
   const lastScrollTopRef = useRef<number>(0);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Synchronously update scroll position before browser paint when zoom changes to prevent page jump
+  React.useLayoutEffect(() => {
+    if (pendingScrollRef.current && scrollContainerRef.current) {
+      const { left, top } = pendingScrollRef.current;
+      scrollContainerRef.current.scrollLeft = left;
+      scrollContainerRef.current.scrollTop = top;
+      pendingScrollRef.current = null;
+    }
+  }, [zoom]);
 
   // 1. Load PDF.js from CDN dynamically
   useEffect(() => {
@@ -327,20 +338,14 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         const newScrollTop = Math.max(0, (startScrollTop + startMidY) * zoomRatio - lastMidY);
 
         setPinchScale(1);
+        // Store target scroll position to apply synchronously in useLayoutEffect before browser paint!
+        pendingScrollRef.current = { left: newScrollLeft, top: newScrollTop };
+
+        setPinchScale(1);
         setIsPinching(false);
 
         zoomRef.current = finalZoom;
         setZoom(finalZoom);
-
-        // Defer scroll offset assignment until React completes DOM layout commit
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (container) {
-              container.scrollLeft = newScrollLeft;
-              container.scrollTop = newScrollTop;
-            }
-          });
-        });
 
         touchStartDistRef.current = null;
       }
