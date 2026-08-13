@@ -2613,4 +2613,14 @@ body.app-mode .form-toggle-link span {
   width: 100%;
 }
 
+/* Hide WebKit & Firefox spin buttons on number inputs for clean mobile rendering */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+input[type=number] {
+  -moz-appearance: textfield !important;
+}
+
 

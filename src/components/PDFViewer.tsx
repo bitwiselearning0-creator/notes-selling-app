@@ -675,6 +675,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             {/* Enlarged Glowing Active Page Input Box */}
             <input 
               type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
               min={1}
               max={totalPages}
               value={jumpPageInput}
@@ -688,19 +690,24 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               }}
               onFocus={(e) => e.target.select()}
               style={{
-                width: '58px',
-                height: '32px',
-                background: 'rgba(245, 158, 11, 0.15)',
-                border: '1.5px solid var(--color-yellow)',
+                width: '60px',
+                height: '34px',
+                background: '#0a1329',
+                border: '2px solid var(--color-yellow)',
                 borderRadius: '8px',
-                color: '#fbbf24',
-                fontSize: '17px',
+                color: '#fef08a',
+                fontSize: '18px',
                 fontWeight: '900',
                 textAlign: 'center',
-                padding: '0 4px',
+                padding: 0,
+                margin: 0,
                 outline: 'none',
                 boxSizing: 'border-box',
-                boxShadow: '0 0 12px rgba(245, 158, 11, 0.25)'
+                WebkitAppearance: 'none',
+                MozAppearance: 'textfield',
+                lineHeight: '34px',
+                display: 'inline-block',
+                boxShadow: '0 0 14px rgba(245, 158, 11, 0.35)'
               }}
             />
 
