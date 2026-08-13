@@ -824,16 +824,29 @@ export const dbService = {
     // 1. LIVE SUPABASE DB SYNC: Query exact active purchases from PostgreSQL DB
     if (!isOffline && !isMock && supabase) {
       try {
-        const email = currentUser.email ? currentUser.email.toLowerCase() : '';
-        let query = supabase.from('purchases').select('*').gt('expiresAt', now.toISOString());
-        
-        if (email) {
-          query = query.or(`userId.eq.${currentUser.id},userEmail.eq.${email}`);
-        } else {
-          query = query.eq('userId', currentUser.id);
+        const cleanEmail = currentUser.email ? currentUser.email.trim().toLowerCase() : '';
+        const userIdsToQuery = new Set<string>([currentUser.id]);
+
+        // Find any other profile IDs with the same email (e.g. created during manual licensing)
+        if (cleanEmail) {
+          try {
+            const { data: matchedProfiles } = await supabase.from('profiles').select('id').ilike('email', cleanEmail);
+            if (matchedProfiles && matchedProfiles.length > 0) {
+              matchedProfiles.forEach((p: any) => userIdsToQuery.add(p.id));
+            }
+          } catch (e) {}
         }
 
-        const res: any = await fetchWithTimeout(query as any, 1200);
+        const idsArray = Array.from(userIdsToQuery);
+        let query = supabase.from('purchases').select('*').gt('expiresAt', now.toISOString());
+        
+        if (idsArray.length === 1) {
+          query = query.eq('userId', idsArray[0]);
+        } else {
+          query = query.in('userId', idsArray);
+        }
+
+        const res: any = await fetchWithTimeout(query as any, 1500);
 
         if (res?.data !== undefined && res?.data !== null) {
           const freshPurchases = (res.data || []).filter((p: any) => p.itemId !== 'session_tracker');
@@ -1266,26 +1279,57 @@ export const dbService = {
 
   // --- MANUAL STUDENT LICENSING ENGINE ---
   grantManualLicense: async (email: string, itemId: string, itemType: 'notes' | 'bundle', months: number): Promise<{ success: boolean; error: string | null }> => {
-    // Clear global revocation flag when new license is granted
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Clear global revocation flag when new license is granted
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('bw_all_licenses_revoked');
     }
     const revokedItems = getStoredData<string[]>('bw_revoked_item_ids', []).filter(id => id !== itemId);
     setStoredData('bw_revoked_item_ids', revokedItems);
 
-    const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-    const userId = user ? user.id : 'user_manual_' + Math.random().toString(36).substr(2, 9);
-    
-    if (!user) {
-      const newMockUser: UserProfile = {
-        id: userId,
-        name: email.split('@')[0],
-        email: email,
-        phone: '0000000000',
-        role: 'student'
-      };
-      mockUsers.push(newMockUser);
-      setStoredData('bw_mock_users', mockUsers);
+    let targetUserId = '';
+
+    // 2. Resolve or create profile in Supabase DB
+    if (!isMock && supabase) {
+      try {
+        const { data: matchedProfiles } = await supabase.from('profiles').select('id, email, name').ilike('email', cleanEmail);
+        if (matchedProfiles && matchedProfiles.length > 0) {
+          targetUserId = matchedProfiles[0].id;
+        } else {
+          // If student is not yet in profiles, create a pending student profile record in Supabase DB!
+          const newId = generateUUID();
+          const newProfile: UserProfile = {
+            id: newId,
+            name: cleanEmail.split('@')[0],
+            email: cleanEmail,
+            phone: '0000000000',
+            role: 'student'
+          };
+          await supabase.from('profiles').insert([newProfile]);
+          targetUserId = newId;
+        }
+      } catch (err) {
+        console.warn('Error resolving profile in Supabase:', err);
+      }
+    }
+
+    if (!targetUserId) {
+      let localUser = mockUsers.find(u => u.email.toLowerCase() === cleanEmail);
+      if (!localUser) {
+        const newLocalUser: UserProfile = {
+          id: 'user_' + Math.random().toString(36).substr(2, 9),
+          name: cleanEmail.split('@')[0],
+          email: cleanEmail,
+          phone: '0000000000',
+          role: 'student'
+        };
+        mockUsers.push(newLocalUser);
+        setStoredData('bw_mock_users', mockUsers);
+        targetUserId = newLocalUser.id;
+      } else {
+        targetUserId = localUser.id;
+      }
     }
 
     const purchasedAt = new Date();
@@ -1303,50 +1347,41 @@ export const dbService = {
 
     const newPurchase: Purchase = {
       id: generateUUID(),
-      userId,
+      userId: targetUserId,
       itemId,
       itemType,
-      userEmail: email,
+      userEmail: cleanEmail,
       itemName,
       purchasedAt: purchasedAt.toISOString(),
       expiresAt: expiresAt.toISOString()
     };
 
-    if (!isMock && supabase) {
-      const { data: realUser } = await supabase.from('profiles').select('id').eq('email', email).single();
-      if (realUser) {
-        newPurchase.userId = realUser.id;
-      }
+    // Update local storage map for instant Admin UI and offline support
+    const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+    const userPurchases = storedMapV2[targetUserId] || [];
+    const updatedPurchases = userPurchases.filter(p => !(p.itemId === itemId && p.itemType === itemType));
+    updatedPurchases.push(newPurchase);
+    storedMapV2[targetUserId] = updatedPurchases;
+    setStoredData('bw_mock_purchases_map_v2', storedMapV2);
 
+    if (currentUser && (currentUser.id === targetUserId || (currentUser.email && currentUser.email.toLowerCase() === cleanEmail))) {
+      mockPurchasesV2 = updatedPurchases;
+      setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
+      setStoredData(`bw_user_purchases_cache_${currentUser.id}`, mockPurchasesV2);
+    }
+
+    // Insert into Supabase DB purchases table (stripping non-DB columns)
+    if (!isMock && supabase) {
       const { userEmail, itemName, ...dbPayload } = newPurchase;
       const { error } = await supabase.from('purchases').insert([dbPayload]);
-
-      // Always populate local storage map so admin panel & offline hydration are instant
-      const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-      const userPurchases = storedMapV2[newPurchase.userId] || [];
-      const updatedPurchases = userPurchases.filter(p => !(p.itemId === itemId && p.itemType === itemType));
-      updatedPurchases.push(newPurchase);
-      storedMapV2[newPurchase.userId] = updatedPurchases;
-      setStoredData('bw_mock_purchases_map_v2', storedMapV2);
-
       if (error) {
         console.warn('Supabase DB purchase insert error:', error.message);
-      }
-      return { success: !error, error: error ? error.message : null };
-    } else {
-      const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-      const userPurchases = storedMapV2[userId] || [];
-      const updatedPurchases = userPurchases.filter(p => !(p.itemId === itemId && p.itemType === itemType));
-      updatedPurchases.push(newPurchase);
-      storedMapV2[userId] = updatedPurchases;
-      setStoredData('bw_mock_purchases_map_v2', storedMapV2);
-
-      if (currentUser && currentUser.id === userId) {
-        mockPurchasesV2 = updatedPurchases;
-        setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
+        return { success: false, error: error.message };
       }
       return { success: true, error: null };
     }
+
+    return { success: true, error: null };
   },
 
   revokeLicense: async (purchaseId: string): Promise<{ success: boolean; error: string | null }> => {
@@ -1425,13 +1460,17 @@ export const dbService = {
   getAllPurchases: async (): Promise<{ data: (Purchase & { userEmail?: string; userName?: string; itemName?: string })[]; error: string | null }> => {
     let rawPurchases: Purchase[] = [];
     let dbProfiles: UserProfile[] = [];
+    let dbNotes: Note[] = [];
+    let dbBundles: Bundle[] = [];
     let dbSuccess = false;
 
     if (!isMock && supabase) {
       try {
-        const [purchasesRes, profilesRes] = await Promise.all([
+        const [purchasesRes, profilesRes, notesRes, bundlesRes] = await Promise.all([
           supabase.from('purchases').select('*'),
-          supabase.from('profiles').select('id, email, name, role')
+          supabase.from('profiles').select('id, email, name, role'),
+          supabase.from('notes').select('id, title'),
+          supabase.from('bundles').select('id, title')
         ]);
 
         if (purchasesRes?.data) {
@@ -1447,6 +1486,8 @@ export const dbService = {
             role: u.role || 'student'
           }));
         }
+        if (notesRes?.data) dbNotes = notesRes.data as any;
+        if (bundlesRes?.data) dbBundles = bundlesRes.data as any;
       } catch (err) {
         console.warn('Error fetching purchases/profiles from Supabase:', err);
       }
@@ -1459,14 +1500,20 @@ export const dbService = {
       });
     }
 
-    // ALWAYS filter out blacklisted revoked purchase IDs!
+    // Filter out blacklisted revoked purchase IDs
     const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
     if (revokedIds.length > 0) {
       rawPurchases = rawPurchases.filter(p => !revokedIds.includes(p.id));
     }
 
+    // Filter out expired purchases (expiresAt <= now)
+    const now = new Date();
+    rawPurchases = rawPurchases.filter(p => new Date(p.expiresAt) > now);
+
     const localProfiles = getStoredData<UserProfile[]>('bw_mock_users', mockUsers);
     const combinedProfiles = [...dbProfiles, ...localProfiles];
+    const allNotesList = [...dbNotes, ...getStoredData<Note[]>('bw_mock_notes', mockNotes)];
+    const allBundlesList = [...dbBundles, ...getStoredData<Bundle[]>('bw_mock_bundles', mockBundles)];
 
     const mapped = rawPurchases.map(p => {
       const user = combinedProfiles.find(u => u.id === p.userId || (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase()));
@@ -1474,15 +1521,15 @@ export const dbService = {
       let name = p.itemName || '';
       if (!name) {
         if (p.itemType === 'notes') {
-          const foundNote = mockNotes.find(n => n.id === p.itemId);
+          const foundNote = allNotesList.find(n => n.id === p.itemId);
           name = foundNote ? foundNote.title : 'Study Notes Pack';
         } else {
-          const foundBundle = mockBundles.find(b => b.id === p.itemId);
+          const foundBundle = allBundlesList.find(b => b.id === p.itemId);
           name = foundBundle ? foundBundle.title : 'Semester Combo Pack';
         }
       }
 
-      const actualEmail = p.userEmail || user?.email || 'Student Email Unavailable';
+      const actualEmail = user?.email || p.userEmail || 'Student (' + p.userId.substring(0, 8) + ')';
       const actualName = user?.name || '';
 
       return {
