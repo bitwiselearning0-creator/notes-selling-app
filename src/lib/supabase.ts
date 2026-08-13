@@ -795,9 +795,8 @@ export const dbService = {
     // Check if item or purchase is blacklisted/revoked
     const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
     const revokedItems = getStoredData<string[]>('bw_revoked_item_ids', []);
-    const isGlobalRevoked = typeof localStorage !== 'undefined' && localStorage.getItem('bw_all_licenses_revoked') === 'true';
 
-    if (isGlobalRevoked || revokedIds.includes(notesId) || revokedItems.includes(notesId)) {
+    if (revokedIds.includes(notesId) || revokedItems.includes(notesId)) {
       return false;
     }
 
@@ -811,9 +810,8 @@ export const dbService = {
     // Check if item or purchase is blacklisted/revoked
     const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
     const revokedItems = getStoredData<string[]>('bw_revoked_item_ids', []);
-    const isGlobalRevoked = typeof localStorage !== 'undefined' && localStorage.getItem('bw_all_licenses_revoked') === 'true';
 
-    if (isGlobalRevoked || revokedIds.includes(notesId) || revokedItems.includes(notesId)) {
+    if (revokedIds.includes(notesId) || revokedItems.includes(notesId)) {
       return { purchased: false, expiresAt: null, daysLeft: null };
     }
 
@@ -854,7 +852,7 @@ export const dbService = {
     if (!isOffline && !isMock && supabase) {
       try {
         const cleanEmail = currentUser.email ? currentUser.email.trim().toLowerCase() : '';
-        const userIdsToQuery = new Set<string>([currentUser.id]);
+        const userIdsToQuery = new Set<string>([currentUser.id, 'REVOKED_MARKER']);
 
         // Find any other profile IDs with the same email (e.g. created during manual licensing)
         if (cleanEmail) {
@@ -905,6 +903,11 @@ export const dbService = {
           allPurchases = freshPurchases;
           liveDbFetched = true;
 
+          // If active purchases exist, clear any stale global revocation flag on user device!
+          if (freshPurchases.length > 0 && typeof localStorage !== 'undefined') {
+            localStorage.removeItem('bw_all_licenses_revoked');
+          }
+
           // If DB confirms 0 active purchases (revoked by Admin), wipe offline download index on phone!
           if (freshPurchases.length === 0) {
             dbService.clearOfflineNotes();
@@ -919,8 +922,8 @@ export const dbService = {
     if (!liveDbFetched) {
       const cachedUserPurchases = getStoredData<Purchase[]>(`bw_user_purchases_cache_${currentUser.id}`, []);
       const localMap = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-      const localUserPurchases = localMap[currentUser.id] || [];
-      const mockForUser = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
+      const localUserPurchases = localMap[currentUser.id] || localMap[currentUser.email?.trim().toLowerCase() || ''] || [];
+      const mockForUser = mockPurchasesV2.filter(p => p.userId === currentUser?.id || p.userEmail === currentUser?.email);
 
       allPurchases = [...cachedUserPurchases];
       for (const lp of localUserPurchases) {
@@ -964,11 +967,14 @@ export const dbService = {
     const purchasedNoteIdsSet = new Set<string>();
     const purchasedBundleIdsSet = new Set<string>();
 
-    const allBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
+    const { data: allNotesData } = await dbService.getNotes();
+    const allNotesList = allNotesData || getStoredData<Note[]>('bw_mock_notes', mockNotes);
+    const { data: allBundlesData } = await dbService.getBundles();
+    const allBundles = allBundlesData || getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
 
     for (const p of allPurchases) {
       const expDate = new Date(p.expiresAt);
-      if (expDate > now || currentUser.role === 'admin') {
+      if (expDate > now) {
         const diffTime = expDate.getTime() - now.getTime();
         const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -976,7 +982,6 @@ export const dbService = {
           purchasedNoteIdsSet.add(p.itemId);
           noteDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
         } else if (p.itemType === 'subject') {
-          const allNotesList = getStoredData<Note[]>('bw_mock_notes', mockNotes);
           const targetSubject = (p.itemId || '').toLowerCase();
           allNotesList.forEach(n => {
             if (n.subject && n.subject.toLowerCase() === targetSubject) {
@@ -992,11 +997,25 @@ export const dbService = {
 
           const bundleObj = allBundles.find(b => b.id === p.itemId) || mockBundles.find(b => b.id === p.itemId);
           if (bundleObj) {
+            // 1. Expand explicit notesIds
             const bNotesIds = safeParseBundleNotesIds(bundleObj.notesIds);
             bNotesIds.forEach(nid => {
               purchasedNoteIdsSet.add(nid);
               if (!noteDetailsMap[nid]) {
                 noteDetailsMap[nid] = { expiresAt: p.expiresAt, daysLeft };
+              }
+            });
+
+            // 2. Expand notes matching bundle subjects or semester
+            const subjects = Array.isArray(bundleObj.subjects) ? bundleObj.subjects : [];
+            allNotesList.forEach(n => {
+              const matchesSubject = subjects.some(s => s && n.subject && s.toLowerCase() === n.subject.toLowerCase());
+              const matchesSem = bundleObj.semester && n.semester === bundleObj.semester;
+              if (matchesSubject || matchesSem) {
+                purchasedNoteIdsSet.add(n.id);
+                if (!noteDetailsMap[n.id]) {
+                  noteDetailsMap[n.id] = { expiresAt: p.expiresAt, daysLeft };
+                }
               }
             });
           }
