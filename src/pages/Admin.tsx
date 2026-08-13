@@ -1836,7 +1836,16 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                           return (
                             <tr key={p.id}>
                               <td style={{ fontWeight: '700', fontSize: '13px', color: '#ffffff' }}>
-                                {p.userEmail || 'student@gmail.com'}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                  <span style={{ fontWeight: '700', color: '#ffffff', fontSize: '13px' }}>
+                                    {(p as any).userEmail || 'student@gmail.com'}
+                                  </span>
+                                  {(p as any).userName && (
+                                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>
+                                      {(p as any).userName}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td style={{ fontSize: '13px', color: '#e2e8f0' }}>
                                 <span className={`semester-tag ${p.itemType === 'bundle' ? 'yellow-accent' : 'blue-accent'}`} style={{ fontSize: '9px', padding: '2px 6px', marginRight: '8px', fontWeight: 'bold', display: 'inline-block' }}>

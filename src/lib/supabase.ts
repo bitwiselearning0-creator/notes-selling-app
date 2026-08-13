@@ -1419,19 +1419,33 @@ export const dbService = {
     return { success: true, error: null };
   },
 
-  getAllPurchases: async (): Promise<{ data: (Purchase & { userEmail?: string; itemName?: string })[]; error: string | null }> => {
+  getAllPurchases: async (): Promise<{ data: (Purchase & { userEmail?: string; userName?: string; itemName?: string })[]; error: string | null }> => {
     let rawPurchases: Purchase[] = [];
+    let dbProfiles: UserProfile[] = [];
     let dbSuccess = false;
 
     if (!isMock && supabase) {
       try {
-        const { data, error } = await supabase.from('purchases').select('*');
-        if (!error && data) {
-          rawPurchases = data.filter((p: any) => p.noteId !== 'session_tracker' && p.itemId !== 'session_tracker');
+        const [purchasesRes, profilesRes] = await Promise.all([
+          supabase.from('purchases').select('*'),
+          supabase.from('profiles').select('id, email, name, role')
+        ]);
+
+        if (purchasesRes?.data) {
+          rawPurchases = purchasesRes.data.filter((p: any) => p.noteId !== 'session_tracker' && p.itemId !== 'session_tracker');
           dbSuccess = true;
         }
+        if (profilesRes?.data) {
+          dbProfiles = (profilesRes.data || []).map((u: any) => ({
+            id: u.id,
+            email: u.email || '',
+            name: u.name || u.email?.split('@')[0] || 'Student',
+            phone: u.phone || '0000000000',
+            role: u.role || 'student'
+          }));
+        }
       } catch (err) {
-        console.warn('Error fetching purchases from Supabase:', err);
+        console.warn('Error fetching purchases/profiles from Supabase:', err);
       }
     }
 
@@ -1448,10 +1462,11 @@ export const dbService = {
       rawPurchases = rawPurchases.filter(p => !revokedIds.includes(p.id));
     }
 
-    const allProfiles = getStoredData<UserProfile[]>('bw_mock_users', mockUsers);
+    const localProfiles = getStoredData<UserProfile[]>('bw_mock_users', mockUsers);
+    const combinedProfiles = [...dbProfiles, ...localProfiles];
 
     const mapped = rawPurchases.map(p => {
-      const user = allProfiles.find(u => u.id === p.userId || (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase()));
+      const user = combinedProfiles.find(u => u.id === p.userId || (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase()));
       
       let name = p.itemName || '';
       if (!name) {
@@ -1464,9 +1479,13 @@ export const dbService = {
         }
       }
 
+      const actualEmail = p.userEmail || user?.email || 'Student Email Unavailable';
+      const actualName = user?.name || '';
+
       return {
         ...p,
-        userEmail: p.userEmail || user?.email || 'student@gmail.com',
+        userEmail: actualEmail,
+        userName: actualName,
         itemName: name
       };
     });
