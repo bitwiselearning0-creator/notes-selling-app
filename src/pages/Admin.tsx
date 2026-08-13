@@ -1863,10 +1863,19 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                                 </div>
                               </td>
                               <td style={{ fontSize: '13px', color: '#e2e8f0' }}>
-                                <span className={`semester-tag ${p.itemType === 'bundle' ? 'yellow-accent' : p.itemType === 'subject' ? 'purple-accent' : 'blue-accent'}`} style={{ fontSize: '9px', padding: '2px 6px', marginRight: '8px', fontWeight: 'bold', display: 'inline-block' }}>
-                                  {p.itemType === 'subject' ? 'SUBJECT PACK' : p.itemType ? p.itemType.toUpperCase() : 'LICENSE'}
-                                </span>
-                                <span style={{ fontWeight: '600' }}>{p.itemName || 'Unlocked Resource'}</span>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                  <span className={`semester-tag ${p.itemType === 'bundle' ? 'yellow-accent' : p.itemType === 'subject' ? 'purple-accent' : 'blue-accent'}`} style={{ fontSize: '9px', padding: '2px 6px', marginTop: '2px', fontWeight: 'bold', flexShrink: 0 }}>
+                                    {p.itemType === 'subject' ? 'SUBJECT PACK' : p.itemType === 'bundle' ? 'SEMESTER BUNDLE' : 'NOTES PACK'}
+                                  </span>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{ fontWeight: '700', color: '#ffffff', fontSize: '13px' }}>{p.itemName || 'Unlocked Resource'}</span>
+                                    {(p as any).itemSubject && (
+                                      <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: '600' }}>
+                                        📚 Subject: {(p as any).itemSubject}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </td>
                               <td style={{ fontSize: '12px', color: isExpired ? '#ef4444' : '#34d399', fontWeight: '700' }}>
                                 {formattedDate}

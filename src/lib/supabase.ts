@@ -1701,17 +1701,32 @@ export const dbService = {
       const user = combinedProfiles.find(u => u.id === p.userId || (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase()));
       
       let name = p.itemName || '';
-      if (!name) {
-        if (p.itemType === 'notes') {
-          const foundNote = allNotesList.find(n => n.id === p.itemId);
-          name = foundNote ? foundNote.title : 'Study Notes Pack';
-        } else if (p.itemType === 'subject') {
-          name = `Subject Combo: ${p.itemId}`;
+      let subject = '';
+
+      if (p.itemType === 'notes') {
+        const foundNote = allNotesList.find(n => n.id === p.itemId);
+        if (foundNote) {
+          name = foundNote.title;
+          subject = foundNote.subject || '';
         } else {
-          const foundBundle = allBundlesList.find(b => b.id === p.itemId);
-          name = foundBundle ? foundBundle.title : 'Semester Combo Pack';
+          name = p.itemName || 'Study Notes Pack';
+        }
+      } else if (p.itemType === 'subject') {
+        subject = p.itemId.replace(/^Subject (Pack|Combo):\s*/i, '').trim();
+        name = `Subject Combo: ${subject}`;
+      } else if (p.itemType === 'bundle') {
+        const foundBundle = allBundlesList.find(b => b.id === p.itemId || b.id.toLowerCase() === p.itemId.toLowerCase());
+        if (foundBundle) {
+          name = foundBundle.title;
+          subject = Array.isArray(foundBundle.subjects) && foundBundle.subjects.length > 0 
+            ? foundBundle.subjects.join(', ') 
+            : ((foundBundle as any).subject || (foundBundle.semester ? `Semester ${foundBundle.semester}` : ''));
+        } else {
+          name = p.itemName || `Semester Bundle (${p.itemId})`;
         }
       }
+
+      if (!name) name = p.itemId || 'Unlocked License';
 
       const actualEmail = user?.email || p.userEmail || 'Student (' + p.userId.substring(0, 8) + ')';
       const actualName = user?.name || '';
@@ -1720,7 +1735,8 @@ export const dbService = {
         ...p,
         userEmail: actualEmail,
         userName: actualName,
-        itemName: name
+        itemName: name,
+        itemSubject: subject
       };
     });
 
