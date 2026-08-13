@@ -849,6 +849,12 @@ export const dbService = {
       }
     }
 
+    // Filter out blacklisted revoked purchase IDs
+    const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
+    if (revokedIds.length > 0) {
+      allPurchases = allPurchases.filter(p => !revokedIds.includes(p.id));
+    }
+
     const allBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
 
     // If online, refresh cache in background non-blocking
@@ -1311,36 +1317,55 @@ export const dbService = {
   },
 
   revokeLicense: async (purchaseId: string): Promise<{ success: boolean; error: string | null }> => {
-    if (!isMock && supabase) {
-      const { error } = await supabase.from('purchases').delete().eq('id', purchaseId);
-      return { success: !error, error: error ? error.message : null };
-    } else {
-      const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-      Object.keys(storedMapV2).forEach(uid => {
-        storedMapV2[uid] = storedMapV2[uid].filter(p => p.id !== purchaseId);
-      });
-      setStoredData('bw_mock_purchases_map_v2', storedMapV2);
-
-      if (currentUser) {
-        mockPurchasesV2 = storedMapV2[currentUser.id] || [];
-        setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
-      }
-      return { success: true, error: null };
+    // 1. Instantly blacklist purchaseId in local storage
+    const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
+    if (!revokedIds.includes(purchaseId)) {
+      revokedIds.push(purchaseId);
+      setStoredData('bw_revoked_purchase_ids', revokedIds);
     }
+
+    // 2. Clear local mock map storage
+    const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+    Object.keys(storedMapV2).forEach(uid => {
+      storedMapV2[uid] = storedMapV2[uid].filter(p => p.id !== purchaseId);
+    });
+    setStoredData('bw_mock_purchases_map_v2', storedMapV2);
+
+    if (currentUser) {
+      mockPurchasesV2 = storedMapV2[currentUser.id] || [];
+      setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
+      try {
+        localStorage.removeItem(`bw_user_purchases_cache_${currentUser.id}`);
+      } catch (e) {}
+    }
+
+    // 3. Issue DB delete if online
+    if (!isMock && supabase) {
+      try {
+        const { error } = await supabase.from('purchases').delete().eq('id', purchaseId);
+        if (error) {
+          console.warn('Supabase DB single revoke warning:', error.message);
+        }
+      } catch (err) {
+        console.warn('Error revoking single purchase in Supabase:', err);
+      }
+    }
+
+    return { success: true, error: null };
   },
 
   revokeAllLicenses: async (): Promise<{ success: boolean; error: string | null }> => {
-    if (!isMock && supabase) {
-      try {
-        const { error } = await supabase.from('purchases').delete().neq('itemId', 'session_tracker');
-        if (error) {
-          console.warn('Supabase DB delete all error:', error.message);
-        }
-      } catch (err) {
-        console.warn('Error revoking all purchases in Supabase:', err);
-      }
+    // 1. Fetch current purchases and add all IDs to blacklisted list
+    const current = await dbService.getAllPurchases();
+    const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
+    if (current.data && current.data.length > 0) {
+      current.data.forEach(p => {
+        if (p.id && !revokedIds.includes(p.id)) revokedIds.push(p.id);
+      });
     }
+    setStoredData('bw_revoked_purchase_ids', revokedIds);
 
+    // 2. Clear local storage maps completely
     setStoredData('bw_mock_purchases_map_v2', {});
     setStoredData('bw_mock_purchases_v2', []);
     mockPurchasesV2 = [];
@@ -1354,6 +1379,18 @@ export const dbService = {
         });
       }
     } catch (e) {}
+
+    // 3. Issue DB delete if online
+    if (!isMock && supabase) {
+      try {
+        const { error } = await supabase.from('purchases').delete().neq('itemId', 'session_tracker');
+        if (error) {
+          console.warn('Supabase DB delete all error:', error.message);
+        }
+      } catch (err) {
+        console.warn('Error revoking all purchases in Supabase:', err);
+      }
+    }
 
     return { success: true, error: null };
   },
@@ -1379,6 +1416,12 @@ export const dbService = {
       Object.keys(storedMapV2).forEach(uid => {
         rawPurchases.push(...storedMapV2[uid]);
       });
+    }
+
+    // ALWAYS filter out blacklisted revoked purchase IDs!
+    const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
+    if (revokedIds.length > 0) {
+      rawPurchases = rawPurchases.filter(p => !revokedIds.includes(p.id));
     }
 
     const allProfiles = getStoredData<UserProfile[]>('bw_mock_users', mockUsers);

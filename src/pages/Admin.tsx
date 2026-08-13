@@ -622,9 +622,13 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   // Handle License Revocation
   const handleRevokeLicense = async (purchaseId: string) => {
     if (!confirm('Are you sure you want to revoke this student\'s unlocked access license?')) return;
-    const { success } = await dbService.revokeLicense(purchaseId);
+    setPurchases(prev => prev.filter(p => p.id !== purchaseId));
+    const { success, error } = await dbService.revokeLicense(purchaseId);
     if (success) {
       showNotification('Student access license revoked.');
+      await loadInventory();
+    } else {
+      alert(error || 'Failed to revoke license.');
       loadInventory();
     }
   };
