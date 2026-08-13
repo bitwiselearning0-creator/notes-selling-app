@@ -982,7 +982,19 @@ export const dbService = {
           purchasedNoteIdsSet.add(p.itemId);
           noteDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
         } else if (p.itemType === 'subject') {
-          const targetSubject = (p.itemId || '').toLowerCase();
+          const rawSubjectName = p.itemId.replace(/^Subject (Pack|Combo):\s*/i, '').trim();
+          const subjectKey = `subject_pack_${rawSubjectName.toLowerCase().replace(/\s+/g, '_')}`;
+
+          purchasedBundleIdsSet.add(subjectKey);
+          bundleDetailsMap[subjectKey] = { expiresAt: p.expiresAt, daysLeft };
+
+          // Also record original itemId if different
+          if (p.itemId !== subjectKey) {
+            purchasedBundleIdsSet.add(p.itemId);
+            bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
+          }
+
+          const targetSubject = rawSubjectName.toLowerCase();
           allNotesList.forEach(n => {
             if (n.subject && n.subject.toLowerCase() === targetSubject) {
               purchasedNoteIdsSet.add(n.id);
@@ -995,7 +1007,7 @@ export const dbService = {
           purchasedBundleIdsSet.add(p.itemId);
           bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
 
-          const bundleObj = allBundles.find(b => b.id === p.itemId) || mockBundles.find(b => b.id === p.itemId);
+          const bundleObj = allBundles.find(b => b.id === p.itemId || b.id.toLowerCase() === p.itemId.toLowerCase()) || mockBundles.find(b => b.id === p.itemId);
           if (bundleObj) {
             // 1. Expand explicit notesIds
             const bNotesIds = safeParseBundleNotesIds(bundleObj.notesIds);
@@ -1246,29 +1258,47 @@ export const dbService = {
     const allBundles = allBundlesData || getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
 
     const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
+    const addedBundleIds = new Set<string>();
+
     for (const bid of purchasedBundleIds) {
       let bundle = allBundles.find(b => b.id.toLowerCase() === bid.toLowerCase() || b.title.toLowerCase().includes(bid.toLowerCase())) || mockBundles.find(b => b.id.toLowerCase() === bid.toLowerCase());
       
       if (!bundle) {
+        let cleanName = bid;
+        if (cleanName.startsWith('subject_pack_')) {
+          cleanName = cleanName.replace('subject_pack_', '').replace(/_/g, ' ');
+          cleanName = cleanName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        }
+
+        const isSubjectPack = bid.startsWith('subject_pack_') || bid.includes('Subject Combo:') || bid.includes('Subject Pack:');
+        const displayTitle = isSubjectPack 
+          ? (cleanName.startsWith('Subject Pack:') || cleanName.startsWith('Subject Combo:') ? cleanName : `Subject Pack: ${cleanName}`)
+          : (cleanName.startsWith('Semester Combo') || cleanName.startsWith('BUNDLE') || cleanName.includes('Bundle') ? cleanName : `Semester Combo Pack (${cleanName})`);
+
+        const rawSubject = cleanName.replace(/^Subject (Pack|Combo):\s*/i, '').trim();
+
         bundle = {
           id: bid,
-          title: bid.startsWith('Subject Combo:') ? bid : `Semester Combo Pack (${bid})`,
+          title: displayTitle,
           year: '2nd Year',
           semester: 4,
           price: 0,
           originalPrice: 0,
-          description: `Complete syllabus notes, PYQs & important questions bundle for ${bid}`,
-          subjects: bid.includes('Subject Combo:') ? [bid.replace('Subject Combo: ', '')] : [],
+          description: `Complete syllabus notes, PYQs & important questions bundle for ${rawSubject || cleanName}`,
+          subjects: isSubjectPack ? [rawSubject || cleanName] : [],
           notesIds: []
         };
       }
 
-      const details = bundleDetailsMap[bid];
-      results.push({
-        bundle,
-        expiresAt: details?.expiresAt || new Date().toISOString(),
-        daysLeft: details?.daysLeft || 0
-      });
+      if (!addedBundleIds.has(bundle.id)) {
+        addedBundleIds.add(bundle.id);
+        const details = bundleDetailsMap[bid];
+        results.push({
+          bundle,
+          expiresAt: details?.expiresAt || new Date().toISOString(),
+          daysLeft: details?.daysLeft || 0
+        });
+      }
     }
 
     return { data: results, error: null };
