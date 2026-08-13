@@ -1791,20 +1791,22 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                           return (
                             <tr key={p.id}>
-                              <td style={{ fontWeight: '600', fontSize: '13px' }}>{p.userEmail}</td>
-                              <td style={{ fontSize: '13px', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                <span className={`semester-tag ${p.itemType === 'bundle' ? 'yellow-accent' : 'blue-accent'}`} style={{ fontSize: '9px', padding: '2px 4px', marginRight: '6px' }}>
-                                  {p.itemType.toUpperCase()}
-                                </span>
-                                {p.itemName}
+                              <td style={{ fontWeight: '700', fontSize: '13px', color: '#ffffff' }}>
+                                {p.userEmail || 'student@gmail.com'}
                               </td>
-                              <td style={{ fontSize: '12px', color: isExpired ? '#ef4444' : 'var(--color-yellow)', fontWeight: '600' }}>
+                              <td style={{ fontSize: '13px', color: '#e2e8f0' }}>
+                                <span className={`semester-tag ${p.itemType === 'bundle' ? 'yellow-accent' : 'blue-accent'}`} style={{ fontSize: '9px', padding: '2px 6px', marginRight: '8px', fontWeight: 'bold', display: 'inline-block' }}>
+                                  {p.itemType ? p.itemType.toUpperCase() : 'LICENSE'}
+                                </span>
+                                <span style={{ fontWeight: '600' }}>{p.itemName || 'Unlocked Resource'}</span>
+                              </td>
+                              <td style={{ fontSize: '12px', color: isExpired ? '#ef4444' : '#34d399', fontWeight: '700' }}>
                                 {formattedDate}
                               </td>
                               <td style={{ textAlign: 'right' }}>
                                 <button 
                                   className="btn-secondary" 
-                                  style={{ padding: '4px 10px', fontSize: '11px', borderColor: 'rgba(239, 68, 68, 0.25)', color: '#f87171', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                                  style={{ padding: '4px 10px', fontSize: '11px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
                                   onClick={() => handleRevokeLicense(p.id)}
                                 >
                                   <Trash2 size={10} /> Revoke

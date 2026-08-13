@@ -103,6 +103,8 @@ export interface Purchase {
   userId: string;
   itemId: string; // notesId or bundleId
   itemType: 'notes' | 'bundle';
+  userEmail?: string;
+  itemName?: string;
   purchasedAt: string;
   expiresAt: string;
   paymentId?: string;
@@ -1265,11 +1267,22 @@ export const dbService = {
     const expiresAt = new Date();
     expiresAt.setMonth(purchasedAt.getMonth() + months);
 
+    let itemName = '';
+    if (itemType === 'notes') {
+      const foundNote = mockNotes.find(n => n.id === itemId);
+      itemName = foundNote ? foundNote.title : 'Study Notes Pack';
+    } else {
+      const foundBundle = mockBundles.find(b => b.id === itemId);
+      itemName = foundBundle ? foundBundle.title : 'Semester Combo Pack';
+    }
+
     const newPurchase: Purchase = {
       id: generateUUID(),
       userId,
       itemId,
       itemType,
+      userEmail: email,
+      itemName,
       purchasedAt: purchasedAt.toISOString(),
       expiresAt: expiresAt.toISOString()
     };
@@ -1317,34 +1330,50 @@ export const dbService = {
   },
 
   getAllPurchases: async (): Promise<{ data: (Purchase & { userEmail?: string; itemName?: string })[]; error: string | null }> => {
+    let rawPurchases: Purchase[] = [];
+
     if (!isMock && supabase) {
-      const { data, error } = await supabase.from('purchases').select('*');
-      if (error) return { data: [], error: error.message };
-      const filtered = (data || []).filter(p => p.noteId !== 'session_tracker' && p.itemId !== 'session_tracker');
-      return { data: filtered, error: null };
-    } else {
-      const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-      const allPurchs: Purchase[] = [];
-      Object.keys(storedMapV2).forEach(uid => {
-        allPurchs.push(...storedMapV2[uid]);
-      });
-      
-      const mapped = allPurchs.map(p => {
-        const user = mockUsers.find(u => u.id === p.userId);
-        let name = '';
-        if (p.itemType === 'notes') {
-          name = mockNotes.find(n => n.id === p.itemId)?.title || 'Subject Notes';
-        } else {
-          name = mockBundles.find(b => b.id === p.itemId)?.title || 'Semester Combo';
+      try {
+        const { data, error } = await supabase.from('purchases').select('*');
+        if (!error && data) {
+          rawPurchases = data.filter((p: any) => p.noteId !== 'session_tracker' && p.itemId !== 'session_tracker');
         }
-        return {
-          ...p,
-          userEmail: user?.email || 'offline_student@gmail.com',
-          itemName: name
-        };
-      });
-      return { data: mapped, error: null };
+      } catch (err) {
+        console.warn('Error fetching purchases from Supabase:', err);
+      }
     }
+
+    if (rawPurchases.length === 0) {
+      const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+      Object.keys(storedMapV2).forEach(uid => {
+        rawPurchases.push(...storedMapV2[uid]);
+      });
+    }
+
+    const allProfiles = getStoredData<UserProfile[]>('bw_mock_users', mockUsers);
+
+    const mapped = rawPurchases.map(p => {
+      const user = allProfiles.find(u => u.id === p.userId || (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase()));
+      
+      let name = p.itemName || '';
+      if (!name) {
+        if (p.itemType === 'notes') {
+          const foundNote = mockNotes.find(n => n.id === p.itemId);
+          name = foundNote ? foundNote.title : 'Study Notes Pack';
+        } else {
+          const foundBundle = mockBundles.find(b => b.id === p.itemId);
+          name = foundBundle ? foundBundle.title : 'Semester Combo Pack';
+        }
+      }
+
+      return {
+        ...p,
+        userEmail: p.userEmail || user?.email || 'student@gmail.com',
+        itemName: name
+      };
+    });
+
+    return { data: mapped, error: null };
   },
 
   clearDatabase: async (): Promise<{ success: boolean }> => {
