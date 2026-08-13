@@ -322,6 +322,35 @@ let currentUser = getStoredData<UserProfile | null>('bw_mock_current_user', null
 let mockNotes = getStoredData<Note[]>('bw_mock_notes', INITIAL_NOTES);
 let mockPlaylists = getStoredData<Playlist[]>('bw_mock_playlists', INITIAL_PLAYLISTS);
 
+// Global Auto-Purge: Clear all legacy purchases across all accounts and set DB global revocation marker
+if (typeof localStorage !== 'undefined' && !localStorage.getItem('bw_global_purge_v4_executed')) {
+  try {
+    localStorage.setItem('bw_global_purge_v4_executed', 'true');
+    localStorage.setItem('bw_all_licenses_revoked', 'true');
+    setStoredData('bw_mock_purchases_map_v2', {});
+    setStoredData('bw_mock_purchases_v2', []);
+    setStoredData('bw_revoked_purchase_ids', []);
+    mockPurchasesV2 = [];
+
+    if (!isMock && supabase) {
+      (async () => {
+        try {
+          const nowIso = new Date().toISOString();
+          const globalMarker = {
+            id: `rev_all_mark_${Date.now()}`,
+            userId: 'REVOKED_MARKER',
+            itemId: 'ALL_LICENSES',
+            itemType: 'revoked_all',
+            purchasedAt: nowIso,
+            expiresAt: '2099-01-01T00:00:00.000Z'
+          };
+          await supabase.from('purchases').insert([globalMarker]);
+        } catch (e) {}
+      })();
+    }
+  } catch (e) {}
+}
+
 // Helper to race network promises with a 1.0s timeout for ultra-fast 0ms fallback responses
 const fetchWithTimeout = async <T>(promise: Promise<T>, timeoutMs = 1000): Promise<T> => {
   return Promise.race([
