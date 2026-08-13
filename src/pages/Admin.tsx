@@ -178,7 +178,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   // --- License Grant Form Fields ---
   const [studentEmail, setStudentEmail] = useState('');
   const [selectedLicenseItem, setSelectedLicenseItem] = useState('');
-  const [licenseType, setLicenseType] = useState<'notes' | 'bundle'>('notes');
+  const [licenseType, setLicenseType] = useState<'notes' | 'bundle' | 'subject'>('notes');
   const [licenseMonths, setLicenseMonths] = useState(6);
 
   // --- Edit Modal States ---
@@ -223,6 +223,13 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   useEffect(() => {
     if (licenseType === 'notes' && notes.length > 0) {
       setSelectedLicenseItem(notes[0].id);
+    } else if (licenseType === 'subject') {
+      const availableSubjects = Array.from(new Set(notes.map(n => n.subject).filter(Boolean))).sort();
+      if (availableSubjects.length > 0) {
+        setSelectedLicenseItem(availableSubjects[0]);
+      } else {
+        setSelectedLicenseItem('');
+      }
     } else if (licenseType === 'bundle' && bundles.length > 0) {
       setSelectedLicenseItem(bundles[0].id);
     } else {
@@ -1737,6 +1744,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                       onChange={(e) => setLicenseType(e.target.value as any)}
                     >
                       <option value="notes">Individual Notes Pack</option>
+                      <option value="subject">Subject Combo Pack (All Notes for a Subject)</option>
                       <option value="bundle">Semester Combo Pack</option>
                     </select>
                   </div>
@@ -1752,6 +1760,13 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                         notes.map(n => (
                           <option key={n.id} value={n.id}>[{n.type === 'pyqs' ? 'PYQ' : 'Notes'}] {n.title} (Sem {n.semester})</option>
                         ))
+                      ) : licenseType === 'subject' ? (
+                        Array.from(new Set(notes.map(n => n.subject).filter(Boolean))).sort().map(sub => {
+                          const count = notes.filter(n => n.subject === sub).length;
+                          return (
+                            <option key={sub} value={sub}>[Subject Pack] {sub} ({count} Files)</option>
+                          );
+                        })
                       ) : (
                         bundles.map(b => (
                           <option key={b.id} value={b.id}>[Bundle] {b.title}</option>
@@ -1848,8 +1863,8 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                                 </div>
                               </td>
                               <td style={{ fontSize: '13px', color: '#e2e8f0' }}>
-                                <span className={`semester-tag ${p.itemType === 'bundle' ? 'yellow-accent' : 'blue-accent'}`} style={{ fontSize: '9px', padding: '2px 6px', marginRight: '8px', fontWeight: 'bold', display: 'inline-block' }}>
-                                  {p.itemType ? p.itemType.toUpperCase() : 'LICENSE'}
+                                <span className={`semester-tag ${p.itemType === 'bundle' ? 'yellow-accent' : p.itemType === 'subject' ? 'purple-accent' : 'blue-accent'}`} style={{ fontSize: '9px', padding: '2px 6px', marginRight: '8px', fontWeight: 'bold', display: 'inline-block' }}>
+                                  {p.itemType === 'subject' ? 'SUBJECT PACK' : p.itemType ? p.itemType.toUpperCase() : 'LICENSE'}
                                 </span>
                                 <span style={{ fontWeight: '600' }}>{p.itemName || 'Unlocked Resource'}</span>
                               </td>

@@ -101,8 +101,8 @@ export interface Bundle {
 export interface Purchase {
   id: string;
   userId: string;
-  itemId: string; // notesId or bundleId
-  itemType: 'notes' | 'bundle';
+  itemId: string; // notesId, bundleId, or subjectName
+  itemType: 'notes' | 'bundle' | 'subject';
   userEmail?: string;
   itemName?: string;
   purchasedAt: string;
@@ -975,6 +975,17 @@ export const dbService = {
         if (p.itemType === 'notes') {
           purchasedNoteIdsSet.add(p.itemId);
           noteDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
+        } else if (p.itemType === 'subject') {
+          const allNotesList = getStoredData<Note[]>('bw_mock_notes', mockNotes);
+          const targetSubject = (p.itemId || '').toLowerCase();
+          allNotesList.forEach(n => {
+            if (n.subject && n.subject.toLowerCase() === targetSubject) {
+              purchasedNoteIdsSet.add(n.id);
+              if (!noteDetailsMap[n.id]) {
+                noteDetailsMap[n.id] = { expiresAt: p.expiresAt, daysLeft };
+              }
+            }
+          });
         } else if (p.itemType === 'bundle') {
           purchasedBundleIdsSet.add(p.itemId);
           bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
@@ -1329,7 +1340,7 @@ export const dbService = {
   },
 
   // --- MANUAL STUDENT LICENSING ENGINE ---
-  grantManualLicense: async (email: string, itemId: string, itemType: 'notes' | 'bundle', months: number): Promise<{ success: boolean; error: string | null }> => {
+  grantManualLicense: async (email: string, itemId: string, itemType: 'notes' | 'bundle' | 'subject', months: number): Promise<{ success: boolean; error: string | null }> => {
     const cleanEmail = email.trim().toLowerCase();
 
     // 1. Clear global revocation flag when new license is granted
@@ -1389,10 +1400,14 @@ export const dbService = {
 
     let itemName = '';
     if (itemType === 'notes') {
-      const foundNote = mockNotes.find(n => n.id === itemId);
+      const allNotesList = getStoredData<Note[]>('bw_mock_notes', mockNotes);
+      const foundNote = allNotesList.find(n => n.id === itemId);
       itemName = foundNote ? foundNote.title : 'Study Notes Pack';
+    } else if (itemType === 'subject') {
+      itemName = `Subject Combo: ${itemId}`;
     } else {
-      const foundBundle = mockBundles.find(b => b.id === itemId);
+      const allBundlesList = getStoredData<Bundle[]>('bw_mock_bundles', mockBundles);
+      const foundBundle = allBundlesList.find(b => b.id === itemId);
       itemName = foundBundle ? foundBundle.title : 'Semester Combo Pack';
     }
 
@@ -1628,6 +1643,8 @@ export const dbService = {
         if (p.itemType === 'notes') {
           const foundNote = allNotesList.find(n => n.id === p.itemId);
           name = foundNote ? foundNote.title : 'Study Notes Pack';
+        } else if (p.itemType === 'subject') {
+          name = `Subject Combo: ${p.itemId}`;
         } else {
           const foundBundle = allBundlesList.find(b => b.id === p.itemId);
           name = foundBundle ? foundBundle.title : 'Semester Combo Pack';
