@@ -635,9 +635,13 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
     if (!confirm('⚠️ WARNING: Are you sure you want to revoke ALL active student licenses? This will remove unlocked access for all students. Proceed?')) {
       return;
     }
-    const { success } = await dbService.revokeAllLicenses();
+    setPurchases([]);
+    const { success, error } = await dbService.revokeAllLicenses();
     if (success) {
       showNotification('All active student licenses successfully revoked.');
+      await loadInventory();
+    } else {
+      alert(error || 'Failed to revoke all licenses.');
       loadInventory();
     }
   };

@@ -1331,8 +1331,14 @@ export const dbService = {
 
   revokeAllLicenses: async (): Promise<{ success: boolean; error: string | null }> => {
     if (!isMock && supabase) {
-      const { error } = await supabase.from('purchases').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (error) return { success: false, error: error.message };
+      try {
+        const { error } = await supabase.from('purchases').delete().neq('itemId', 'session_tracker');
+        if (error) {
+          console.warn('Supabase DB delete all error:', error.message);
+        }
+      } catch (err) {
+        console.warn('Error revoking all purchases in Supabase:', err);
+      }
     }
 
     setStoredData('bw_mock_purchases_map_v2', {});
@@ -1342,7 +1348,7 @@ export const dbService = {
     try {
       if (typeof localStorage !== 'undefined') {
         Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('bw_user_purchases_cache_')) {
+          if (key.startsWith('bw_user_purchases_cache_') || key.startsWith('bw_mock_purchases')) {
             localStorage.removeItem(key);
           }
         });
@@ -1354,19 +1360,21 @@ export const dbService = {
 
   getAllPurchases: async (): Promise<{ data: (Purchase & { userEmail?: string; itemName?: string })[]; error: string | null }> => {
     let rawPurchases: Purchase[] = [];
+    let dbSuccess = false;
 
     if (!isMock && supabase) {
       try {
         const { data, error } = await supabase.from('purchases').select('*');
         if (!error && data) {
           rawPurchases = data.filter((p: any) => p.noteId !== 'session_tracker' && p.itemId !== 'session_tracker');
+          dbSuccess = true;
         }
       } catch (err) {
         console.warn('Error fetching purchases from Supabase:', err);
       }
     }
 
-    if (rawPurchases.length === 0) {
+    if (!dbSuccess) {
       const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
       Object.keys(storedMapV2).forEach(uid => {
         rawPurchases.push(...storedMapV2[uid]);
