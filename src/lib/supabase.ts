@@ -762,7 +762,6 @@ export const dbService = {
 
   checkNoteAccess: async (notesId: string): Promise<boolean> => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
 
     // Check if item or purchase is blacklisted/revoked
     const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
@@ -779,7 +778,6 @@ export const dbService = {
 
   getPurchaseDetails: async (notesId: string): Promise<{ purchased: boolean; expiresAt: string | null; daysLeft: number | null }> => {
     if (!currentUser) return { purchased: false, expiresAt: null, daysLeft: null };
-    if (currentUser.role === 'admin') return { purchased: true, expiresAt: null, daysLeft: null };
 
     // Check if item or purchase is blacklisted/revoked
     const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
@@ -984,7 +982,6 @@ export const dbService = {
     if (!user) return { data: [], error: 'User session not active.' };
 
     const { data: allNotes } = await dbService.getNotes();
-    if (user.role === 'admin') return { data: allNotes || [], error: null };
 
     // Batch fetch all purchases for current user in 1 fast query (checks DB + local cache + offline index)
     const { purchasedNoteIds } = await dbService.getAllUserPurchasesState();
@@ -1094,7 +1091,6 @@ export const dbService = {
 
   isBundlePurchased: async (bundleId: string): Promise<{ purchased: boolean; expiresAt: string | null; daysLeft: number | null }> => {
     if (!currentUser) return { purchased: false, expiresAt: null, daysLeft: null };
-    if (currentUser.role === 'admin') return { purchased: true, expiresAt: null, daysLeft: null };
 
     const now = new Date();
 
@@ -1144,11 +1140,11 @@ export const dbService = {
       for (const purchase of cachedPurchases) {
         if (purchase.itemType === 'bundle') {
           const expDate = new Date(purchase.expiresAt);
-          if (expDate > now || user.role === 'admin') {
+          if (expDate > now) {
             const bundle = cachedBundles.find(b => b.id === purchase.itemId) || mockBundles.find(b => b.id === purchase.itemId);
             if (bundle) {
               const diffTime = expDate.getTime() - now.getTime();
-              const daysLeft = user.role === 'admin' ? 9999 : Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
               results.push({
                 bundle,
                 expiresAt: purchase.expiresAt,
@@ -1174,15 +1170,6 @@ export const dbService = {
       const allBundles = (bundlesRes?.data || []).map((b: any) => decodeBundleFromDb(b));
       const dbPurchases = purchasesRes?.data || [];
 
-      if (user.role === 'admin') {
-        const adminResults = allBundles.map(b => ({
-          bundle: b,
-          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 180).toISOString(),
-          daysLeft: 9999
-        }));
-        return { data: adminResults, error: null };
-      }
-
       const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
       for (const purchase of dbPurchases) {
         const bundle = allBundles.find(b => b.id === purchase.itemId);
@@ -1197,7 +1184,7 @@ export const dbService = {
           });
         }
       }
-      return { data: results.length > 0 ? results : getLocalBundles(), error: null };
+      return { data: results, error: null };
     } catch (e) {
       return { data: getLocalBundles(), error: null };
     }
