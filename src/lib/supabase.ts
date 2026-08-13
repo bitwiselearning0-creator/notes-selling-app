@@ -949,7 +949,8 @@ export const dbService = {
 
     if (!isMock && supabase) {
       try {
-        await supabase.from('purchases').insert([newPurchase]);
+        const { userEmail, itemName, ...dbPayload } = newPurchase;
+        await supabase.from('purchases').insert([dbPayload]);
       } catch (e) {
         console.warn('Supabase DB purchase insert warning:', e);
       }
@@ -1061,7 +1062,8 @@ export const dbService = {
 
     if (!isMock && supabase) {
       try {
-        await supabase.from('purchases').insert([newPurchase]);
+        const { userEmail, itemName, ...dbPayload } = newPurchase;
+        await supabase.from('purchases').insert([dbPayload]);
       } catch (e) {
         console.warn('Supabase DB purchase insert warning:', e);
       }
@@ -1308,7 +1310,21 @@ export const dbService = {
       if (realUser) {
         newPurchase.userId = realUser.id;
       }
-      const { error } = await supabase.from('purchases').insert([newPurchase]);
+
+      const { userEmail, itemName, ...dbPayload } = newPurchase;
+      const { error } = await supabase.from('purchases').insert([dbPayload]);
+
+      // Always populate local storage map so admin panel & offline hydration are instant
+      const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+      const userPurchases = storedMapV2[newPurchase.userId] || [];
+      const updatedPurchases = userPurchases.filter(p => !(p.itemId === itemId && p.itemType === itemType));
+      updatedPurchases.push(newPurchase);
+      storedMapV2[newPurchase.userId] = updatedPurchases;
+      setStoredData('bw_mock_purchases_map_v2', storedMapV2);
+
+      if (error) {
+        console.warn('Supabase DB purchase insert error:', error.message);
+      }
       return { success: !error, error: error ? error.message : null };
     } else {
       const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
