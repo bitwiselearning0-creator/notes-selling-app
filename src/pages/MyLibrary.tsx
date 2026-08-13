@@ -96,45 +96,48 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
 
   // Helper to resolve all subject notes belonging to a bundle
   const getBundleSubjectNotes = (bundle: Bundle): Note[] => {
-    // 1. If bundle.notesIds has notes that match allNotes by ID
-    if (Array.isArray(bundle.notesIds) && bundle.notesIds.length > 0) {
-      const matchedById = bundle.notesIds
-        .map(id => allNotes.find(n => n.id === id || n.title.toLowerCase().includes(String(id).toLowerCase())))
-        .filter((n): n is Note => Boolean(n));
-      if (matchedById.length > 0) return matchedById;
-    }
-
-    // 2. Match bundle.subjects to allNotes by subject name or title
     const subjects = Array.isArray(bundle.subjects) && bundle.subjects.length > 0 ? bundle.subjects : [];
+
+    // 1. If admin set explicit included subjects, display EVERY SINGLE included subject (no extra, no missing!)
     if (subjects.length > 0) {
-      return subjects.map((subjectName, idx) => {
-        const match = allNotes.find(n =>
+      const resultNotes: Note[] = [];
+      
+      subjects.forEach((subjectName, idx) => {
+        const matchingNotes = allNotes.filter(n =>
           n.subject.toLowerCase() === subjectName.toLowerCase() &&
           (n.semester === bundle.semester || !n.semester)
-        ) || allNotes.find(n =>
-          n.subject.toLowerCase().includes(subjectName.toLowerCase()) ||
-          subjectName.toLowerCase().includes(n.subject.toLowerCase())
         );
 
-        if (match) return match;
-
-        // Clean fallback note object if catalog note object is missing
-        const cleanTitle = subjectName.length > 2 ? subjectName : `${bundle.title} - Subject ${idx + 1}`;
-        return {
-          id: `bundle_sub_${bundle.id}_${idx}`,
-          title: `${cleanTitle} - Unit 1-5 Notes & PYQs`,
-          subject: cleanTitle,
-          year: (bundle.year as any) || '2nd Year',
-          semester: bundle.semester || 4,
-          price: 0,
-          originalPrice: 0,
-          description: `Complete syllabus notes & solved questions for ${cleanTitle}.`,
-          previewUrl: 'https://cdn.jsdelivr.net/gh/mozilla/pdf.js@master/web/compressed.tracemonkey-pldi-09.pdf',
-          pagesCount: 75,
-          topics: ['Complete Syllabus Unit 1-5', 'Important Solved Questions', 'AKTU Formula Sheet'],
-          type: 'notes'
-        };
+        if (matchingNotes.length > 0) {
+          resultNotes.push(...matchingNotes);
+        } else {
+          // If no note object uploaded in catalog yet, provide subject note card so ALL included subjects appear
+          resultNotes.push({
+            id: `bundle_sub_${bundle.id}_${idx}`,
+            title: `${subjectName} - Complete Unit 1-5 Notes & PYQs`,
+            subject: subjectName,
+            year: (bundle.year as any) || '2nd Year',
+            semester: bundle.semester || 4,
+            price: 0,
+            originalPrice: 0,
+            description: `Complete syllabus notes, important questions & solved papers for ${subjectName}. Included in ${bundle.title}.`,
+            previewUrl: 'https://cdn.jsdelivr.net/gh/mozilla/pdf.js@master/web/compressed.tracemonkey-pldi-09.pdf',
+            pagesCount: 80,
+            topics: ['Complete Syllabus Unit 1-5', 'Important Exam Questions', 'AKTU Solved Papers'],
+            type: 'notes'
+          });
+        }
       });
+
+      return resultNotes;
+    }
+
+    // 2. Fallback if no subjects array: match by notesIds
+    if (Array.isArray(bundle.notesIds) && bundle.notesIds.length > 0) {
+      const matchedById = bundle.notesIds
+        .map(id => allNotes.find(n => n.id === id))
+        .filter((n): n is Note => Boolean(n));
+      if (matchedById.length > 0) return matchedById;
     }
 
     // 3. Fallback: notes matching bundle semester
