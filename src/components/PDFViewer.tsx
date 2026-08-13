@@ -696,11 +696,66 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               <ChevronLeft size={16} />
             </button>
 
-            {/* Clear, Bold Page Counter Display */}
-            <span style={{ fontSize: '14px', fontWeight: '800', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <span>{scrollPage}</span>
-              <span style={{ color: 'rgba(255, 255, 255, 0.45)', fontWeight: '600', fontSize: '12px' }}>/ {totalPages}</span>
-            </span>
+            {/* Direct Editable Page Jump Input */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+              <input 
+                type="number"
+                min={1}
+                max={totalPages}
+                value={jumpPageInput}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => setJumpPageInput(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter') {
+                    handleJumpToPage();
+                  }
+                }}
+                onFocus={(e) => e.target.select()}
+                style={{
+                  width: '36px',
+                  height: '26px',
+                  background: 'rgba(0, 0, 0, 0.55)',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  borderRadius: '8px',
+                  color: '#ffffff',
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  textAlign: 'center',
+                  padding: '0',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontWeight: '600', fontSize: '13px' }}>/ {totalPages}</span>
+            </div>
+
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleJumpToPage();
+              }}
+              title="Jump to Page"
+              style={{
+                background: 'var(--color-yellow)',
+                color: '#000000',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '3px 8px',
+                fontSize: '11px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 1,
+                flexShrink: 0,
+                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
+              }}
+            >
+              Go
+            </button>
 
             <button 
               onClick={(e) => {
