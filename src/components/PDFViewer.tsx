@@ -658,21 +658,25 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
         {/* Right Section: Crisp Page Counter & Rotate Button */}
         <div className="viewer-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {/* Spacious Direct Page Jump Pill (No Chevron Buttons) */}
+          {/* Prominent High-Contrast Active Page & Direct Jump Control Pill */}
           <div className="page-jump-pill" style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '10px',
             background: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            padding: '4px 12px',
+            border: '1px solid rgba(255, 255, 255, 0.22)',
+            padding: '5px 14px',
             borderRadius: '16px',
-            height: '40px',
+            height: '42px',
             boxSizing: 'border-box',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)'
           }}>
-            <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.65)', fontWeight: '700' }}>Pg</span>
+            <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.7)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+              Page
+            </span>
 
+            {/* Glowing Active Page Input Box */}
             <input 
               type="number"
               min={1}
@@ -688,22 +692,25 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               }}
               onFocus={(e) => e.target.select()}
               style={{
-                width: '42px',
-                height: '28px',
-                background: 'rgba(0, 0, 0, 0.6)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
+                width: '46px',
+                height: '30px',
+                background: 'rgba(245, 158, 11, 0.15)',
+                border: '1.5px solid var(--color-yellow)',
                 borderRadius: '8px',
-                color: '#ffffff',
-                fontSize: '14px',
-                fontWeight: '800',
+                color: '#fbbf24',
+                fontSize: '16px',
+                fontWeight: '900',
                 textAlign: 'center',
                 padding: '0',
                 outline: 'none',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                boxShadow: '0 0 12px rgba(245, 158, 11, 0.25)'
               }}
             />
 
-            <span style={{ color: 'rgba(255, 255, 255, 0.65)', fontWeight: '700', fontSize: '13px' }}>/ {totalPages}</span>
+            <span style={{ color: '#ffffff', fontWeight: '800', fontSize: '14px' }}>
+              / {totalPages}
+            </span>
 
             <button 
               onClick={(e) => {
@@ -716,20 +723,21 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                 color: '#000000',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '0 12px',
+                padding: '0 14px',
                 fontSize: '12px',
-                fontWeight: '800',
+                fontWeight: '900',
                 cursor: 'pointer',
-                height: '28px',
+                height: '30px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 lineHeight: 1,
                 flexShrink: 0,
-                boxShadow: '0 2px 10px rgba(245, 158, 11, 0.35)'
+                boxShadow: '0 2px 12px rgba(245, 158, 11, 0.4)',
+                letterSpacing: '0.3px'
               }}
             >
-              Go
+              GO
             </button>
           </div>
 
@@ -741,10 +749,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             }} 
             title="Rotate Page" 
             style={{ 
-              width: '40px', 
-              height: '40px', 
+              width: '42px', 
+              height: '42px', 
               borderRadius: '12px', 
-              border: '1px solid rgba(255, 255, 255, 0.18)', 
+              border: '1px solid rgba(255, 255, 255, 0.22)', 
               background: 'rgba(255, 255, 255, 0.08)', 
               display: 'flex', 
               alignItems: 'center', 
@@ -754,7 +762,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               flexShrink: 0
             }}
           >
-            <RotateCw size={17} />
+            <RotateCw size={18} />
           </button>
         </div>
       </div>
