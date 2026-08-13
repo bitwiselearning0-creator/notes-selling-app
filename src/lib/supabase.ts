@@ -849,7 +849,29 @@ export const dbService = {
         const res: any = await fetchWithTimeout(query as any, 1500);
 
         if (res?.data !== undefined && res?.data !== null) {
-          const freshPurchases = (res.data || []).filter((p: any) => p.itemId !== 'session_tracker');
+          const allRows = res.data || [];
+          const revokedSingleSet = new Set<string>();
+          let globalRevokeAllTime: number | null = null;
+
+          for (const r of allRows) {
+            if (r.itemType === 'revoked_single') {
+              revokedSingleSet.add(r.itemId);
+            } else if (r.itemType === 'revoked_all') {
+              const t = new Date(r.purchasedAt).getTime();
+              if (!globalRevokeAllTime || t > globalRevokeAllTime) {
+                globalRevokeAllTime = t;
+              }
+            }
+          }
+
+          const freshPurchases = allRows.filter((p: any) => {
+            if (p.itemId === 'session_tracker') return false;
+            if (p.itemType === 'revoked_single' || p.itemType === 'revoked_all') return false;
+            if (revokedSingleSet.has(p.id) || revokedSingleSet.has(p.itemId)) return false;
+            if (globalRevokeAllTime && new Date(p.purchasedAt).getTime() <= globalRevokeAllTime) return false;
+            return true;
+          });
+
           setStoredData(`bw_user_purchases_cache_${currentUser.id}`, freshPurchases);
           allPurchases = freshPurchases;
           liveDbFetched = true;
@@ -1407,9 +1429,20 @@ export const dbService = {
       } catch (e) {}
     }
 
-    // 3. Issue DB delete AND soft-delete expire in Supabase DB if online
+    // 3. Issue DB Revocation Marker insert + delete + expire in Supabase DB if online
     if (!isMock && supabase) {
       try {
+        // Insert DB Revocation Marker (100% allowed by Supabase INSERT policy)
+        const markerPayload = {
+          id: `rev_mark_${purchaseId}`,
+          userId: 'REVOKED_MARKER',
+          itemId: purchaseId,
+          itemType: 'revoked_single',
+          purchasedAt: new Date().toISOString(),
+          expiresAt: '2099-01-01T00:00:00.000Z'
+        };
+        await supabase.from('purchases').insert([markerPayload]);
+
         await supabase.from('purchases').delete().eq('id', purchaseId);
         await supabase.from('purchases').update({ expiresAt: '1970-01-01T00:00:00.000Z' }).eq('id', purchaseId);
       } catch (err) {
@@ -1426,10 +1459,20 @@ export const dbService = {
       localStorage.setItem('bw_all_licenses_revoked', 'true');
     }
 
-    // 2. Clear all offline cached notes (index and payloads) on mobile device
+    // 2. Collect current active purchase IDs to blacklist locally
+    const current = await dbService.getAllPurchases();
+    const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
+    if (current.data && current.data.length > 0) {
+      current.data.forEach(p => {
+        if (p.id && !revokedIds.includes(p.id)) revokedIds.push(p.id);
+      });
+    }
+    setStoredData('bw_revoked_purchase_ids', revokedIds);
+
+    // 3. Clear all offline cached notes (index and payloads) on mobile device
     dbService.clearOfflineNotes();
 
-    // 3. Clear local storage maps completely
+    // 4. Clear local storage maps completely
     setStoredData('bw_mock_purchases_map_v2', {});
     setStoredData('bw_mock_purchases_v2', []);
     mockPurchasesV2 = [];
@@ -1444,9 +1487,20 @@ export const dbService = {
       }
     } catch (e) {}
 
-    // 4. Issue DB delete AND soft-delete expire in Supabase DB if online
+    // 5. Issue Global DB Revocation Marker insert + delete + expire in Supabase DB if online
     if (!isMock && supabase) {
       try {
+        const nowIso = new Date().toISOString();
+        const globalMarker = {
+          id: `rev_all_mark_${Date.now()}`,
+          userId: 'REVOKED_MARKER',
+          itemId: 'ALL_LICENSES',
+          itemType: 'revoked_all',
+          purchasedAt: nowIso,
+          expiresAt: '2099-01-01T00:00:00.000Z'
+        };
+        await supabase.from('purchases').insert([globalMarker]);
+
         await supabase.from('purchases').delete().neq('itemId', 'session_tracker');
         await supabase.from('purchases').update({ expiresAt: '1970-01-01T00:00:00.000Z' }).neq('itemId', 'session_tracker');
       } catch (err) {
@@ -1463,6 +1517,8 @@ export const dbService = {
     let dbNotes: Note[] = [];
     let dbBundles: Bundle[] = [];
     let dbSuccess = false;
+    const revokedSingleSet = new Set<string>();
+    let globalRevokeAllTime: number | null = null;
 
     if (!isMock && supabase) {
       try {
@@ -1474,7 +1530,27 @@ export const dbService = {
         ]);
 
         if (purchasesRes?.data) {
-          rawPurchases = purchasesRes.data.filter((p: any) => p.noteId !== 'session_tracker' && p.itemId !== 'session_tracker');
+          const allRows = purchasesRes.data || [];
+
+          for (const r of allRows) {
+            if (r.itemType === 'revoked_single') {
+              revokedSingleSet.add(r.itemId);
+            } else if (r.itemType === 'revoked_all') {
+              const t = new Date(r.purchasedAt).getTime();
+              if (!globalRevokeAllTime || t > globalRevokeAllTime) {
+                globalRevokeAllTime = t;
+              }
+            }
+          }
+
+          rawPurchases = allRows.filter((p: any) => {
+            if (p.noteId === 'session_tracker' || p.itemId === 'session_tracker') return false;
+            if (p.itemType === 'revoked_single' || p.itemType === 'revoked_all') return false;
+            if (revokedSingleSet.has(p.id)) return false;
+            if (globalRevokeAllTime && new Date(p.purchasedAt).getTime() <= globalRevokeAllTime) return false;
+            return true;
+          });
+
           dbSuccess = true;
         }
         if (profilesRes?.data) {
@@ -1503,7 +1579,7 @@ export const dbService = {
     // Filter out blacklisted revoked purchase IDs
     const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
     if (revokedIds.length > 0) {
-      rawPurchases = rawPurchases.filter(p => !revokedIds.includes(p.id));
+      rawPurchases = rawPurchases.filter(p => !revokedIds.includes(p.id) && !revokedSingleSet.has(p.id));
     }
 
     // Filter out expired purchases (expiresAt <= now)
