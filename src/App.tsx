@@ -357,18 +357,11 @@ function App() {
     setPreviousPage(currentPage);
     
     // Check local device storage first for 0ms instant loading with ZERO server pings
-    const cached = dbService.getOfflineNote(note.id);
-    if (cached && cached.previewUrl) {
-      setReadingNote(cached);
-      setReadingNoteUnlocked(true);
-      setCurrentPage('viewer');
-      return;
-    }
+    const isAccessGranted = await dbService.checkNoteAccess(note.id);
+    const unlocked = isAccessGranted || note.price === 0;
 
     setReadingNote(note);
-    const isFromLibrary = currentPage === 'library';
-    const unlocked = isFromLibrary || (await dbService.checkNoteAccess(note.id));
-    setReadingNoteUnlocked(unlocked || note.price === 0);
+    setReadingNoteUnlocked(unlocked);
     setCurrentPage('viewer');
 
     // Fetch full note payload (with previewUrl) in background & auto-cache locally for permanent 0ms offline reading
