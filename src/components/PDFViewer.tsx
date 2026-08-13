@@ -93,13 +93,15 @@ const CanvasPage: React.FC<{
     };
   }, [pdfDoc, pageNumber, rotation, isVisible]);
 
-  const targetWidth = Math.round(850 * (zoom / 100));
+  const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+  const baseWidth = Math.min(screenWidth - 24, 850);
+  const targetWidth = Math.round(baseWidth * (zoom / 100));
 
   return (
     <div 
       ref={containerRef}
       style={{ 
-        margin: '16px auto', 
+        margin: '12px auto', 
         borderRadius: '12px',
         overflow: 'hidden',
         background: 'transparent',
@@ -107,8 +109,9 @@ const CanvasPage: React.FC<{
         justifyContent: 'center', 
         alignItems: 'center',
         width: `${targetWidth}px`,
-        maxWidth: `${Math.max(94, Math.round(94 * (zoom / 100)))}vw`,
-        transition: isPinching ? 'none' : 'width 0.15s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+        maxWidth: 'none',
+        boxSizing: 'border-box',
+        transition: isPinching ? 'none' : 'width 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
       }}
     >
       <canvas 
@@ -381,10 +384,16 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         zoomRef.current = finalZoom;
         setZoom(finalZoom);
 
-        if (container) {
-          container.scrollLeft = newScrollLeft;
-          container.scrollTop = newScrollTop;
-        }
+        // Defer scroll offset assignment until React completes DOM layout commit
+        // so browser doesn't clamp scrollLeft against un-expanded container scrollWidth!
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (container) {
+              container.scrollLeft = newScrollLeft;
+              container.scrollTop = newScrollTop;
+            }
+          });
+        });
 
         touchStartDistRef.current = null;
       }
