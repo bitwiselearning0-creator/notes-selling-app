@@ -1329,6 +1329,29 @@ export const dbService = {
     }
   },
 
+  revokeAllLicenses: async (): Promise<{ success: boolean; error: string | null }> => {
+    if (!isMock && supabase) {
+      const { error } = await supabase.from('purchases').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) return { success: false, error: error.message };
+    }
+
+    setStoredData('bw_mock_purchases_map_v2', {});
+    setStoredData('bw_mock_purchases_v2', []);
+    mockPurchasesV2 = [];
+
+    try {
+      if (typeof localStorage !== 'undefined') {
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('bw_user_purchases_cache_')) {
+            localStorage.removeItem(key);
+          }
+        });
+      }
+    } catch (e) {}
+
+    return { success: true, error: null };
+  },
+
   getAllPurchases: async (): Promise<{ data: (Purchase & { userEmail?: string; itemName?: string })[]; error: string | null }> => {
     let rawPurchases: Purchase[] = [];
 

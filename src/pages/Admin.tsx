@@ -629,6 +629,19 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
     }
   };
 
+  // Handle All Licenses Revocation
+  const handleRevokeAllLicenses = async () => {
+    if (purchases.length === 0) return;
+    if (!confirm('⚠️ WARNING: Are you sure you want to revoke ALL active student licenses? This will remove unlocked access for all students. Proceed?')) {
+      return;
+    }
+    const { success } = await dbService.revokeAllLicenses();
+    if (success) {
+      showNotification('All active student licenses successfully revoked.');
+      loadInventory();
+    }
+  };
+
   // Get all subjects (predefined + custom from database) for the active Year/Sem in the add bundle form
   const availableSubjectsForBundle = Array.from(new Set([
     ...getPredefinedSubjects(bundleYear, bundleSemester),
@@ -1759,9 +1772,32 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
               {/* Active License Transactions */}
               <div className="admin-list-card glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
-                <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }} className="blue-accent">
-                  <Users size={20} /> Active Licenses Registry ({purchases.length} Keys)
-                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+                  <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }} className="blue-accent">
+                    <Users size={20} /> Active Licenses Registry ({purchases.length} Keys)
+                  </h3>
+                  {purchases.length > 0 && (
+                    <button 
+                      type="button"
+                      className="btn-secondary" 
+                      style={{
+                        borderColor: 'rgba(239, 68, 68, 0.4)',
+                        color: '#f87171',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        borderRadius: '8px'
+                      }}
+                      onClick={handleRevokeAllLicenses}
+                    >
+                      <Trash2 size={13} /> Revoke All Licenses
+                    </button>
+                  )}
+                </div>
                 
                 {purchases.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-muted)' }}>
