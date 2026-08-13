@@ -233,7 +233,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     setJumpPageInput(scrollPage.toString());
   }, [scrollPage]);
 
-  // 4. Ultra-Smooth GPU Hardware-Accelerated 60/120 FPS Pinch-to-Zoom Engine with Lerp Noise Filter
+  // 4. Ultra-Smooth GPU Hardware-Accelerated 60/120 FPS Pinch-to-Zoom & Pan Motion Engine
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartZoomRef = useRef<number>(100);
   const touchStartScrollLeftRef = useRef<number>(0);
@@ -242,6 +242,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   const touchStartMidYRef = useRef<number>(0);
   const touchLastMidXRef = useRef<number>(0);
   const touchLastMidYRef = useRef<number>(0);
+  const panTouchStartRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
 
   const targetScaleRef = useRef<number>(1);
   const smoothedScaleRef = useRef<number>(1);
@@ -253,6 +254,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
+        panTouchStartRef.current = null;
         const dist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
@@ -284,6 +286,14 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           setPinchScale(1);
           setIsPinching(true);
         }
+      } else if (e.touches.length === 1 && zoomRef.current > 100) {
+        // 1-Finger Smooth Pan Tracking when Zoomed In (> 100%)
+        panTouchStartRef.current = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+          scrollLeft: container.scrollLeft,
+          scrollTop: container.scrollTop
+        };
       }
     };
 
@@ -312,7 +322,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
         if (rAFRef.current === null) {
           rAFRef.current = requestAnimationFrame(function animateScale() {
-            // Apply Lerp (0.45) to filter high-frequency touchscreen sensor noise & eliminate jitter
             const current = smoothedScaleRef.current;
             const target = targetScaleRef.current;
             const next = current + (target - current) * 0.45;
@@ -327,10 +336,19 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             }
           });
         }
+      } else if (e.touches.length === 1 && panTouchStartRef.current && zoomRef.current > 100) {
+        // 1-Finger Instant Pan Motion Left/Right/Up/Down when Zoomed In
+        if (e.cancelable) e.preventDefault();
+        const deltaX = e.touches[0].clientX - panTouchStartRef.current.x;
+        const deltaY = e.touches[0].clientY - panTouchStartRef.current.y;
+
+        container.scrollLeft = panTouchStartRef.current.scrollLeft - deltaX;
+        container.scrollTop = panTouchStartRef.current.scrollTop - deltaY;
       }
     };
 
     const finishPinch = () => {
+      panTouchStartRef.current = null;
       if (touchStartDistRef.current !== null) {
         if (rAFRef.current !== null) {
           cancelAnimationFrame(rAFRef.current);
@@ -833,9 +851,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           padding: '70px 0 70px 0', 
           overflowY: 'scroll', 
           overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: isPinching ? 'none' : 'pan-x pan-y',
           display: 'flex', 
           flexDirection: 'column',
-          alignItems: 'center', 
+          alignItems: zoom > 100 ? 'flex-start' : 'center', 
           justifyContent: 'flex-start',
           scrollBehavior: isPinching ? 'auto' : 'smooth',
           background: 'radial-gradient(circle at center, #0a1127 0%, #03060d 100%)'
