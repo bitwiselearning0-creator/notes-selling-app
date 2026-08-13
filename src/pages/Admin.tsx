@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FilePlus, Video, FolderHeart, ShieldAlert, Loader2, CheckCircle2, 
-  Layers, Trash2, Edit2, Key, Users, AlertCircle, BookOpen 
+  Layers, Trash2, Edit2, Key, Users, AlertCircle, BookOpen, Search, Filter
 } from 'lucide-react';
 import { dbService } from '../lib/supabase';
 import type { Note, UserProfile, Bundle, Purchase, Playlist } from '../lib/supabase';
@@ -185,6 +185,11 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [editTopicsText, setEditTopicsText] = useState('');
   const [editingBundle, setEditingBundle] = useState<Bundle | null>(null);
+
+  // --- Inventory Organization Filter States ---
+  const [notesFilterSem, setNotesFilterSem] = useState<number | 'all'>('all');
+  const [notesFilterSubject, setNotesFilterSubject] = useState<string>('all');
+  const [notesSearchQuery, setNotesSearchQuery] = useState<string>('');
 
   // Load existing inventory (notes, bundles, playlists, purchases)
   const loadInventory = async () => {
@@ -1277,75 +1282,213 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                 </button>
               </div>
 
-              {/* Notes Inventory */}
-              <div className="admin-list-card glass-card" style={{ padding: '24px' }}>
-                <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }} className="blue-accent">
-                  <FolderHeart size={20} /> Notes Packages Editor ({notes.length} Packs)
-                </h3>
-                <div className="admin-table-wrapper">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Subject Title</th>
-                        <th>Type</th>
-                        <th>Year & Sem</th>
-                        <th>Price (Disc / Orig)</th>
-                        <th>Pages</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {notes.map(n => (
-                        <tr key={n.id}>
-                          <td style={{ fontWeight: '600' }}>{n.title}</td>
-                          <td>
-                            <span className="bundle-banner-badge" style={{ 
-                              background: n.type === 'pyqs' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                              color: n.type === 'pyqs' ? '#60a5fa' : '#34d399',
-                              border: n.type === 'pyqs' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontSize: '10px',
-                              fontWeight: 'bold',
-                              display: 'inline-block'
-                            }}>
-                              {n.type === 'pyqs' ? 'Exam PYQ' : 'Study Notes'}
-                            </span>
-                          </td>
-                          <td style={{ color: 'var(--color-muted)' }}>{n.year} (Sem {n.semester})</td>
-                          <td className="yellow-accent" style={{ fontWeight: '700' }}>
-                            ₹{n.price} <span style={{ textDecoration: 'line-through', color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal', marginLeft: '4px' }}>₹{n.originalPrice ?? (n.price + 100)}</span>
-                          </td>
-                          <td>{n.pagesCount} pgs</td>
-                          <td style={{ textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                              <button 
-                                className="btn-secondary" 
-                                style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                onClick={async () => {
-                                  const { data: fullNote } = await dbService.getNoteById(n.id);
-                                  const noteToUse = fullNote || n;
-                                  setEditingNote(noteToUse);
-                                  setEditTopicsText(Array.isArray(noteToUse.topics) ? noteToUse.topics.join(', ') : noteToUse.topics);
-                                }}
-                              >
-                                <Edit2 size={12} /> Edit
-                              </button>
-                              <button 
-                                className="btn-secondary" 
-                                style={{ padding: '6px 12px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                onClick={() => handleDeleteNote(n.id)}
-                              >
-                                <Trash2 size={12} /> Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              {/* Organized Notes Inventory */}
+              {(() => {
+                const filteredNotesList = notes.filter(n => {
+                  const matchesSem = notesFilterSem === 'all' || n.semester === notesFilterSem;
+                  const matchesSubj = notesFilterSubject === 'all' || n.subject.toLowerCase() === notesFilterSubject.toLowerCase();
+                  const matchesQuery = !notesSearchQuery.trim() || 
+                    n.title.toLowerCase().includes(notesSearchQuery.toLowerCase()) || 
+                    n.subject.toLowerCase().includes(notesSearchQuery.toLowerCase());
+                  return matchesSem && matchesSubj && matchesQuery;
+                }).sort((a, b) => {
+                  if (a.semester !== b.semester) return a.semester - b.semester;
+                  if (a.subject !== b.subject) return a.subject.localeCompare(b.subject);
+                  return a.type === 'notes' ? -1 : 1;
+                });
+
+                const availableInventorySubjects = Array.from(new Set(
+                  notes
+                    .filter(n => notesFilterSem === 'all' || n.semester === notesFilterSem)
+                    .map(n => n.subject)
+                    .filter(Boolean)
+                )).sort();
+
+                return (
+                  <div className="admin-list-card glass-card" style={{ padding: '24px' }}>
+                    {/* Header with Search & Subject Filter controls */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', marginBottom: '18px' }}>
+                      <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }} className="blue-accent">
+                        <FolderHeart size={20} /> Notes Packages Editor ({filteredNotesList.length} of {notes.length} Packs)
+                      </h3>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        {/* Search Input */}
+                        <div style={{ position: 'relative', minWidth: '180px' }}>
+                          <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)' }} />
+                          <input 
+                            type="text"
+                            placeholder="Search notes or subject..."
+                            value={notesSearchQuery}
+                            onChange={(e) => setNotesSearchQuery(e.target.value)}
+                            style={{
+                              padding: '6px 10px 6px 30px',
+                              fontSize: '12px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--glass-border)',
+                              background: 'rgba(0, 0, 0, 0.4)',
+                              color: '#fff',
+                              outline: 'none',
+                              width: '100%',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+
+                        {/* Subject Filter Dropdown */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Filter size={14} style={{ color: 'var(--color-muted)' }} />
+                          <select 
+                            value={notesFilterSubject}
+                            onChange={(e) => setNotesFilterSubject(e.target.value)}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: '12px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--glass-border)',
+                              background: 'rgba(10, 17, 43, 0.9)',
+                              color: '#fff',
+                              outline: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="all">All Subjects ({availableInventorySubjects.length})</option>
+                            {availableInventorySubjects.map((subj, idx) => (
+                              <option key={idx} value={subj}>{subj}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Semester-Wise Filter Tabs */}
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '18px', paddingBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                      <button 
+                        onClick={() => { setNotesFilterSem('all'); setNotesFilterSubject('all'); }}
+                        style={{
+                          padding: '5px 12px',
+                          borderRadius: '20px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          border: notesFilterSem === 'all' ? '1px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.1)',
+                          background: notesFilterSem === 'all' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                          color: notesFilterSem === 'all' ? '#60a5fa' : 'var(--color-muted)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        All Semesters ({notes.length})
+                      </button>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((semNum) => {
+                        const countForSem = notes.filter(n => n.semester === semNum).length;
+                        const isActive = notesFilterSem === semNum;
+                        return (
+                          <button 
+                            key={semNum}
+                            onClick={() => { setNotesFilterSem(semNum); setNotesFilterSubject('all'); }}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: '20px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              border: isActive ? '1px solid var(--color-yellow)' : '1px solid rgba(255, 255, 255, 0.1)',
+                              background: isActive ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                              color: isActive ? '#fcd34d' : 'var(--color-muted)',
+                              cursor: 'pointer',
+                              opacity: countForSem === 0 && !isActive ? 0.45 : 1,
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            Sem {semNum} ({countForSem})
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Table View */}
+                    <div className="admin-table-wrapper">
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>Subject & Note Title</th>
+                            <th>Type</th>
+                            <th>Year & Sem</th>
+                            <th>Price (Disc / Orig)</th>
+                            <th>Pages</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredNotesList.length > 0 ? (
+                            filteredNotesList.map(n => (
+                              <tr key={n.id}>
+                                <td>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{ fontWeight: '700', color: '#fff', fontSize: '13px' }}>{n.title}</span>
+                                    <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: '600' }}>{n.subject}</span>
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="bundle-banner-badge" style={{ 
+                                    background: n.type === 'pyqs' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                    color: n.type === 'pyqs' ? '#60a5fa' : '#34d399',
+                                    border: n.type === 'pyqs' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+                                    padding: '2px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '10px',
+                                    fontWeight: 'bold',
+                                    display: 'inline-block'
+                                  }}>
+                                    {n.type === 'pyqs' ? 'Exam PYQ' : 'Study Notes'}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span style={{ color: 'var(--color-muted)', fontSize: '12px', fontWeight: '600' }}>
+                                    {n.year} (Sem {n.semester})
+                                  </span>
+                                </td>
+                                <td className="yellow-accent" style={{ fontWeight: '700' }}>
+                                  ₹{n.price} <span style={{ textDecoration: 'line-through', color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal', marginLeft: '4px' }}>₹{n.originalPrice ?? (n.price + 100)}</span>
+                                </td>
+                                <td>{n.pagesCount} pgs</td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                    <button 
+                                      className="btn-secondary" 
+                                      style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                      onClick={async () => {
+                                        const { data: fullNote } = await dbService.getNoteById(n.id);
+                                        const noteToUse = fullNote || n;
+                                        setEditingNote(noteToUse);
+                                        setEditTopicsText(Array.isArray(noteToUse.topics) ? noteToUse.topics.join(', ') : noteToUse.topics);
+                                      }}
+                                    >
+                                      <Edit2 size={12} /> Edit
+                                    </button>
+                                    <button 
+                                      className="btn-secondary" 
+                                      style={{ padding: '6px 12px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                      onClick={() => handleDeleteNote(n.id)}
+                                    >
+                                      <Trash2 size={12} /> Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={6} style={{ textAlign: 'center', color: 'var(--color-muted)', fontStyle: 'italic', padding: '24px' }}>
+                                No notes found for the selected semester / subject filter.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Semester Combo Packs Inventory */}
               {(() => {
