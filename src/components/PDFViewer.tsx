@@ -662,21 +662,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           <div className="page-jump-pill" style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '10px',
+            gap: '8px',
             background: 'rgba(255, 255, 255, 0.08)',
             border: '1px solid rgba(255, 255, 255, 0.22)',
-            padding: '5px 14px',
+            padding: '4px 12px',
             borderRadius: '16px',
             height: '42px',
             boxSizing: 'border-box',
             whiteSpace: 'nowrap',
             boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)'
           }}>
-            <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.7)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-              Page
-            </span>
-
-            {/* Glowing Active Page Input Box */}
+            {/* Enlarged Glowing Active Page Input Box */}
             <input 
               type="number"
               min={1}
@@ -692,23 +688,23 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
               }}
               onFocus={(e) => e.target.select()}
               style={{
-                width: '46px',
-                height: '30px',
+                width: '58px',
+                height: '32px',
                 background: 'rgba(245, 158, 11, 0.15)',
                 border: '1.5px solid var(--color-yellow)',
                 borderRadius: '8px',
                 color: '#fbbf24',
-                fontSize: '16px',
+                fontSize: '17px',
                 fontWeight: '900',
                 textAlign: 'center',
-                padding: '0',
+                padding: '0 4px',
                 outline: 'none',
                 boxSizing: 'border-box',
                 boxShadow: '0 0 12px rgba(245, 158, 11, 0.25)'
               }}
             />
 
-            <span style={{ color: '#ffffff', fontWeight: '800', fontSize: '14px' }}>
+            <span style={{ color: '#ffffff', fontWeight: '800', fontSize: '15px' }}>
               / {totalPages}
             </span>
 
@@ -727,7 +723,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                 fontSize: '12px',
                 fontWeight: '900',
                 cursor: 'pointer',
-                height: '30px',
+                height: '32px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
