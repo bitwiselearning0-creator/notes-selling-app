@@ -131,15 +131,11 @@ const CanvasPage: React.FC<{
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, onUnlock }) => {
   const [zoom, setZoom] = useState(100);
-  const [isPinching, setIsPinching] = useState(false);
-  const [pinchScale, setPinchScale] = useState<number>(1);
-  const [pinchOrigin, setPinchOrigin] = useState<string>('center center');
 
   const zoomRef = useRef(zoom);
   useEffect(() => {
     zoomRef.current = zoom;
   }, [zoom]);
-
 
   const [rotation, setRotation] = useState(0);
   const [pdfUrl, setPdfUrl] = useState<string>('');
@@ -154,6 +150,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   });
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const pagesWrapperRef = useRef<HTMLDivElement>(null);
   const pendingScrollRef = useRef<{ left: number; top: number } | null>(null);
   const lastScrollTopRef = useRef<number>(0);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -247,7 +244,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     setJumpPageInput(scrollPage.toString());
   }, [scrollPage]);
 
-  // 4. Clean GPU Hardware-Accelerated Pinch-to-Zoom Engine (Native 120fps 1-Finger Pan Scrolling)
+  // 4. Ultra-Smooth Direct GPU Pinch-to-Zoom Engine (Zero React Re-render Latency)
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartZoomRef = useRef<number>(100);
   const touchStartScrollLeftRef = useRef<number>(0);
@@ -257,6 +254,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   const touchLastMidXRef = useRef<number>(0);
   const touchLastMidYRef = useRef<number>(0);
   const currentScaleRef = useRef<number>(1);
+  const isPinchingRef = useRef<boolean>(false);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -284,27 +282,35 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           touchStartScrollLeftRef.current = container.scrollLeft;
           touchStartScrollTopRef.current = container.scrollTop;
 
-          // Transform origin in document space (adding scrollLeft & scrollTop)
-          // so GPU scales document anchored at exact finger coordinates on current scrolled page
           const docX = midX + container.scrollLeft;
           const docY = midY + container.scrollTop;
-          setPinchOrigin(`${docX}px ${docY}px`);
+
+          if (pagesWrapperRef.current) {
+            pagesWrapperRef.current.style.transformOrigin = `${docX}px ${docY}px`;
+            pagesWrapperRef.current.style.willChange = 'transform';
+            pagesWrapperRef.current.style.transition = 'none';
+          }
 
           currentScaleRef.current = 1;
-          setPinchScale(1);
-          setIsPinching(true);
+          isPinchingRef.current = true;
         }
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && touchStartDistRef.current && touchStartDistRef.current > 0) {
+      if (e.touches.length === 2 && touchStartDistRef.current && touchStartDistRef.current > 0 && isPinchingRef.current) {
         if (e.cancelable) e.preventDefault();
 
         const currentDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
+
+        const rect = container.getBoundingClientRect();
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+        touchLastMidXRef.current = midX;
+        touchLastMidYRef.current = midY;
 
         const rawScale = currentDist / touchStartDistRef.current;
         const startZoom = touchStartZoomRef.current;
@@ -313,12 +319,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
         const clampedScale = Math.min(maxScale, Math.max(minScale, rawScale));
         currentScaleRef.current = clampedScale;
-        setPinchScale(clampedScale);
+
+        // Direct DOM GPU Scale Mutation - 0ms React Overhead
+        if (pagesWrapperRef.current) {
+          pagesWrapperRef.current.style.transform = `scale(${clampedScale})`;
+        }
       }
     };
 
     const finishPinch = () => {
-      if (touchStartDistRef.current !== null) {
+      if (touchStartDistRef.current !== null && isPinchingRef.current) {
+        isPinchingRef.current = false;
         const finalScale = currentScaleRef.current;
         const startZoom = touchStartZoomRef.current;
         const rawTargetZoom = startZoom * finalScale;
@@ -333,16 +344,16 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         const startScrollLeft = touchStartScrollLeftRef.current;
         const startScrollTop = touchStartScrollTopRef.current;
 
-        // Precise scroll position adjustment keeping finger location anchored
         const newScrollLeft = Math.max(0, (startScrollLeft + startMidX) * zoomRatio - lastMidX);
         const newScrollTop = Math.max(0, (startScrollTop + startMidY) * zoomRatio - lastMidY);
 
-        setPinchScale(1);
-        // Store target scroll position to apply synchronously in useLayoutEffect before browser paint!
-        pendingScrollRef.current = { left: newScrollLeft, top: newScrollTop };
+        // Reset direct DOM transform before React layout commit
+        if (pagesWrapperRef.current) {
+          pagesWrapperRef.current.style.transform = 'none';
+          pagesWrapperRef.current.style.willChange = 'auto';
+        }
 
-        setPinchScale(1);
-        setIsPinching(false);
+        pendingScrollRef.current = { left: newScrollLeft, top: newScrollTop };
 
         zoomRef.current = finalZoom;
         setZoom(finalZoom);
@@ -808,12 +819,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           overflowY: 'scroll', 
           overflowX: 'auto',
           WebkitOverflowScrolling: 'touch',
-          touchAction: isPinching ? 'none' : 'pan-x pan-y',
+          touchAction: 'pan-x pan-y pinch-zoom',
           display: 'flex', 
           flexDirection: 'column',
           alignItems: zoom > 100 ? 'flex-start' : 'center', 
           justifyContent: 'flex-start',
-          scrollBehavior: isPinching ? 'auto' : 'smooth',
+          scrollBehavior: 'auto',
           background: 'radial-gradient(circle at center, #0a1127 0%, #03060d 100%)'
         }}
       >
@@ -835,21 +846,22 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
         {/* PDF Page Renderer */}
         {pdfjsLoaded && pdfDoc && !loadError && (
-          <div style={{ 
-            minWidth: '100%',
-            width: 'max-content',
-            position: 'relative', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center',
-            padding: '0 12px',
-            transform: isPinching && pinchScale !== 1 ? `scale(${pinchScale})` : 'none',
-            transformOrigin: pinchOrigin,
-            willChange: isPinching ? 'transform' : 'auto',
-            transition: 'none',
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden'
-          }}>
+          <div 
+            ref={pagesWrapperRef}
+            style={{ 
+              minWidth: '100%',
+              width: 'max-content',
+              margin: '0 auto',
+              position: 'relative', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
+              padding: '0 12px',
+              boxSizing: 'border-box',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden'
+            }}
+          >
             {/* Floating Security Watermark Overlay */}
             <div style={{
               position: 'absolute',
@@ -898,7 +910,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                     pdfDoc={pdfDoc} 
                     rotation={rotation} 
                     zoom={zoom}
-                    isPinching={isPinching}
                   />
                   
                   {isSecondPageLocked && (
@@ -907,8 +918,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                       top: 0,
                       left: '50%',
                       transform: 'translateX(-50%)',
-                      width: `${Math.min(96 * 10, Math.round(850 * (zoom / 100)))}px`,
-                      maxWidth: '96vw',
+                      width: `${Math.min(typeof window !== 'undefined' ? window.innerWidth - 24 : 800, 850) * (zoom / 100)}px`,
+                      maxWidth: 'none',
                       height: '100%',
                       borderRadius: '12px',
                       background: 'rgba(10, 17, 36, 0.92)',
