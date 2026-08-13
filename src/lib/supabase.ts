@@ -820,92 +820,112 @@ export const dbService = {
 
     const now = new Date();
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    let allPurchases: Purchase[] = [];
+    let liveDbFetched = false;
 
-    // Retrieve cached user purchases instantly from localStorage
-    const cachedUserPurchases = getStoredData<Purchase[]>(`bw_user_purchases_cache_${currentUser.id}`, []);
-    const localMap = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-    const localUserPurchases = localMap[currentUser.id] || [];
-    const mockForUser = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
+    // 1. LIVE SUPABASE DB SYNC: Query exact active purchases from PostgreSQL DB
+    if (!isOffline && !isMock && supabase) {
+      try {
+        const email = currentUser.email ? currentUser.email.toLowerCase() : '';
+        let query = supabase.from('purchases').select('*').gt('expiresAt', now.toISOString());
+        
+        if (email) {
+          query = query.or(`userId.eq.${currentUser.id},userEmail.eq.${email}`);
+        } else {
+          query = query.eq('userId', currentUser.id);
+        }
 
-    let allPurchases: Purchase[] = [...cachedUserPurchases];
-    for (const lp of localUserPurchases) {
-      if (!allPurchases.some(p => p.itemId === lp.itemId && p.itemType === lp.itemType)) {
-        allPurchases.push(lp);
+        const res: any = await fetchWithTimeout(query as any, 1200);
+
+        if (res?.data !== undefined && res?.data !== null) {
+          const freshPurchases = (res.data || []).filter((p: any) => p.itemId !== 'session_tracker');
+          setStoredData(`bw_user_purchases_cache_${currentUser.id}`, freshPurchases);
+          allPurchases = freshPurchases;
+          liveDbFetched = true;
+
+          // If DB confirms 0 active purchases (revoked by Admin), wipe offline download index on phone!
+          if (freshPurchases.length === 0) {
+            dbService.clearOfflineNotes();
+          }
+        }
+      } catch (err) {
+        console.warn('Live DB purchase sync warning:', err);
       }
     }
-    for (const mp of mockForUser) {
-      if (!allPurchases.some(p => p.itemId === mp.itemId && p.itemType === mp.itemType)) {
-        allPurchases.push(mp);
+
+    // 2. FALLBACK TO LOCAL CACHE ONLY IF OFFLINE OR MOCK MODE
+    if (!liveDbFetched) {
+      const cachedUserPurchases = getStoredData<Purchase[]>(`bw_user_purchases_cache_${currentUser.id}`, []);
+      const localMap = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+      const localUserPurchases = localMap[currentUser.id] || [];
+      const mockForUser = mockPurchasesV2.filter(p => p.userId === currentUser?.id);
+
+      allPurchases = [...cachedUserPurchases];
+      for (const lp of localUserPurchases) {
+        if (!allPurchases.some(p => p.itemId === lp.itemId && p.itemType === lp.itemType)) {
+          allPurchases.push(lp);
+        }
       }
-    }
-    const offlineIndex = dbService.getOfflineNotesIndex();
-    for (const nid of offlineIndex) {
-      if (!allPurchases.some(p => p.itemId === nid)) {
-        allPurchases.push({
-          id: nid,
-          userId: currentUser.id,
-          itemId: nid,
-          itemType: 'notes',
-          purchasedAt: new Date().toISOString(),
-          expiresAt: '2099-01-01T00:00:00.000Z'
-        });
+      for (const mp of mockForUser) {
+        if (!allPurchases.some(p => p.itemId === mp.itemId && p.itemType === mp.itemType)) {
+          allPurchases.push(mp);
+        }
+      }
+
+      // Only include offline notes if not revoked globally
+      const isGlobalRevoked = typeof localStorage !== 'undefined' && localStorage.getItem('bw_all_licenses_revoked') === 'true';
+      if (!isGlobalRevoked) {
+        const offlineIndex = dbService.getOfflineNotesIndex();
+        for (const nid of offlineIndex) {
+          if (!allPurchases.some(p => p.itemId === nid)) {
+            allPurchases.push({
+              id: nid,
+              userId: currentUser.id,
+              itemId: nid,
+              itemType: 'notes',
+              purchasedAt: new Date().toISOString(),
+              expiresAt: '2099-01-01T00:00:00.000Z'
+            });
+          }
+        }
       }
     }
 
     // Filter out blacklisted revoked purchase IDs
     const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
     if (revokedIds.length > 0) {
-      allPurchases = allPurchases.filter(p => !revokedIds.includes(p.id));
-    }
-
-    const allBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
-
-    // If online, refresh cache in background non-blocking
-    if (!isOffline && !isMock && supabase) {
-      (async () => {
-        try {
-          const [purchasesRes, bundlesRes] = await fetchWithTimeout(Promise.all([
-            supabase.from('purchases').select('*').eq('userId', currentUser.id).gt('expiresAt', now.toISOString()),
-            supabase.from('bundles').select('*')
-          ]), 800);
-          if (purchasesRes?.data) {
-            const freshPurchases = (purchasesRes.data || []).filter((p: any) => p.itemId !== 'session_tracker');
-            setStoredData(`bw_user_purchases_cache_${currentUser.id}`, freshPurchases);
-          }
-          if (bundlesRes?.data) {
-            const freshBundles = (bundlesRes.data || []).map((b: any) => ({ ...b, notesIds: safeParseBundleNotesIds(b.notesIds) }));
-            setStoredData('bw_cached_bundles', freshBundles);
-          }
-        } catch (e) {}
-      })();
+      allPurchases = allPurchases.filter(p => !revokedIds.includes(p.id) && !revokedIds.includes(p.itemId));
     }
 
     const noteDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
-    let bundleDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }>;
-    bundleDetailsMap = {};
+    const bundleDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
     const purchasedNoteIdsSet = new Set<string>();
     const purchasedBundleIdsSet = new Set<string>();
 
+    const allBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
+
     for (const p of allPurchases) {
       const expDate = new Date(p.expiresAt);
-      if (expDate <= now) continue;
+      if (expDate > now || currentUser.role === 'admin') {
+        const diffTime = expDate.getTime() - now.getTime();
+        const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      const diffTime = expDate.getTime() - now.getTime();
-      const daysLeft = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+        if (p.itemType === 'notes') {
+          purchasedNoteIdsSet.add(p.itemId);
+          noteDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
+        } else if (p.itemType === 'bundle') {
+          purchasedBundleIdsSet.add(p.itemId);
+          bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
 
-      if (p.itemType === 'notes') {
-        purchasedNoteIdsSet.add(p.itemId);
-        noteDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
-      } else if (p.itemType === 'bundle') {
-        purchasedBundleIdsSet.add(p.itemId);
-        bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
-
-        const bObj = allBundles.find(b => b.id === p.itemId);
-        const bNotesIds = bObj ? safeParseBundleNotesIds(bObj.notesIds) : [];
-        for (const nid of bNotesIds) {
-          purchasedNoteIdsSet.add(nid);
-          if (!noteDetailsMap[nid]) {
-            noteDetailsMap[nid] = { expiresAt: p.expiresAt, daysLeft };
+          const bundleObj = allBundles.find(b => b.id === p.itemId) || mockBundles.find(b => b.id === p.itemId);
+          if (bundleObj) {
+            const bNotesIds = safeParseBundleNotesIds(bundleObj.notesIds);
+            bNotesIds.forEach(nid => {
+              purchasedNoteIdsSet.add(nid);
+              if (!noteDetailsMap[nid]) {
+                noteDetailsMap[nid] = { expiresAt: p.expiresAt, daysLeft };
+              }
+            });
           }
         }
       }
@@ -1365,13 +1385,11 @@ export const dbService = {
       } catch (e) {}
     }
 
-    // 3. Issue DB delete if online
+    // 3. Issue DB delete AND soft-delete expire in Supabase DB if online
     if (!isMock && supabase) {
       try {
-        const { error } = await supabase.from('purchases').delete().eq('id', purchaseId);
-        if (error) {
-          console.warn('Supabase DB single revoke warning:', error.message);
-        }
+        await supabase.from('purchases').delete().eq('id', purchaseId);
+        await supabase.from('purchases').update({ expiresAt: '1970-01-01T00:00:00.000Z' }).eq('id', purchaseId);
       } catch (err) {
         console.warn('Error revoking single purchase in Supabase:', err);
       }
@@ -1404,13 +1422,11 @@ export const dbService = {
       }
     } catch (e) {}
 
-    // 4. Issue DB delete if online
+    // 4. Issue DB delete AND soft-delete expire in Supabase DB if online
     if (!isMock && supabase) {
       try {
-        const { error } = await supabase.from('purchases').delete().neq('itemId', 'session_tracker');
-        if (error) {
-          console.warn('Supabase DB delete all error:', error.message);
-        }
+        await supabase.from('purchases').delete().neq('itemId', 'session_tracker');
+        await supabase.from('purchases').update({ expiresAt: '1970-01-01T00:00:00.000Z' }).neq('itemId', 'session_tracker');
       } catch (err) {
         console.warn('Error revoking all purchases in Supabase:', err);
       }
