@@ -1204,65 +1204,33 @@ export const dbService = {
     const user = dbService.getCurrentUser();
     if (!user) return { data: [], error: 'User session not active.' };
     
-    const now = new Date();
-    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-
-    const getLocalBundles = () => {
-      const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
-      const cachedPurchases = getStoredData<Purchase[]>(`bw_user_purchases_cache_${user.id}`, mockPurchasesV2);
-      const cachedBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles);
-
-      for (const purchase of cachedPurchases) {
-        if (purchase.itemType === 'bundle') {
-          const expDate = new Date(purchase.expiresAt);
-          if (expDate > now) {
-            const bundle = cachedBundles.find(b => b.id === purchase.itemId) || mockBundles.find(b => b.id === purchase.itemId);
-            if (bundle) {
-              const diffTime = expDate.getTime() - now.getTime();
-              const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-              results.push({
-                bundle,
-                expiresAt: purchase.expiresAt,
-                daysLeft
-              });
-            }
-          }
-        }
-      }
-      return results;
-    };
-
-    if (isOffline || isMock || !supabase) {
-      return { data: getLocalBundles(), error: null };
+    const isGlobalRevoked = typeof localStorage !== 'undefined' && localStorage.getItem('bw_all_licenses_revoked') === 'true';
+    if (isGlobalRevoked) {
+      return { data: [], error: null };
     }
 
-    try {
-      const [bundlesRes, purchasesRes] = await fetchWithTimeout(Promise.all([
-        supabase.from('bundles').select('*'),
-        supabase.from('purchases').select('*').eq('userId', user.id).eq('itemType', 'bundle').gt('expiresAt', now.toISOString())
-      ]), 800);
-
-      const allBundles = (bundlesRes?.data || []).map((b: any) => decodeBundleFromDb(b));
-      const dbPurchases = purchasesRes?.data || [];
-
-      const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
-      for (const purchase of dbPurchases) {
-        const bundle = allBundles.find(b => b.id === purchase.itemId);
-        if (bundle) {
-          const expDate = new Date(purchase.expiresAt);
-          const diffTime = expDate.getTime() - now.getTime();
-          const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          results.push({
-            bundle,
-            expiresAt: purchase.expiresAt,
-            daysLeft
-          });
-        }
-      }
-      return { data: results, error: null };
-    } catch (e) {
-      return { data: getLocalBundles(), error: null };
+    const { purchasedBundleIds, bundleDetailsMap } = await dbService.getAllUserPurchasesState();
+    if (purchasedBundleIds.length === 0) {
+      return { data: [], error: null };
     }
+
+    const { data: allBundlesData } = await dbService.getBundles();
+    const allBundles = allBundlesData || [];
+
+    const results: { bundle: Bundle; expiresAt: string; daysLeft: number }[] = [];
+    for (const bid of purchasedBundleIds) {
+      const bundle = allBundles.find(b => b.id === bid) || mockBundles.find(b => b.id === bid);
+      if (bundle) {
+        const details = bundleDetailsMap[bid];
+        results.push({
+          bundle,
+          expiresAt: details?.expiresAt || new Date().toISOString(),
+          daysLeft: details?.daysLeft || 0
+        });
+      }
+    }
+
+    return { data: results, error: null };
   },
 
   // --- ADMIN INVENTORY EDITOR APIs ---

@@ -23,10 +23,10 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
     setLoading(true);
 
     try {
-      const [allNotesRes, bundlesRes, purchaseState] = await Promise.all([
+      const [allNotesRes, purchaseState, bundlesRes] = await Promise.all([
         dbService.getNotes(),
-        dbService.getPurchasedBundles(),
-        dbService.getAllUserPurchasesState()
+        dbService.getAllUserPurchasesState(),
+        dbService.getPurchasedBundles()
       ]);
 
       const fullCatalog = allNotesRes.data || [];
@@ -36,7 +36,10 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
       const unlockedNotesList = fullCatalog.filter(n => purchasedSet.has(n.id));
 
       setLibraryNotes(unlockedNotesList);
-      setLibraryBundles(bundlesRes.data || []);
+
+      const purchasedBundleSet = new Set<string>(purchaseState.purchasedBundleIds);
+      const validBundles = (bundlesRes.data || []).filter(b => purchasedBundleSet.has(b.bundle.id));
+      setLibraryBundles(validBundles);
       setNotesDetails(purchaseState.noteDetailsMap);
     } catch (err) {
       console.error('Error fetching library notes:', err);
