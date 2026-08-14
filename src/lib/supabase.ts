@@ -500,8 +500,17 @@ export const dbService = {
           }
         } catch (e) {}
 
-        const { data: profile, error: dbError } = await supabase.from('profiles').select('*').eq('id', authId).single();
-        if (dbError) return { data: null, error: dbError.message };
+        let { data: profile } = await supabase.from('profiles').select('*').eq('id', authId).maybeSingle();
+        if (!profile) {
+          profile = {
+            id: authId,
+            name: email.split('@')[0],
+            email: email,
+            phone: '0000000000',
+            role: email.toLowerCase() === 'bitwiselearning0@gmail.com' ? 'admin' : 'student'
+          };
+          await supabase.from('profiles').upsert([profile]);
+        }
         currentUser = profile;
         setStoredData('bw_mock_current_user', currentUser);
 
@@ -1226,8 +1235,20 @@ export const dbService = {
 
     if (!isMock && supabase) {
       try {
-        const { userEmail, itemName, ...dbPayload } = newPurchase;
-        await supabase.from('purchases').insert([dbPayload]);
+        const payload = {
+          id: newPurchase.id,
+          userId: currentUser.id,
+          userid: currentUser.id,
+          itemId: newPurchase.itemId,
+          itemid: newPurchase.itemId,
+          itemType: newPurchase.itemType,
+          itemtype: newPurchase.itemType,
+          purchasedAt: newPurchase.purchasedAt,
+          purchasedat: newPurchase.purchasedAt,
+          expiresAt: newPurchase.expiresAt,
+          expiresat: newPurchase.expiresAt
+        };
+        await supabase.from('purchases').insert([payload]);
       } catch (e) {
         console.warn('Supabase DB purchase insert warning:', e);
       }
@@ -1642,10 +1663,15 @@ export const dbService = {
       const dbPayloads = Array.from(targetUserIds).map(uid => ({
         id: generateUUID(),
         userId: uid,
+        userid: uid,
         itemId: dbItemId,
+        itemid: dbItemId,
         itemType: dbItemType,
+        itemtype: dbItemType,
         purchasedAt: purchasedAt.toISOString(),
-        expiresAt: expiresAt.toISOString()
+        purchasedat: purchasedAt.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        expiresat: expiresAt.toISOString()
       }));
 
       const { error } = await supabase.from('purchases').insert(dbPayloads);
