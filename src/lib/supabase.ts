@@ -606,41 +606,38 @@ export const dbService = {
     return currentUser;
   },
 
-  // --- NOTES SERVICE ---
   getNotes: async (year?: string): Promise<{ data: Note[]; error: string | null }> => {
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
-    if (!isOffline && !isMock && supabase) {
+    if (!isOffline) {
       try {
-        let query = supabase.from('notes').select('*');
-        if (year) query = query.eq('year', year);
-        const { data, error } = await query;
-        if (!error && data && data.length > 0) {
-          const decodedNotes: Note[] = data.map((n: any) => ({
+        const res = await vpsApi.getNotes();
+        if (res.data && Array.isArray(res.data)) {
+          const decodedNotes: Note[] = res.data.map((n: any) => ({
             id: n.id,
             title: n.title,
             subject: n.subject,
-            year: n.year,
-            semester: Number(n.semester),
-            price: Number(n.price),
-            originalPrice: Number(n.originalPrice || n.price * 1.5),
+            year: n.year || '2nd Year',
+            semester: Number(n.semester || 4),
+            price: Number(n.price || 49),
+            originalPrice: Number(n.originalPrice || n.price * 1.5 || 99),
             description: n.description || '',
-            previewUrl: n.previewUrl || n.preview_url || '',
-            pagesCount: Number(n.pagesCount || n.pages_count || 50),
-            topics: Array.isArray(n.topics) ? n.topics : (typeof n.topics === 'string' ? JSON.parse(n.topics) : ['Complete Syllabus']),
+            previewUrl: n.pdf_url || n.previewUrl || '',
+            pagesCount: Number(n.pagesCount || n.downloads_count || 50),
+            topics: Array.isArray(n.topics) ? n.topics : ['Complete Syllabus'],
             type: n.type || 'notes'
           }));
 
           setStoredData('bw_cached_notes_catalog', decodedNotes);
-          return { data: decodedNotes, error: null };
+          const filtered = year ? decodedNotes.filter(n => n.year === year) : decodedNotes;
+          return { data: filtered, error: null };
         }
       } catch (err) {
-        console.warn('Supabase getNotes failed, falling back to local cache:', err);
+        console.warn('VPS API getNotes failed:', err);
       }
     }
 
-    // Fallback to cached notes if offline or DB query yields 0 rows
-    const cachedNotes = getStoredData<Note[]>('bw_cached_notes_catalog', INITIAL_NOTES);
+    const cachedNotes = getStoredData<Note[]>('bw_cached_notes_catalog', []);
     const filtered = year ? cachedNotes.filter(n => n.year === year) : cachedNotes;
     return { data: filtered, error: null };
   },
@@ -1127,25 +1124,33 @@ export const dbService = {
   // --- BUNDLES SERVICE ---
   getBundles: async (year?: string): Promise<{ data: Bundle[]; error: string | null }> => {
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-    const cachedBundles = getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
 
-    // Non-blocking background network refresh if online
-    if (!isOffline && !isMock && supabase) {
-      (async () => {
-        try {
-          let query = supabase.from('bundles').select('*');
-          if (year) query = query.eq('year', year);
-          const res: any = await fetchWithTimeout(query as any, 800);
-          const data = res?.data;
-          
-          if (data && data.length > 0) {
-            const processed = (data || []).map((b: any) => decodeBundleFromDb(b));
-            setStoredData('bw_cached_bundles', processed);
-          }
-        } catch (err) {}
-      })();
+    if (!isOffline) {
+      try {
+        const res = await vpsApi.getBundles();
+        if (res.data && Array.isArray(res.data)) {
+          const processed: Bundle[] = res.data.map((b: any) => ({
+            id: b.id,
+            title: b.title,
+            description: cleanBundleDescription(b.description || ''),
+            price: Number(b.price || 299),
+            originalPrice: Number(b.original_price || b.originalPrice || 499),
+            year: b.year || '2nd Year',
+            semester: Number(b.semester || 4),
+            notesIds: safeParseBundleNotesIds(b.notesIds),
+            subject: b.subject || '',
+            subjects: b.subjects || [b.subject || 'All Subjects'],
+            type: 'semester'
+          }));
+
+          setStoredData('bw_cached_bundles', processed);
+          const filtered = year ? processed.filter(b => b.year === year) : processed;
+          return { data: filtered, error: null };
+        }
+      } catch (err) {}
     }
 
+    const cachedBundles = getStoredData<Bundle[]>('bw_cached_bundles', INITIAL_BUNDLES);
     const bundles = year ? cachedBundles.filter(b => b.year === year) : cachedBundles;
     return { data: bundles, error: null };
   },

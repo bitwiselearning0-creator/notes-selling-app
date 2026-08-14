@@ -76,6 +76,130 @@ const seed = async () => {
     }
     console.log('✅ Bundles Seeded');
 
+    // 4. Seed Notes
+    const notes = [
+      {
+        id: 'note_os_unit1',
+        title: 'Operating System Complete Handwritten Master Notes & Solved PYQs',
+        subject: 'Operating System',
+        branch: 'CSE/IT',
+        year: '2nd Year',
+        price: 49,
+        thumbnail: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=80',
+        pdf_url: 'https://drive.google.com/file/d/1_OS_Sample_Preview/preview',
+        description: 'Complete syllabus handwritten notes covering Process Scheduling, Deadlocks, Memory Management, Paging, and Solved AKTU PYQs.'
+      },
+      {
+        id: 'note_tafl_unit1',
+        title: 'Theory of Automata & Formal Languages (TAFL) Exam Notes',
+        subject: 'TAFL',
+        branch: 'CSE/IT',
+        year: '2nd Year',
+        price: 49,
+        thumbnail: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80',
+        pdf_url: 'https://drive.google.com/file/d/1_TAFL_Sample_Preview/preview',
+        description: 'DFA, NFA, Regular Expressions, Context Free Grammars, Pushdown Automata, Turing Machine & AKTU Solved Questions.'
+      },
+      {
+        id: 'note_java_unit1',
+        title: 'JAVA Programming & OOPs Concepts Master Notes',
+        subject: 'JAVA',
+        branch: 'CSE/IT',
+        year: '2nd Year',
+        price: 49,
+        thumbnail: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&auto=format&fit=crop&q=80',
+        pdf_url: 'https://drive.google.com/file/d/1_JAVA_Sample_Preview/preview',
+        description: 'Complete Java Fundamentals, Inheritance, Polymorphism, Exception Handling, Multithreading, Collection Framework & Code Examples.'
+      },
+      {
+        id: 'note_dstl_unit1',
+        title: 'Discrete Structures & Theory of Logic (DSTL) Master Notes',
+        subject: 'DSTL',
+        branch: 'CSE/IT',
+        year: '2nd Year',
+        price: 49,
+        thumbnail: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=600&auto=format&fit=crop&q=80',
+        pdf_url: 'https://drive.google.com/file/d/1_DSTL_Sample_Preview/preview',
+        description: 'Set Theory, Relations, Functions, Propositional Logic, Algebraic Structures, Lattices, Boolean Algebra & Graph Theory.'
+      },
+      {
+        id: 'note_ds_unit1',
+        title: 'Data Structures & Algorithms (DS) AKTU Complete Notes',
+        subject: 'Data Structure',
+        branch: 'CSE/IT',
+        year: '2nd Year',
+        price: 49,
+        thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=80',
+        pdf_url: 'https://drive.google.com/file/d/1_DS_Sample_Preview/preview',
+        description: 'Arrays, Stacks, Queues, Linked Lists, Trees (AVL, B-Tree), Graphs, Sorting & Searching Algorithms with C Code.'
+      },
+      {
+        id: 'note_phy_unit1',
+        title: 'Engineering Physics 1st Year Complete Syllabus Notes',
+        subject: 'Engineering Physics',
+        branch: 'Common (All Branches)',
+        year: '1st Year',
+        price: 49,
+        thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&auto=format&fit=crop&q=80',
+        pdf_url: 'https://drive.google.com/file/d/1_PHY_Sample_Preview/preview',
+        description: 'Relativistic Mechanics, Electromagnetic Field Theory, Quantum Mechanics, Wave Optics & Fiber Optics Complete Syllabus Notes.'
+      },
+      {
+        id: 'note_math4_unit1',
+        title: 'Maths IV (Engineering Mathematics 4) Solved PYQs & Notes',
+        subject: 'Math IV',
+        branch: 'CSE/IT/ECE',
+        year: '2nd Year',
+        price: 49,
+        thumbnail: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=600&auto=format&fit=crop&q=80',
+        pdf_url: 'https://drive.google.com/file/d/1_MATH4_Sample_Preview/preview',
+        description: 'Partial Differential Equations, Complex Analysis, Probability & Statistics, Numerical Techniques with Solved Numerical Problems.'
+      },
+      {
+        id: 'note_coa_unit1',
+        title: 'Computer Organization & Architecture (COA) Master Notes',
+        subject: 'Computer Organization & Architecture',
+        branch: 'CSE/IT',
+        year: '2nd Year',
+        price: 49,
+        thumbnail: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80',
+        pdf_url: 'https://drive.google.com/file/d/1_COA_Sample_Preview/preview',
+        description: 'Functional Units, Register Transfer Language, Microprogrammed Control, Memory Hierarchy, Pipelining & Cache Memory.'
+      },
+      {
+        id: 'note_cyber_unit1',
+        title: 'Cyber Security & Information Assurance Complete Notes',
+        subject: 'Cyber Security',
+        branch: 'CSE/IT',
+        year: '2nd Year',
+        price: 49,
+        thumbnail: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=600&auto=format&fit=crop&q=80',
+        pdf_url: 'https://drive.google.com/file/d/1_CYBER_Sample_Preview/preview',
+        description: 'Cyber Attacks, Cryptography, IT Act 2000, Network Security, Digital Forensics & Web Vulnerability Assessment Notes.'
+      },
+      {
+        id: 'note_py_unit1',
+        title: 'Python Programming Complete Handwritten Notes',
+        subject: 'Python Programming',
+        branch: 'Common (All Branches)',
+        year: '1st Year',
+        price: 49,
+        thumbnail: 'https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=600&auto=format&fit=crop&q=80',
+        pdf_url: 'https://drive.google.com/file/d/1_PY_Sample_Preview/preview',
+        description: 'Python Basics, Control Flow, Functions, Modules, File I/O, OOP in Python, NumPy & Pandas Basics with Hands-on Examples.'
+      }
+    ];
+
+    for (const n of notes) {
+      await db.query(
+        `INSERT INTO notes (id, title, subject, branch, year, price, thumbnail, pdf_url, description)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, pdf_url = EXCLUDED.pdf_url`,
+        [n.id, n.title, n.subject, n.branch, n.year, n.price, n.thumbnail, n.pdf_url, n.description]
+      );
+    }
+    console.log('✅ Subject Notes Seeded');
+
     console.log('🎉 DB Seeding Finished Successfully!');
     process.exit(0);
   } catch (err) {
