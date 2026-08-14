@@ -1390,7 +1390,7 @@ export const dbService = {
   },
 
   // --- MANUAL STUDENT LICENSING ENGINE ---
-  grantManualLicense: async (email: string, itemId: string, itemType: 'notes' | 'bundle' | 'subject', months: number): Promise<{ success: boolean; error: string | null }> => {
+  grantManualLicense: async (email: string, itemId: string, itemType: 'notes' | 'bundle' | 'subject', _months: number): Promise<{ success: boolean; error: string | null }> => {
     const cleanEmail = email.trim().toLowerCase();
 
     // 1. Clear global revocation flag when new license is granted
@@ -1401,103 +1401,39 @@ export const dbService = {
     setStoredData('bw_revoked_item_ids', revokedItems);
 
     const targetUserIds = new Set<string>();
+    targetUserIds.add(cleanEmail);
 
-    // 2. Resolve or create profile in Supabase DB
-    if (!isMock && supabase) {
-      try {
-        const { data: matchedProfiles } = await supabase.from('profiles').select('id, email, name').ilike('email', cleanEmail);
-        if (matchedProfiles && matchedProfiles.length > 0) {
-          matchedProfiles.forEach((p: any) => targetUserIds.add(p.id));
-        } else {
-          // If student is not yet in profiles, create a pending student profile record in Supabase DB!
-          const newId = generateUUID();
-          const newProfile: UserProfile = {
-            id: newId,
-            name: cleanEmail.split('@')[0],
-            email: cleanEmail,
-            phone: '0000000000',
-            role: 'student'
-          };
-          await supabase.from('profiles').insert([newProfile]);
-          targetUserIds.add(newId);
-        }
-      } catch (err) {
-        console.warn('Error resolving profile in Supabase:', err);
+    // 2. Fetch profiles from VPS DB to find matching user ID
+    try {
+      const profilesRes = await vpsApi.getAllProfiles();
+      if (profilesRes?.data && Array.isArray(profilesRes.data)) {
+        profilesRes.data.forEach((p: any) => {
+          if (p.email && p.email.trim().toLowerCase() === cleanEmail) {
+            targetUserIds.add(p.id);
+          }
+        });
       }
+    } catch (err) {
+      console.warn('Error resolving profile from VPS:', err);
     }
 
-    if (targetUserIds.size === 0) {
-      let localUser = mockUsers.find(u => u.email.toLowerCase() === cleanEmail);
-      if (!localUser) {
-        const newLocalUser: UserProfile = {
-          id: 'user_' + Math.random().toString(36).substring(2, 11),
-          name: cleanEmail.split('@')[0],
-          email: cleanEmail,
-          phone: '0000000000',
-          role: 'student'
-        };
-        mockUsers.push(newLocalUser);
-        setStoredData('bw_mock_users', mockUsers);
-        targetUserIds.add(newLocalUser.id);
-      } else {
-        targetUserIds.add(localUser.id);
-      }
-    }
-
-    const purchasedAt = new Date();
-    const expiresAt = new Date();
-    expiresAt.setMonth(purchasedAt.getMonth() + months);
-
-    let itemName = '';
-    if (itemType === 'notes') {
-      const allNotesList = getStoredData<Note[]>('bw_mock_notes', mockNotes);
-      const foundNote = allNotesList.find(n => n.id === itemId);
-      itemName = foundNote ? foundNote.title : 'Study Notes Pack';
-    } else if (itemType === 'subject') {
-      itemName = `Subject Combo: ${itemId}`;
-    } else {
-      const allBundlesList = getStoredData<Bundle[]>('bw_mock_bundles', mockBundles);
-      const foundBundle = allBundlesList.find(b => b.id === itemId);
-      itemName = foundBundle ? foundBundle.title : 'Semester Combo Pack';
-    }
-
-    const primaryUserId = Array.from(targetUserIds)[0];
-    const newPurchase: Purchase = {
-      id: generateUUID(),
-      userId: primaryUserId,
-      itemId,
-      itemType,
-      userEmail: cleanEmail,
-      itemName,
-      purchasedAt: purchasedAt.toISOString(),
-      expiresAt: expiresAt.toISOString()
-    };
-
-    // Update local storage map for instant Admin UI and offline support
-    const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-    targetUserIds.forEach(uid => {
-      const userPurchases = storedMapV2[uid] || [];
-      const updatedPurchases = userPurchases.filter(p => !(p.itemId === itemId && p.itemType === itemType));
-      updatedPurchases.push({ ...newPurchase, userId: uid });
-      storedMapV2[uid] = updatedPurchases;
-    });
-    storedMapV2[cleanEmail] = [newPurchase];
-    setStoredData('bw_mock_purchases_map_v2', storedMapV2);
-
-    if (currentUser && (targetUserIds.has(currentUser.id) || (currentUser.email && currentUser.email.toLowerCase() === cleanEmail))) {
-      mockPurchasesV2.push(newPurchase);
-      setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
-      setStoredData(`bw_user_purchases_cache_${currentUser.id}`, mockPurchasesV2);
-    }
+    const dbItemType = itemType === 'subject' ? 'bundle' : (itemType === 'notes' ? 'note' : 'bundle');
 
     try {
-      const dbItemType = itemType === 'subject' ? 'bundle' : (itemType === 'notes' ? 'note' : 'bundle');
       for (const uid of Array.from(targetUserIds)) {
         await vpsApi.grantPurchase(uid, itemId, dbItemType as any);
       }
     } catch (e) {
-      console.warn('VPS API grant manual license warning:', e);
+      console.warn('VPS API grant manual license error:', e);
     }
+
+    // Clear cached user purchases so student receives fresh live DB purchases instantly
+    if (currentUser) {
+      try {
+        localStorage.removeItem(`bw_user_purchases_cache_${currentUser.id}`);
+      } catch (e) {}
+    }
+
     return { success: true, error: null };
   },
 

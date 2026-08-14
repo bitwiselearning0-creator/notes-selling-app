@@ -32,9 +32,20 @@ const getPlaylists = async (req, res) => {
 const getUserPurchases = async (req, res) => {
   try {
     const { userId } = req.params;
+    let cleanEmail = userId && userId.includes('@') ? userId.trim().toLowerCase() : '';
+    
+    if (!cleanEmail && userId) {
+      const pRes = await db.query('SELECT LOWER(email) as email FROM profiles WHERE id = $1', [userId]);
+      if (pRes.rows.length > 0) cleanEmail = pRes.rows[0].email;
+    }
+
     const result = await db.query(
-      `SELECT * FROM purchases WHERE user_id = $1 AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW())`,
-      [userId]
+      `SELECT DISTINCT p.* FROM purchases p
+       LEFT JOIN profiles pr ON (LOWER(pr.email) = $2 AND pr.email != '')
+       WHERE (p.user_id = $1 OR ( $2 != '' AND p.user_id = $2 ) OR (pr.id IS NOT NULL AND p.user_id = pr.id))
+         AND p.status = 'active'
+         AND (p.expires_at IS NULL OR p.expires_at > NOW())`,
+      [userId, cleanEmail]
     );
     return res.json({ data: result.rows, error: null });
   } catch (err) {
@@ -74,7 +85,7 @@ const revokePurchase = async (req, res) => {
     const { userId, itemId } = req.body;
 
     await db.query(
-      `UPDATE purchases SET status = 'revoked' WHERE user_id = $1 AND item_id = $2`,
+      `UPDATE purchases SET status = 'revoked' WHERE (user_id = $1 OR user_id IN (SELECT id FROM profiles WHERE LOWER(email) = LOWER($1))) AND item_id = $2`,
       [userId, itemId]
     );
 
