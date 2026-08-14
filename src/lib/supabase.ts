@@ -943,85 +943,30 @@ export const dbService = {
       }
     }
 
-    const now = new Date();
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
     let allPurchases: Purchase[] = [];
     let liveDbFetched = false;
 
-    // 1. LIVE SUPABASE DB SYNC: Query exact active purchases from PostgreSQL DB
-    if (!isOffline && !isMock && supabase) {
+    // 1. LIVE VPS DB SYNC: Query exact active purchases from PostgreSQL DB
+    if (!isOffline) {
       try {
-        const cleanEmail = currentUser.email ? currentUser.email.trim().toLowerCase() : '';
-        const userIdsToQuery = new Set<string>();
-        if (isValidUUID(currentUser.id)) {
-          userIdsToQuery.add(currentUser.id);
-        }
-        userIdsToQuery.add(SYSTEM_REVOKED_MARKER_UUID);
-
-        // Find any other profile IDs with the same email (e.g. created during manual licensing)
-        if (cleanEmail) {
-          try {
-            const { data: matchedProfiles } = await supabase.from('profiles').select('id').ilike('email', cleanEmail);
-            if (matchedProfiles && matchedProfiles.length > 0) {
-              matchedProfiles.forEach((p: any) => {
-                if (isValidUUID(p.id)) userIdsToQuery.add(p.id);
-              });
-            }
-          } catch (e) {
-            // RLS may block cross-profile reads — that's OK, we continue with what we have
-          }
-        }
-
-        const idsArray = Array.from(userIdsToQuery);
-        
-        // Primary query: by all known user IDs
-        let query = supabase.from('purchases').select('*').gt('expiresAt', now.toISOString());
-        
-        if (idsArray.length === 1) {
-          query = query.eq('userId', idsArray[0]);
-        } else {
-          query = query.in('userId', idsArray);
-        }
-
-        const res: any = await fetchWithTimeout(query as any, 2500);
-
-        if (res?.data !== undefined && res?.data !== null) {
-          const allRows = res.data || [];
-          const revokedSingleSet = new Set<string>();
-          let globalRevokeAllTime: number | null = null;
-
-          for (const r of allRows) {
-            const isSingleRev = r.itemType === 'revoked_single' || (typeof r.itemId === 'string' && r.itemId.startsWith('REVOKED_SINGLE:'));
-            const isAllRev = r.itemType === 'revoked_all' || r.itemId === 'REVOKED_ALL' || r.itemId === 'ALL_LICENSES' || (typeof r.id === 'string' && r.id.startsWith('rev_all_mark_'));
-
-            if (isSingleRev) {
-              const targetId = typeof r.itemId === 'string' && r.itemId.startsWith('REVOKED_SINGLE:') ? r.itemId.replace('REVOKED_SINGLE:', '') : r.itemId;
-              revokedSingleSet.add(targetId);
-            } else if (isAllRev) {
-              const t = new Date(r.purchasedAt).getTime();
-              if (!globalRevokeAllTime || t > globalRevokeAllTime) {
-                globalRevokeAllTime = t;
-              }
-            }
-          }
-
-          const freshPurchases = allRows.filter((p: any) => {
-            if (p.itemId === 'session_tracker') return false;
-            const isSingleRev = p.itemType === 'revoked_single' || (typeof p.itemId === 'string' && p.itemId.startsWith('REVOKED_SINGLE:')) || (typeof p.id === 'string' && p.id.startsWith('rev_mark_'));
-            const isAllRev = p.itemType === 'revoked_all' || p.itemId === 'REVOKED_ALL' || p.itemId === 'ALL_LICENSES' || (typeof p.id === 'string' && p.id.startsWith('rev_all_mark_'));
-            
-            if (isSingleRev || isAllRev) return false;
-
-            if (revokedSingleSet.has(p.id) || revokedSingleSet.has(p.itemId)) return false;
-            if (globalRevokeAllTime && new Date(p.purchasedAt).getTime() <= globalRevokeAllTime) return false;
-            return true;
-          });
+        const res = await vpsApi.getUserPurchases(currentUser.id);
+        if (res.data && Array.isArray(res.data)) {
+          const freshPurchases: Purchase[] = res.data.map((p: any) => ({
+            id: p.id,
+            userId: p.user_id,
+            itemId: p.item_id,
+            itemType: (p.item_type === 'note' ? 'notes' : p.item_type) as any,
+            purchasedAt: p.granted_at,
+            expiresAt: p.expires_at || '2099-01-01T00:00:00.000Z',
+            paymentId: p.razorpay_payment_id
+          }));
 
           setStoredData(`bw_user_purchases_cache_${currentUser.id}`, freshPurchases);
           allPurchases = freshPurchases;
           liveDbFetched = true;
 
-          // Merge local cache purchases so offline or local grants are never lost
+          // Merge local cache purchases so offline or local grants are preserved
           const localMap = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
           const localUserPurchases = localMap[currentUser.id] || localMap[currentUser.email?.trim().toLowerCase() || ''] || [];
           for (const lp of localUserPurchases) {
@@ -1029,13 +974,9 @@ export const dbService = {
               allPurchases.push(lp);
             }
           }
-
-          if (allPurchases.length > 0 && typeof localStorage !== 'undefined') {
-            localStorage.removeItem('bw_all_licenses_revoked');
-          }
         }
       } catch (err) {
-        console.warn('Live DB purchase sync warning:', err);
+        console.warn('Live VPS DB purchase sync warning:', err);
       }
     }
 
@@ -1093,6 +1034,7 @@ export const dbService = {
     const { data: allBundlesData } = await dbService.getBundles();
     const allBundles = allBundlesData || getStoredData<Bundle[]>('bw_cached_bundles', mockBundles.map(decodeBundleFromDb));
 
+    const now = new Date();
     for (const p of allPurchases) {
       const expDate = new Date(p.expiresAt);
       if (expDate > now) {
@@ -1212,25 +1154,10 @@ export const dbService = {
     storedMapV2[currentUser.id] = mockPurchasesV2;
     setStoredData('bw_mock_purchases_map_v2', storedMapV2);
 
-    if (!isMock && supabase) {
-      try {
-        const payload = {
-          id: newPurchase.id,
-          userId: currentUser.id,
-          userid: currentUser.id,
-          itemId: newPurchase.itemId,
-          itemid: newPurchase.itemId,
-          itemType: newPurchase.itemType,
-          itemtype: newPurchase.itemType,
-          purchasedAt: newPurchase.purchasedAt,
-          purchasedat: newPurchase.purchasedAt,
-          expiresAt: newPurchase.expiresAt,
-          expiresat: newPurchase.expiresAt
-        };
-        await supabase.from('purchases').insert([payload]);
-      } catch (e) {
-        console.warn('Supabase DB purchase insert warning:', e);
-      }
+    try {
+      await vpsApi.grantPurchase(currentUser.id, notesId, 'note', 99, paymentDetails?.paymentId);
+    } catch (e) {
+      console.warn('VPS API purchase grant warning:', e);
     }
 
     return { success: true, error: null };
@@ -1632,35 +1559,14 @@ export const dbService = {
       setStoredData(`bw_user_purchases_cache_${currentUser.id}`, mockPurchasesV2);
     }
 
-    // Insert into Supabase DB purchases table for ALL target user IDs (stripping non-DB columns & mapping itemType to 'bundle' or 'notes')
-    if (!isMock && supabase) {
-      const dbItemType = itemType === 'subject' ? 'bundle' : (itemType === 'notes' ? 'notes' : 'bundle');
-      const dbItemId = itemType === 'subject' && !itemId.startsWith('Subject Combo:') && !itemId.startsWith('subject_pack_')
-        ? `Subject Combo: ${itemId}`
-        : itemId;
-
-      const dbPayloads = Array.from(targetUserIds).map(uid => ({
-        id: generateUUID(),
-        userId: uid,
-        userid: uid,
-        itemId: dbItemId,
-        itemid: dbItemId,
-        itemType: dbItemType,
-        itemtype: dbItemType,
-        purchasedAt: purchasedAt.toISOString(),
-        purchasedat: purchasedAt.toISOString(),
-        expiresAt: expiresAt.toISOString(),
-        expiresat: expiresAt.toISOString()
-      }));
-
-      const { error } = await supabase.from('purchases').insert(dbPayloads);
-      if (error) {
-        console.warn('Supabase DB purchase insert warning:', error.message);
-        return { success: true, error: null };
+    try {
+      const dbItemType = itemType === 'subject' ? 'bundle' : (itemType === 'notes' ? 'note' : 'bundle');
+      for (const uid of Array.from(targetUserIds)) {
+        await vpsApi.grantPurchase(uid, itemId, dbItemType as any);
       }
-      return { success: true, error: null };
+    } catch (e) {
+      console.warn('VPS API grant manual license warning:', e);
     }
-
     return { success: true, error: null };
   },
 
