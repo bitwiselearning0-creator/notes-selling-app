@@ -1493,14 +1493,14 @@ export const dbService = {
     const revokedItems = getStoredData<string[]>('bw_revoked_item_ids', []).filter(id => id !== itemId);
     setStoredData('bw_revoked_item_ids', revokedItems);
 
-    let targetUserId = '';
+    const targetUserIds = new Set<string>();
 
     // 2. Resolve or create profile in Supabase DB
     if (!isMock && supabase) {
       try {
         const { data: matchedProfiles } = await supabase.from('profiles').select('id, email, name').ilike('email', cleanEmail);
         if (matchedProfiles && matchedProfiles.length > 0) {
-          targetUserId = matchedProfiles[0].id;
+          matchedProfiles.forEach((p: any) => targetUserIds.add(p.id));
         } else {
           // If student is not yet in profiles, create a pending student profile record in Supabase DB!
           const newId = generateUUID();
@@ -1512,18 +1512,18 @@ export const dbService = {
             role: 'student'
           };
           await supabase.from('profiles').insert([newProfile]);
-          targetUserId = newId;
+          targetUserIds.add(newId);
         }
       } catch (err) {
         console.warn('Error resolving profile in Supabase:', err);
       }
     }
 
-    if (!targetUserId) {
+    if (targetUserIds.size === 0) {
       let localUser = mockUsers.find(u => u.email.toLowerCase() === cleanEmail);
       if (!localUser) {
         const newLocalUser: UserProfile = {
-          id: 'user_' + Math.random().toString(36).substr(2, 9),
+          id: 'user_' + Math.random().toString(36).substring(2, 11),
           name: cleanEmail.split('@')[0],
           email: cleanEmail,
           phone: '0000000000',
@@ -1531,9 +1531,9 @@ export const dbService = {
         };
         mockUsers.push(newLocalUser);
         setStoredData('bw_mock_users', mockUsers);
-        targetUserId = newLocalUser.id;
+        targetUserIds.add(newLocalUser.id);
       } else {
-        targetUserId = localUser.id;
+        targetUserIds.add(localUser.id);
       }
     }
 
@@ -1554,9 +1554,10 @@ export const dbService = {
       itemName = foundBundle ? foundBundle.title : 'Semester Combo Pack';
     }
 
+    const primaryUserId = Array.from(targetUserIds)[0];
     const newPurchase: Purchase = {
       id: generateUUID(),
-      userId: targetUserId,
+      userId: primaryUserId,
       itemId,
       itemType,
       userEmail: cleanEmail,
@@ -1567,36 +1568,40 @@ export const dbService = {
 
     // Update local storage map for instant Admin UI and offline support
     const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-    const userPurchases = storedMapV2[targetUserId] || [];
-    const updatedPurchases = userPurchases.filter(p => !(p.itemId === itemId && p.itemType === itemType));
-    updatedPurchases.push(newPurchase);
-    storedMapV2[targetUserId] = updatedPurchases;
+    targetUserIds.forEach(uid => {
+      const userPurchases = storedMapV2[uid] || [];
+      const updatedPurchases = userPurchases.filter(p => !(p.itemId === itemId && p.itemType === itemType));
+      updatedPurchases.push({ ...newPurchase, userId: uid });
+      storedMapV2[uid] = updatedPurchases;
+    });
+    storedMapV2[cleanEmail] = [newPurchase];
     setStoredData('bw_mock_purchases_map_v2', storedMapV2);
 
-    if (currentUser && (currentUser.id === targetUserId || (currentUser.email && currentUser.email.toLowerCase() === cleanEmail))) {
-      mockPurchasesV2 = updatedPurchases;
+    if (currentUser && (targetUserIds.has(currentUser.id) || (currentUser.email && currentUser.email.toLowerCase() === cleanEmail))) {
+      mockPurchasesV2.push(newPurchase);
       setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
       setStoredData(`bw_user_purchases_cache_${currentUser.id}`, mockPurchasesV2);
     }
 
-    // Insert into Supabase DB purchases table (stripping non-DB columns & mapping itemType to 'bundle' or 'notes' to strictly pass DB check constraints)
+    // Insert into Supabase DB purchases table for ALL target user IDs (stripping non-DB columns & mapping itemType to 'bundle' or 'notes')
     if (!isMock && supabase) {
-      const { userEmail, itemName, ...dbPayload } = newPurchase;
       const dbItemType = itemType === 'subject' ? 'bundle' : (itemType === 'notes' ? 'notes' : 'bundle');
       const dbItemId = itemType === 'subject' && !itemId.startsWith('Subject Combo:') && !itemId.startsWith('subject_pack_')
         ? `Subject Combo: ${itemId}`
         : itemId;
 
-      const sanitizedPayload = {
-        ...dbPayload,
+      const dbPayloads = Array.from(targetUserIds).map(uid => ({
+        id: generateUUID(),
+        userId: uid,
+        itemId: dbItemId,
         itemType: dbItemType,
-        itemId: dbItemId
-      };
+        purchasedAt: purchasedAt.toISOString(),
+        expiresAt: expiresAt.toISOString()
+      }));
 
-      const { error } = await supabase.from('purchases').insert([sanitizedPayload]);
+      const { error } = await supabase.from('purchases').insert(dbPayloads);
       if (error) {
         console.warn('Supabase DB purchase insert warning:', error.message);
-        // Even if DB fails, local state update succeeded so return success
         return { success: true, error: null };
       }
       return { success: true, error: null };
