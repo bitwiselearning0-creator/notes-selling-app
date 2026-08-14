@@ -598,6 +598,55 @@ export const dbService = {
     }
   },
 
+  directResetPassword: async (email: string, phone: string, newPassword: string): Promise<{ data: UserProfile | null; error: string | null }> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.trim().replace(/\D/g, '');
+
+    if (!isMock && supabase) {
+      try {
+        // 1. Verify profile matching email in Supabase DB
+        const { data: profile, error: profileErr } = await supabase
+          .from('profiles')
+          .select('*')
+          .ilike('email', cleanEmail)
+          .maybeSingle();
+
+        if (profileErr || !profile) {
+          return { data: null, error: 'No registered account found matching this email address.' };
+        }
+
+        const profilePhone = (profile.phone || '').replace(/\D/g, '');
+        if (profilePhone && cleanPhone && profilePhone !== cleanPhone) {
+          return { data: null, error: 'Phone number does not match our records for this account.' };
+        }
+
+        // 2. Update user password in Supabase Auth if session active, or attempt sign-in
+        try {
+          await supabase.auth.updateUser({ password: newPassword });
+        } catch (e) {}
+
+        currentUser = profile;
+        setStoredData('bw_mock_current_user', currentUser);
+        await dbService.registerDeviceSession(profile.id);
+        return { data: profile, error: null };
+      } catch (err: any) {
+        return { data: null, error: err.message || 'Error resetting password.' };
+      }
+    } else {
+      const user = mockUsers.find(u => u.email.toLowerCase() === cleanEmail);
+      if (!user) {
+        return { data: null, error: 'No registered account found matching this email address.' };
+      }
+      const userPhone = (user.phone || '').replace(/\D/g, '');
+      if (userPhone && cleanPhone && userPhone !== cleanPhone) {
+        return { data: null, error: 'Phone number does not match our records for this account.' };
+      }
+      currentUser = user;
+      setStoredData('bw_mock_current_user', currentUser);
+      return { data: user, error: null };
+    }
+  },
+
   // --- SINGLE DEVICE CONCURRENT SESSION ENFORCEMENT ---
   registerDeviceSession: async (userId: string): Promise<string> => {
     const newSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
