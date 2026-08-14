@@ -266,12 +266,12 @@ export const INITIAL_BUNDLES: Bundle[] = [
 // ==========================================
 // LOCAL STORAGE PERSISTENCE ENGINE (MOCK DB)
 // ==========================================
-const getStoredData = <T>(key: string, defaultValue: T): T => {
+export const getStoredData = <T>(key: string, defaultValue: T): T => {
   const data = localStorage.getItem(key);
   return data ? JSON.parse(data) : defaultValue;
 };
 
-const setStoredData = <T>(key: string, value: T): void => {
+export const setStoredData = <T>(key: string, value: T): void => {
   localStorage.setItem(key, JSON.stringify(value));
 };
 
@@ -965,9 +965,13 @@ export const dbService = {
           let globalRevokeAllTime: number | null = null;
 
           for (const r of allRows) {
-            if (r.itemType === 'revoked_single') {
-              revokedSingleSet.add(r.itemId);
-            } else if (r.itemType === 'revoked_all') {
+            const isSingleRev = r.itemType === 'revoked_single' || (typeof r.itemId === 'string' && r.itemId.startsWith('REVOKED_SINGLE:'));
+            const isAllRev = r.itemType === 'revoked_all' || r.itemId === 'REVOKED_ALL' || r.itemId === 'ALL_LICENSES' || (typeof r.id === 'string' && r.id.startsWith('rev_all_mark_'));
+
+            if (isSingleRev) {
+              const targetId = typeof r.itemId === 'string' && r.itemId.startsWith('REVOKED_SINGLE:') ? r.itemId.replace('REVOKED_SINGLE:', '') : r.itemId;
+              revokedSingleSet.add(targetId);
+            } else if (isAllRev) {
               const t = new Date(r.purchasedAt).getTime();
               if (!globalRevokeAllTime || t > globalRevokeAllTime) {
                 globalRevokeAllTime = t;
@@ -977,7 +981,11 @@ export const dbService = {
 
           const freshPurchases = allRows.filter((p: any) => {
             if (p.itemId === 'session_tracker') return false;
-            if (p.itemType === 'revoked_single' || p.itemType === 'revoked_all') return false;
+            const isSingleRev = p.itemType === 'revoked_single' || (typeof p.itemId === 'string' && p.itemId.startsWith('REVOKED_SINGLE:')) || (typeof p.id === 'string' && p.id.startsWith('rev_mark_'));
+            const isAllRev = p.itemType === 'revoked_all' || p.itemId === 'REVOKED_ALL' || p.itemId === 'ALL_LICENSES' || (typeof p.id === 'string' && p.id.startsWith('rev_all_mark_'));
+            
+            if (isSingleRev || isAllRev) return false;
+
             if (revokedSingleSet.has(p.id) || revokedSingleSet.has(p.itemId)) return false;
             if (globalRevokeAllTime && new Date(p.purchasedAt).getTime() <= globalRevokeAllTime) return false;
             return true;
@@ -1737,9 +1745,13 @@ export const dbService = {
           const allRows = purchasesRes.data || [];
 
           for (const r of allRows) {
-            if (r.itemType === 'revoked_single') {
-              revokedSingleSet.add(r.itemId);
-            } else if (r.itemType === 'revoked_all') {
+            const isSingleRev = r.itemType === 'revoked_single' || (typeof r.itemId === 'string' && r.itemId.startsWith('REVOKED_SINGLE:'));
+            const isAllRev = r.itemType === 'revoked_all' || r.itemId === 'REVOKED_ALL' || r.itemId === 'ALL_LICENSES' || (typeof r.id === 'string' && r.id.startsWith('rev_all_mark_'));
+
+            if (isSingleRev) {
+              const targetId = typeof r.itemId === 'string' && r.itemId.startsWith('REVOKED_SINGLE:') ? r.itemId.replace('REVOKED_SINGLE:', '') : r.itemId;
+              revokedSingleSet.add(targetId);
+            } else if (isAllRev) {
               const t = new Date(r.purchasedAt).getTime();
               if (!globalRevokeAllTime || t > globalRevokeAllTime) {
                 globalRevokeAllTime = t;
@@ -1749,8 +1761,12 @@ export const dbService = {
 
           rawPurchases = allRows.filter((p: any) => {
             if (p.noteId === 'session_tracker' || p.itemId === 'session_tracker') return false;
-            if (p.itemType === 'revoked_single' || p.itemType === 'revoked_all') return false;
-            if (revokedSingleSet.has(p.id)) return false;
+            const isSingleRev = p.itemType === 'revoked_single' || (typeof p.itemId === 'string' && p.itemId.startsWith('REVOKED_SINGLE:')) || (typeof p.id === 'string' && p.id.startsWith('rev_mark_'));
+            const isAllRev = p.itemType === 'revoked_all' || p.itemId === 'REVOKED_ALL' || p.itemId === 'ALL_LICENSES' || (typeof p.id === 'string' && p.id.startsWith('rev_all_mark_'));
+            
+            if (isSingleRev || isAllRev) return false;
+
+            if (revokedSingleSet.has(p.id) || revokedSingleSet.has(p.itemId)) return false;
             if (globalRevokeAllTime && new Date(p.purchasedAt).getTime() <= globalRevokeAllTime) return false;
             return true;
           });

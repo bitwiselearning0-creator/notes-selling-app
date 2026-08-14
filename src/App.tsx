@@ -9,7 +9,7 @@ import { AdminLogin } from './pages/AdminLogin';
 import { Policies } from './pages/Policies';
 import { PDFViewer } from './components/PDFViewer';
 import { Profile } from './pages/Profile';
-import { dbService } from './lib/supabase';
+import { dbService, isMock, supabase, setStoredData } from './lib/supabase';
 import type { UserProfile, Note } from './lib/supabase';
 import { BookOpen, Library, ShieldCheck, User, LogOut } from 'lucide-react';
 import { App as CapApp } from '@capacitor/app';
@@ -131,13 +131,7 @@ function App() {
       localStorage.removeItem('bw_mock_bundles');
     }
 
-    // 1. Session check
-    const user = dbService.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-    }
-
-    // 2. Platform detection check (URL parameter/hash or native platform)
+    // 1. Platform detection check (URL parameter/hash or native platform)
     const searchParams = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
     const isNativeCapacitor = !!(window as any).Capacitor && typeof (window as any).Capacitor.isNativePlatform === 'function' && (window as any).Capacitor.isNativePlatform();
@@ -145,10 +139,31 @@ function App() {
     const isApp = isNativeCapacitor || hasAppParam;
     setIsAppMode(isApp);
 
-    // 3. Enforce authentication gateway for app-mode on startup
-    if (isApp && !user) {
-      setCurrentPage('auth');
-    }
+    // 2. Session check & live Supabase profile re-hydration
+    const syncCurrentSession = async () => {
+      let activeUser = dbService.getCurrentUser();
+      if (!isMock && supabase) {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData?.session?.user) {
+            const authUser = sessionData.session.user;
+            const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
+            if (profile) {
+              activeUser = profile;
+              setCurrentUser(profile);
+              setStoredData('bw_mock_current_user', profile);
+            }
+          }
+        } catch (e) {}
+      }
+      if (activeUser) {
+        setCurrentUser(activeUser);
+      }
+      if (isApp && !activeUser) {
+        setCurrentPage('auth');
+      }
+    };
+    syncCurrentSession();
 
     // 3. Hash routing check for admin/student access
     const handleHashRouting = () => {
