@@ -1,15 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
 import { vpsApi } from './vpsApi';
 
-// Retrieve environment variables with hardcoded fallbacks for native Android/iOS APK builds
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://zczomcghyktsaimwhwxp.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_T_NLVZYhGMxVuELQNEgtGQ_zBgeBMHl';
-
 // Determine if we should use mock database
-export const isMock = !supabaseUrl || !supabaseAnonKey;
+export const isMock = false;
 
-// Initialize Supabase client if keys are present
-export const supabase = !isMock ? createClient(supabaseUrl, supabaseAnonKey) : null;
+// Supabase client deactivated — all requests are served 100% locally by Bluehost VPS API
+export const supabase: any = null;
 
 // Initialize Supabase Realtime Channel Listener for cross-platform 0ms instant purchase sync
 // Deferred to avoid referencing dbService before declaration
@@ -18,7 +13,7 @@ const setupRealtimeSync = () => {
     try {
       supabase
         .channel('public:purchases_sync')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, (_payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, (_payload: any) => {
           if (typeof localStorage !== 'undefined') {
             // Use module-level currentUser directly (not dbService which may not be ready)
             const user = currentUser || getStoredData<any>('bw_mock_current_user', null);
@@ -663,42 +658,8 @@ export const dbService = {
         console.warn('Error querying purchases DB session:', err);
       }
 
-      // Engine 2: Fallback to Supabase Auth endpoint
-      if (!activeSessionId) {
-        try {
-          const { data: sessionData } = await supabase.auth.getSession();
-          let token = sessionData?.session?.access_token;
-          if (!token) {
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i);
-              if (key && key.includes('auth-token')) {
-                try {
-                  const parsed = JSON.parse(localStorage.getItem(key) || '{}');
-                  token = parsed?.access_token || parsed?.currentSession?.access_token;
-                  if (token) break;
-                } catch (e) {}
-              }
-            }
-          }
-          if (token) {
-            const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
-              method: 'GET',
-              mode: 'cors',
-              cache: 'no-store',
-              headers: {
-                'apikey': supabaseAnonKey,
-                'Authorization': `Bearer ${token}`
-              }
-            });
-            if (res.ok) {
-              const userJson = await res.json();
-              if (userJson?.user_metadata?.active_session_id) {
-                activeSessionId = userJson.user_metadata.active_session_id;
-              }
-            }
-          }
-        } catch (e) {}
-      }
+      // Engine 2: Deactivated legacy fallback
+      if (!activeSessionId) {}
     }
 
     if (!activeSessionId) {
