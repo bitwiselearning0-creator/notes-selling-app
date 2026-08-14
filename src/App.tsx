@@ -9,6 +9,7 @@ import { AdminLogin } from './pages/AdminLogin';
 import { Policies } from './pages/Policies';
 import { PDFViewer } from './components/PDFViewer';
 import { Profile } from './pages/Profile';
+import { ResetPasswordModal } from './components/ResetPasswordModal';
 import { dbService, isMock, supabase, setStoredData } from './lib/supabase';
 import type { UserProfile, Note } from './lib/supabase';
 import { BookOpen, Library, ShieldCheck, User, LogOut } from 'lucide-react';
@@ -30,6 +31,7 @@ function App() {
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   const [showExitModal, setShowExitModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
   const childBackHandlerRef = useRef<(() => boolean) | null>(null);
 
   // Ref that always holds the LATEST back navigation handler (avoids stale closures)
@@ -176,6 +178,10 @@ function App() {
           window.location.hash = '#login';
           return;
         }
+      }
+
+      if (activeHash === '#reset-password' || window.location.href.includes('type=recovery') || window.location.hash.includes('access_token')) {
+        setShowResetModal(true);
       }
 
       if (activeHash === '#admin') {
@@ -579,6 +585,19 @@ function App() {
               policyType={currentPage.replace('policy-', '') as any} 
             />
           )}
+
+          <ResetPasswordModal 
+            isOpen={showResetModal}
+            onClose={() => {
+              setShowResetModal(false);
+              window.location.hash = '#catalog';
+            }}
+            onSuccess={() => {
+              setShowResetModal(false);
+              setCurrentPage('dashboard');
+              window.location.hash = '#catalog';
+            }}
+          />
         </div>
       </main>
 

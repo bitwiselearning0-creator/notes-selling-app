@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Phone, User, ArrowRight, ShieldAlert } from 'lucide-react';
+import { Mail, Lock, Phone, User, ArrowRight, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { dbService } from '../lib/supabase';
 import type { UserProfile } from '../lib/supabase';
 
@@ -9,27 +9,25 @@ interface AuthProps {
 }
 
 export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
-  const [isRegister, setIsRegister] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   
-  // Error handling
+  // Error & Success handling
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Strict Phone Input Handling: Allows ONLY digits (0-9)
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Replace all non-digit characters immediately
     const cleanValue = value.replace(/\D/g, '');
     
-    // Limit to 10 digits
     if (cleanValue.length <= 10) {
       setPhone(cleanValue);
-      // Clear phone error if it starts getting filled correctly
       if (errors.phone) {
         setErrors(prev => {
           const newErr = { ...prev };
@@ -51,14 +49,16 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
       newErrors.email = 'Please enter a valid email address (e.g. name@domain.com).';
     }
 
-    // Password validation
-    if (!password) {
-      newErrors.password = 'Password is required.';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters long.';
+    if (authMode !== 'forgot') {
+      // Password validation
+      if (!password) {
+        newErrors.password = 'Password is required.';
+      } else if (password.length < 6) {
+        newErrors.password = 'Password must be at least 6 characters long.';
+      }
     }
 
-    if (isRegister) {
+    if (authMode === 'register') {
       // Name validation
       if (!name.trim()) {
         newErrors.name = 'Full name is required.';
@@ -81,12 +81,20 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setGlobalError(null);
+    setSuccessMsg(null);
 
     if (!validateForm()) return;
 
     setLoading(true);
     try {
-      if (isRegister) {
+      if (authMode === 'forgot') {
+        const { success, error } = await dbService.resetPasswordForEmail(email);
+        if (error) {
+          setGlobalError(error);
+        } else if (success) {
+          setSuccessMsg('Password reset instructions sent! Please check your email inbox and spam folder.');
+        }
+      } else if (authMode === 'register') {
         // SignUp Action
         const { data, error } = await dbService.signUp(name, email, phone, password);
         if (error) {
@@ -118,14 +126,11 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
     }
   };
 
-  const toggleAuthMode = () => {
-    setIsRegister(!isRegister);
+  const switchMode = (newMode: 'login' | 'register' | 'forgot') => {
+    setAuthMode(newMode);
     setErrors({});
     setGlobalError(null);
-    setName('');
-    setEmail('');
-    setPhone('');
-    setPassword('');
+    setSuccessMsg(null);
   };
 
   return (
@@ -144,12 +149,14 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
             </div>
           </div>
           <h2 className="auth-title">
-            {isRegister ? 'Create Account' : 'Welcome Back'}
+            {authMode === 'register' ? 'Create Account' : authMode === 'forgot' ? 'Reset Password' : 'Welcome Back'}
           </h2>
           <p className="auth-subtitle">
-            {isRegister 
+            {authMode === 'register' 
               ? 'Join Bitwise Learning to unlock premium engineering notes' 
-              : 'Sign in to access your unlocked notes catalog'
+              : authMode === 'forgot'
+                ? 'Enter your registered email address to receive password reset instructions'
+                : 'Sign in to access your unlocked notes catalog'
             }
           </p>
         </div>
@@ -161,8 +168,15 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
           </div>
         )}
 
+        {successMsg && (
+          <div className="security-banner" style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px dashed #22c55e', color: '#22c55e', marginBottom: '20px' }}>
+            <CheckCircle2 size={16} />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
         <form className="auth-form" onSubmit={handleSubmit}>
-          {isRegister && (
+          {authMode === 'register' && (
             <div className="form-group">
               <label htmlFor="auth-name">Full Name</label>
               <div style={{ position: 'relative' }}>
@@ -198,7 +212,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
             {errors.email && <span className="error-text">{errors.email}</span>}
           </div>
 
-          {isRegister && (
+          {authMode === 'register' && (
             <div className="form-group">
               <label htmlFor="auth-phone">Phone Number</label>
               <div style={{ position: 'relative' }}>
@@ -217,22 +231,35 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
             </div>
           )}
 
-          <div className="form-group">
-            <label htmlFor="auth-password">Password</label>
-            <div style={{ position: 'relative' }}>
-              <Lock size={16} className="search-icon-overlay" style={{ left: '16px' }} />
-              <input 
-                type="password" 
-                id="auth-password"
-                placeholder="Enter password" 
-                style={{ paddingLeft: '48px' }}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-              />
+          {authMode !== 'forgot' && (
+            <div className="form-group">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label htmlFor="auth-password">Password</label>
+                {authMode === 'login' && (
+                  <button 
+                    type="button" 
+                    onClick={() => switchMode('forgot')}
+                    style={{ background: 'none', border: 'none', color: 'var(--color-yellow)', cursor: 'pointer', fontSize: '12px', fontWeight: '600', padding: 0 }}
+                  >
+                    Forgot Password?
+                  </button>
+                )}
+              </div>
+              <div style={{ position: 'relative', marginTop: '6px' }}>
+                <Lock size={16} className="search-icon-overlay" style={{ left: '16px' }} />
+                <input 
+                  type="password" 
+                  id="auth-password"
+                  placeholder="Enter password" 
+                  style={{ paddingLeft: '48px' }}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+              {errors.password && <span className="error-text">{errors.password}</span>}
             </div>
-            {errors.password && <span className="error-text">{errors.password}</span>}
-          </div>
+          )}
 
           <button 
             type="submit" 
@@ -242,20 +269,24 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
           >
             {loading ? 'Processing...' : (
               <>
-                {isRegister ? 'Sign Up' : 'Sign In'} <ArrowRight size={18} />
+                {authMode === 'register' ? 'Sign Up' : authMode === 'forgot' ? 'Send Reset Link' : 'Sign In'} <ArrowRight size={18} />
               </>
             )}
           </button>
         </form>
 
         <div className="form-toggle-link">
-          {isRegister ? (
+          {authMode === 'forgot' ? (
             <>
-              Already have an account? <span onClick={toggleAuthMode}>Sign In</span>
+              Remember your password? <span onClick={() => switchMode('login')}>Sign In</span>
+            </>
+          ) : authMode === 'register' ? (
+            <>
+              Already have an account? <span onClick={() => switchMode('login')}>Sign In</span>
             </>
           ) : (
             <>
-              New to Bitwise Learning? <span onClick={toggleAuthMode}>Create Account</span>
+              New to Bitwise Learning? <span onClick={() => switchMode('register')}>Create Account</span>
             </>
           )}
         </div>

@@ -574,6 +574,30 @@ export const dbService = {
     }
   },
 
+  resetPasswordForEmail: async (email: string): Promise<{ success: boolean; error: string | null }> => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!isMock && supabase) {
+      const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://bitwiselearning.online';
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: `${siteUrl}/#reset-password`
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true, error: null };
+    } else {
+      return { success: true, error: null };
+    }
+  },
+
+  updatePassword: async (newPassword: string): Promise<{ success: boolean; error: string | null }> => {
+    if (!isMock && supabase) {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) return { success: false, error: error.message };
+      return { success: true, error: null };
+    } else {
+      return { success: true, error: null };
+    }
+  },
+
   // --- SINGLE DEVICE CONCURRENT SESSION ENFORCEMENT ---
   registerDeviceSession: async (userId: string): Promise<string> => {
     const newSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
