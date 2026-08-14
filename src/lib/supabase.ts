@@ -1651,28 +1651,18 @@ export const dbService = {
       }
     } catch (e) {}
 
-    // 5. Issue Global DB Revocation Marker insert + delete + expire in Supabase DB if online
-    if (!isMock && supabase) {
-      try {
-        const nowIso = new Date().toISOString();
-        const globalMarker = {
-          id: generateUUID(),
-          userId: SYSTEM_REVOKED_MARKER_UUID,
-          itemId: 'REVOKED_ALL',
-          itemType: 'bundle',
-          purchasedAt: nowIso,
-          expiresAt: '2099-01-01T00:00:00.000Z'
-        };
-        await supabase.from('purchases').insert([globalMarker]);
-
-        await supabase.from('purchases').delete().neq('itemId', 'session_tracker');
-        await supabase.from('purchases').update({ expiresAt: '1970-01-01T00:00:00.000Z' }).neq('itemId', 'session_tracker');
-      } catch (err) {
-        console.warn('Error revoking all purchases in Supabase:', err);
-      }
-    }
-
     return { success: true, error: null };
+  },
+
+  getAllProfiles: async (): Promise<{ data: UserProfile[]; error: string | null }> => {
+    try {
+      const res = await vpsApi.getAllProfiles();
+      if (res.data) {
+        return { data: res.data, error: null };
+      }
+    } catch (e) {}
+    const local = getStoredData<UserProfile[]>('bw_mock_users', mockUsers);
+    return { data: local, error: null };
   },
 
   getAllPurchases: async (): Promise<{ data: (Purchase & { userEmail?: string; userName?: string; itemName?: string })[]; error: string | null }> => {
@@ -1680,62 +1670,31 @@ export const dbService = {
     let dbProfiles: UserProfile[] = [];
     let dbNotes: Note[] = [];
     let dbBundles: Bundle[] = [];
-    const revokedSingleSet = new Set<string>();
-    let globalRevokeAllTime: number | null = null;
 
-    if (!isMock && supabase) {
-      try {
-        const [purchasesRes, profilesRes, notesRes, bundlesRes] = await Promise.all([
-          supabase.from('purchases').select('*'),
-          supabase.from('profiles').select('id, email, name, role'),
-          supabase.from('notes').select('id, title'),
-          supabase.from('bundles').select('id, title')
-        ]);
+    try {
+      const [purchasesRes, profilesRes, notesRes, bundlesRes] = await Promise.all([
+        vpsApi.getAllPurchases(),
+        vpsApi.getAllProfiles(),
+        vpsApi.getNotes(),
+        vpsApi.getBundles()
+      ]);
 
-        if (purchasesRes?.data) {
-          const allRows = purchasesRes.data || [];
-
-          for (const r of allRows) {
-            const isSingleRev = r.itemType === 'revoked_single' || (typeof r.itemId === 'string' && r.itemId.startsWith('REVOKED_SINGLE:'));
-            const isAllRev = r.itemType === 'revoked_all' || r.itemId === 'REVOKED_ALL' || r.itemId === 'ALL_LICENSES' || (typeof r.id === 'string' && r.id.startsWith('rev_all_mark_'));
-
-            if (isSingleRev) {
-              const targetId = typeof r.itemId === 'string' && r.itemId.startsWith('REVOKED_SINGLE:') ? r.itemId.replace('REVOKED_SINGLE:', '') : r.itemId;
-              revokedSingleSet.add(targetId);
-            } else if (isAllRev) {
-              const t = new Date(r.purchasedAt).getTime();
-              if (!globalRevokeAllTime || t > globalRevokeAllTime) {
-                globalRevokeAllTime = t;
-              }
-            }
-          }
-
-          rawPurchases = allRows.filter((p: any) => {
-            if (p.noteId === 'session_tracker' || p.itemId === 'session_tracker') return false;
-            const isSingleRev = p.itemType === 'revoked_single' || (typeof p.itemId === 'string' && p.itemId.startsWith('REVOKED_SINGLE:')) || (typeof p.id === 'string' && p.id.startsWith('rev_mark_'));
-            const isAllRev = p.itemType === 'revoked_all' || p.itemId === 'REVOKED_ALL' || p.itemId === 'ALL_LICENSES' || (typeof p.id === 'string' && p.id.startsWith('rev_all_mark_'));
-            
-            if (isSingleRev || isAllRev) return false;
-
-            if (revokedSingleSet.has(p.id) || revokedSingleSet.has(p.itemId)) return false;
-            if (globalRevokeAllTime && new Date(p.purchasedAt).getTime() <= globalRevokeAllTime) return false;
-            return true;
-          });
-        }
-        if (profilesRes?.data) {
-          dbProfiles = (profilesRes.data || []).map((u: any) => ({
-            id: u.id,
-            email: u.email || '',
-            name: u.name || u.email?.split('@')[0] || 'Student',
-            phone: u.phone || '0000000000',
-            role: u.role || 'student'
-          }));
-        }
-        if (notesRes?.data) dbNotes = notesRes.data as any;
-        if (bundlesRes?.data) dbBundles = bundlesRes.data as any;
-      } catch (err) {
-        console.warn('Error fetching purchases/profiles from Supabase:', err);
+      if (purchasesRes?.data && Array.isArray(purchasesRes.data)) {
+        rawPurchases = purchasesRes.data.map((p: any) => ({
+          id: p.id,
+          userId: p.user_id,
+          itemId: p.item_id,
+          itemType: (p.item_type === 'note' ? 'notes' : p.item_type) as any,
+          purchasedAt: p.granted_at,
+          expiresAt: p.expires_at || '2099-01-01T00:00:00.000Z',
+          paymentId: p.razorpay_payment_id
+        }));
       }
+      if (profilesRes?.data) dbProfiles = profilesRes.data;
+      if (notesRes?.data) dbNotes = notesRes.data;
+      if (bundlesRes?.data) dbBundles = bundlesRes.data;
+    } catch (err) {
+      console.warn('Error fetching purchases/profiles from VPS API:', err);
     }
 
     const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
@@ -1751,7 +1710,7 @@ export const dbService = {
     // Filter out blacklisted revoked purchase IDs
     const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
     if (revokedIds.length > 0) {
-      rawPurchases = rawPurchases.filter(p => !revokedIds.includes(p.id) && !revokedSingleSet.has(p.id));
+      rawPurchases = rawPurchases.filter(p => !revokedIds.includes(p.id));
     }
 
     // Filter out expired purchases (expiresAt <= now)
