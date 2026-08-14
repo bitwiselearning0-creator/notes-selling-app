@@ -1062,12 +1062,20 @@ export const dbService = {
         const diffTime = expDate.getTime() - now.getTime();
         const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+        const isSubjectPack = p.itemType === 'subject' || 
+          (typeof p.itemId === 'string' && (
+            p.itemId.startsWith('Subject Combo:') || 
+            p.itemId.startsWith('Subject Pack:') || 
+            p.itemId.startsWith('subject_pack_')
+          ));
+
         if (p.itemType === 'notes') {
           purchasedNoteIdsSet.add(p.itemId);
           noteDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
-        } else if (p.itemType === 'subject') {
-          const rawSubjectName = p.itemId.replace(/^Subject (Pack|Combo):\s*/i, '').trim();
-          const subjectKey = `subject_pack_${rawSubjectName.toLowerCase().replace(/\s+/g, '_')}`;
+        } else if (isSubjectPack) {
+          const rawSubjectName = p.itemId.replace(/^Subject (Pack|Combo):\s*/i, '').replace(/^subject_pack_\s*/i, '').replace(/_/g, ' ').trim();
+          const targetSubject = rawSubjectName.toLowerCase();
+          const subjectKey = `subject_pack_${targetSubject.replace(/\s+/g, '_')}`;
 
           purchasedBundleIdsSet.add(subjectKey);
           bundleDetailsMap[subjectKey] = { expiresAt: p.expiresAt, daysLeft };
@@ -1078,7 +1086,6 @@ export const dbService = {
             bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
           }
 
-          const targetSubject = rawSubjectName.toLowerCase();
           allNotesList.forEach(n => {
             if (n.subject && n.subject.toLowerCase() === targetSubject) {
               purchasedNoteIdsSet.add(n.id);
@@ -1091,7 +1098,7 @@ export const dbService = {
           purchasedBundleIdsSet.add(p.itemId);
           bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
 
-          const bundleObj = allBundles.find(b => b.id === p.itemId || b.id.toLowerCase() === p.itemId.toLowerCase()) || mockBundles.find(b => b.id === p.itemId);
+          const bundleObj = allBundles.find(b => b.id.toLowerCase() === p.itemId.toLowerCase() || b.title.toLowerCase().includes(p.itemId.toLowerCase())) || mockBundles.find(b => b.id === p.itemId);
           if (bundleObj) {
             // 1. Expand explicit notesIds
             const bNotesIds = safeParseBundleNotesIds(bundleObj.notesIds);
@@ -1108,6 +1115,19 @@ export const dbService = {
               const matchesSubject = subjects.some(s => s && n.subject && s.toLowerCase() === n.subject.toLowerCase());
               const matchesSem = bundleObj.semester && n.semester === bundleObj.semester;
               if (matchesSubject || matchesSem) {
+                purchasedNoteIdsSet.add(n.id);
+                if (!noteDetailsMap[n.id]) {
+                  noteDetailsMap[n.id] = { expiresAt: p.expiresAt, daysLeft };
+                }
+              }
+            });
+          } else {
+            // Fallback note expansion for synthetic or custom bundles without static bundle object
+            const cleanId = p.itemId.toLowerCase();
+            allNotesList.forEach(n => {
+              const matchesSubj = n.subject && cleanId.includes(n.subject.toLowerCase());
+              const matchesSem = n.semester && (cleanId.includes(`${n.semester}th sem`) || cleanId.includes(`sem ${n.semester}`) || cleanId.includes(`semester ${n.semester}`));
+              if (matchesSubj || matchesSem) {
                 purchasedNoteIdsSet.add(n.id);
                 if (!noteDetailsMap[n.id]) {
                   noteDetailsMap[n.id] = { expiresAt: p.expiresAt, daysLeft };
