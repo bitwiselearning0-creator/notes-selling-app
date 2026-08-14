@@ -420,52 +420,9 @@ export const dbService = {
         await dbService.registerDeviceSession(res.data.id);
         return { data: res.data, error: null };
       }
-      if (res.error) return { data: null, error: res.error };
-    } catch (e) {}
-
-    if (!isMock && supabase) {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name, phone }
-        }
-      });
-      if (error) return { data: null, error: error.message };
-      if (data.user) {
-        const authId = data.user.id;
-        const profile: UserProfile = {
-          id: authId,
-          name,
-          email,
-          phone,
-          role: email.toLowerCase() === 'bitwiselearning0@gmail.com' ? 'admin' : 'student'
-        };
-        await supabase.from('profiles').upsert([profile]);
-        currentUser = profile;
-        setStoredData('bw_mock_current_user', currentUser);
-        await dbService.registerDeviceSession(profile.id);
-        return { data: profile, error: null };
-      }
-      return { data: null, error: 'Signup failed. Please try again.' };
-    } else {
-      const userExists = mockUsers.some(u => u.email.toLowerCase() === email.toLowerCase());
-      if (userExists) {
-        return { data: null, error: 'User already exists with this email address.' };
-      }
-      const newProfile: UserProfile = {
-        id: 'user_' + Math.random().toString(36).substr(2, 9),
-        name,
-        email,
-        phone,
-        role: email.toLowerCase() === 'bitwiselearning0@gmail.com' ? 'admin' : 'student'
-      };
-      mockUsers.push(newProfile);
-      setStoredData('bw_mock_users', mockUsers);
-      currentUser = newProfile;
-      setStoredData('bw_mock_current_user', currentUser);
-      await dbService.registerDeviceSession(newProfile.id);
-      return { data: newProfile, error: null };
+      return { data: null, error: res.error || 'Failed to create account.' };
+    } catch (e: any) {
+      return { data: null, error: e?.message || 'Network error during signup.' };
     }
   },
 
@@ -478,40 +435,9 @@ export const dbService = {
         await dbService.registerDeviceSession(res.data.id);
         return { data: res.data, error: null };
       }
-      if (res.error) return { data: null, error: res.error };
-    } catch (e) {}
-
-    if (!isMock && supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return { data: null, error: error.message };
-      if (data.user) {
-        const authId = data.user.id;
-        let { data: profile } = await supabase.from('profiles').select('*').eq('id', authId).maybeSingle();
-        if (!profile) {
-          profile = {
-            id: authId,
-            name: email.split('@')[0],
-            email: email,
-            phone: '0000000000',
-            role: email.toLowerCase() === 'bitwiselearning0@gmail.com' ? 'admin' : 'student'
-          };
-          await supabase.from('profiles').upsert([profile]);
-        }
-        currentUser = profile;
-        setStoredData('bw_mock_current_user', currentUser);
-        await dbService.registerDeviceSession(profile.id);
-        return { data: profile, error: null };
-      }
-      return { data: null, error: 'Login failed. Invalid credentials.' };
-    } else {
-      const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (!user) {
-        return { data: null, error: 'User not registered. Please register first.' };
-      }
-      currentUser = user;
-      setStoredData('bw_mock_current_user', currentUser);
-      await dbService.registerDeviceSession(user.id);
-      return { data: user, error: null };
+      return { data: null, error: res.error || 'Invalid credentials or user not registered.' };
+    } catch (e: any) {
+      return { data: null, error: e?.message || 'Network error during signin.' };
     }
   },
 
