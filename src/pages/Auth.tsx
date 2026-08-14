@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Phone, User, ArrowRight, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, Phone, User, ArrowRight, ShieldAlert, CheckCircle2, KeyRound } from 'lucide-react';
 import { dbService } from '../lib/supabase';
 import type { UserProfile } from '../lib/supabase';
 
@@ -10,10 +10,12 @@ interface AuthProps {
 
 export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [forgotStep, setForgotStep] = useState<'request' | 'verify'>('request');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   
   // Error & Success handling
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -38,6 +40,20 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
     }
   };
 
+  const handleOtpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleanValue = e.target.value.replace(/\D/g, '');
+    if (cleanValue.length <= 6) {
+      setOtpCode(cleanValue);
+      if (errors.otpCode) {
+        setErrors(prev => {
+          const newErr = { ...prev };
+          delete newErr.otpCode;
+          return newErr;
+        });
+      }
+    }
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -49,28 +65,36 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
       newErrors.email = 'Please enter a valid email address (e.g. name@domain.com).';
     }
 
-    // Password validation
-    if (!password) {
-      newErrors.password = authMode === 'forgot' ? 'New password is required.' : 'Password is required.';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters long.';
-    }
-
-    if (authMode === 'register' || authMode === 'forgot') {
-      // Phone validation for security verification
-      if (!phone) {
-        newErrors.phone = 'Phone number is required for verification.';
-      } else if (phone.length !== 10) {
-        newErrors.phone = 'Phone number must be exactly 10 digits.';
+    if (authMode === 'forgot') {
+      if (forgotStep === 'verify') {
+        if (!otpCode || otpCode.length !== 6) {
+          newErrors.otpCode = 'Please enter the 6-digit code sent to your email.';
+        }
+        if (!password) {
+          newErrors.password = 'New password is required.';
+        } else if (password.length < 6) {
+          newErrors.password = 'Password must be at least 6 characters long.';
+        }
+      }
+    } else {
+      if (!password) {
+        newErrors.password = 'Password is required.';
+      } else if (password.length < 6) {
+        newErrors.password = 'Password must be at least 6 characters long.';
       }
     }
 
     if (authMode === 'register') {
-      // Name validation
       if (!name.trim()) {
         newErrors.name = 'Full name is required.';
       } else if (name.trim().length < 3) {
         newErrors.name = 'Name must be at least 3 characters.';
+      }
+
+      if (!phone) {
+        newErrors.phone = 'Phone number is required.';
+      } else if (phone.length !== 10) {
+        newErrors.phone = 'Phone number must be exactly 10 digits.';
       }
     }
 
@@ -88,16 +112,27 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
     setLoading(true);
     try {
       if (authMode === 'forgot') {
-        // Direct In-App Reset via Email & Registered Phone Verification
-        const { data, error } = await dbService.directResetPassword(email, phone, password);
-        if (error) {
-          setGlobalError(error);
-        } else if (data) {
-          setSuccessMsg('Password updated successfully! Logging you in...');
-          setTimeout(() => {
-            onLoginSuccess(data);
-            navigate('dashboard');
-          }, 1200);
+        if (forgotStep === 'request') {
+          // Step 1: Send 6-digit OTP code to email
+          const { success, error } = await dbService.sendPasswordResetOtp(email);
+          if (error) {
+            setGlobalError(error);
+          } else if (success) {
+            setForgotStep('verify');
+            setSuccessMsg(`A 6-digit verification code has been sent to ${email}! Please check your email inbox and spam folder.`);
+          }
+        } else {
+          // Step 2: Verify OTP code & update password
+          const { data, error } = await dbService.verifyOtpAndUpdatePassword(email, otpCode, password);
+          if (error) {
+            setGlobalError(error);
+          } else if (data) {
+            setSuccessMsg('Password updated successfully! Logging you in...');
+            setTimeout(() => {
+              onLoginSuccess(data);
+              navigate('dashboard');
+            }, 1200);
+          }
         }
       } else if (authMode === 'register') {
         // SignUp Action
@@ -133,9 +168,11 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
 
   const switchMode = (newMode: 'login' | 'register' | 'forgot') => {
     setAuthMode(newMode);
+    setForgotStep('request');
     setErrors({});
     setGlobalError(null);
     setSuccessMsg(null);
+    setOtpCode('');
   };
 
   return (
@@ -160,7 +197,9 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
             {authMode === 'register' 
               ? 'Join Bitwise Learning to unlock premium engineering notes' 
               : authMode === 'forgot'
-                ? 'Enter your registered email address to receive password reset instructions'
+                ? forgotStep === 'request'
+                  ? 'Enter your registered email address to receive a 6-digit verification code'
+                  : 'Enter the 6-digit verification code sent to your email inbox and set your new password'
                 : 'Sign in to access your unlocked notes catalog'
             }
           </p>
@@ -211,24 +250,24 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
                 style={{ paddingLeft: '48px' }}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
+                disabled={loading || (authMode === 'forgot' && forgotStep === 'verify')}
               />
             </div>
             {errors.email && <span className="error-text">{errors.email}</span>}
           </div>
 
-          {(authMode === 'register' || authMode === 'forgot') && (
+          {authMode === 'register' && (
             <div className="form-group">
-              <label htmlFor="auth-phone">{authMode === 'forgot' ? 'Registered Phone Number' : 'Phone Number'}</label>
+              <label htmlFor="auth-phone">Phone Number</label>
               <div style={{ position: 'relative' }}>
                 <Phone size={16} className="search-icon-overlay" style={{ left: '16px' }} />
                 <input 
                   type="text" 
                   id="auth-phone"
-                  placeholder="Enter 10-digit registered phone number" 
+                  placeholder="Enter 10-digit phone number" 
                   style={{ paddingLeft: '48px' }}
                   value={phone}
-                  onChange={handlePhoneChange} // Strict validation hook
+                  onChange={handlePhoneChange}
                   disabled={loading}
                 />
               </div>
@@ -236,33 +275,54 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
             </div>
           )}
 
-          <div className="form-group">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label htmlFor="auth-password">{authMode === 'forgot' ? 'New Password' : 'Password'}</label>
-              {authMode === 'login' && (
-                <button 
-                  type="button" 
-                  onClick={() => switchMode('forgot')}
-                  style={{ background: 'none', border: 'none', color: 'var(--color-yellow)', cursor: 'pointer', fontSize: '12px', fontWeight: '600', padding: 0 }}
-                >
-                  Forgot Password?
-                </button>
-              )}
+          {authMode === 'forgot' && forgotStep === 'verify' && (
+            <div className="form-group">
+              <label htmlFor="auth-otp">6-Digit Verification Code</label>
+              <div style={{ position: 'relative' }}>
+                <KeyRound size={16} className="search-icon-overlay" style={{ left: '16px' }} />
+                <input 
+                  type="text" 
+                  id="auth-otp"
+                  placeholder="Enter 6-digit code (e.g. 482910)" 
+                  style={{ paddingLeft: '48px', letterSpacing: '2px', fontWeight: '600' }}
+                  value={otpCode}
+                  onChange={handleOtpChange}
+                  disabled={loading}
+                />
+              </div>
+              {errors.otpCode && <span className="error-text">{errors.otpCode}</span>}
             </div>
-            <div style={{ position: 'relative', marginTop: '6px' }}>
-              <Lock size={16} className="search-icon-overlay" style={{ left: '16px' }} />
-              <input 
-                type="password" 
-                id="auth-password"
-                placeholder={authMode === 'forgot' ? 'Enter at least 6 characters' : 'Enter password'} 
-                style={{ paddingLeft: '48px' }}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-              />
+          )}
+
+          {(authMode !== 'forgot' || forgotStep === 'verify') && (
+            <div className="form-group">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label htmlFor="auth-password">{authMode === 'forgot' ? 'New Password' : 'Password'}</label>
+                {authMode === 'login' && (
+                  <button 
+                    type="button" 
+                    onClick={() => switchMode('forgot')}
+                    style={{ background: 'none', border: 'none', color: 'var(--color-yellow)', cursor: 'pointer', fontSize: '12px', fontWeight: '600', padding: 0 }}
+                  >
+                    Forgot Password?
+                  </button>
+                )}
+              </div>
+              <div style={{ position: 'relative', marginTop: '6px' }}>
+                <Lock size={16} className="search-icon-overlay" style={{ left: '16px' }} />
+                <input 
+                  type="password" 
+                  id="auth-password"
+                  placeholder={authMode === 'forgot' ? 'Enter at least 6 characters' : 'Enter password'} 
+                  style={{ paddingLeft: '48px' }}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+              {errors.password && <span className="error-text">{errors.password}</span>}
             </div>
-            {errors.password && <span className="error-text">{errors.password}</span>}
-          </div>
+          )}
 
           <button 
             type="submit" 
@@ -272,7 +332,14 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
           >
             {loading ? 'Processing...' : (
               <>
-                {authMode === 'register' ? 'Sign Up' : authMode === 'forgot' ? 'Reset Password & Login' : 'Sign In'} <ArrowRight size={18} />
+                {authMode === 'register' 
+                  ? 'Sign Up' 
+                  : authMode === 'forgot'
+                    ? forgotStep === 'request'
+                      ? 'Send 6-Digit Code'
+                      : 'Verify Code & Update Password'
+                    : 'Sign In'
+                } <ArrowRight size={18} />
               </>
             )}
           </button>

@@ -574,12 +574,14 @@ export const dbService = {
     }
   },
 
-  resetPasswordForEmail: async (email: string): Promise<{ success: boolean; error: string | null }> => {
+  sendPasswordResetOtp: async (email: string): Promise<{ success: boolean; error: string | null }> => {
     const cleanEmail = email.trim().toLowerCase();
     if (!isMock && supabase) {
-      const siteUrl = 'https://bitwiselearning.online';
-      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: `${siteUrl}/#reset-password`
+      const { error } = await supabase.auth.signInWithOtp({
+        email: cleanEmail,
+        options: {
+          shouldCreateUser: false
+        }
       });
       if (error) return { success: false, error: error.message };
       return { success: true, error: null };
@@ -598,48 +600,63 @@ export const dbService = {
     }
   },
 
-  directResetPassword: async (email: string, phone: string, newPassword: string): Promise<{ data: UserProfile | null; error: string | null }> => {
+  verifyOtpAndUpdatePassword: async (email: string, otpCode: string, newPassword: string): Promise<{ data: UserProfile | null; error: string | null }> => {
     const cleanEmail = email.trim().toLowerCase();
-    const cleanPhone = phone.trim().replace(/\D/g, '');
+    const cleanToken = otpCode.trim();
 
     if (!isMock && supabase) {
       try {
-        // 1. Verify profile matching email in Supabase DB
-        const { data: profile, error: profileErr } = await supabase
-          .from('profiles')
-          .select('*')
-          .ilike('email', cleanEmail)
-          .maybeSingle();
+        // 1. Verify 6-digit OTP code to create active session
+        let verifyRes = await supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanToken,
+          type: 'email'
+        });
 
-        if (profileErr || !profile) {
-          return { data: null, error: 'No registered account found matching this email address.' };
+        if (verifyRes.error) {
+          verifyRes = await supabase.auth.verifyOtp({
+            email: cleanEmail,
+            token: cleanToken,
+            type: 'recovery'
+          });
         }
 
-        const profilePhone = (profile.phone || '').replace(/\D/g, '');
-        if (profilePhone && cleanPhone && profilePhone !== cleanPhone) {
-          return { data: null, error: 'Phone number does not match our records for this account.' };
+        if (verifyRes.error || !verifyRes.data.user) {
+          return { data: null, error: verifyRes.error?.message || 'Invalid or expired 6-digit verification code. Please check your email inbox.' };
         }
 
-        // 2. Update user password in Supabase Auth if session active, or attempt sign-in
-        try {
-          await supabase.auth.updateUser({ password: newPassword });
-        } catch (e) {}
+        const authId = verifyRes.data.user.id;
+
+        // 2. Update user password in Supabase Auth DB
+        const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword });
+        if (updateErr) {
+          return { data: null, error: updateErr.message };
+        }
+
+        // 3. Fetch or upsert profile
+        let { data: profile } = await supabase.from('profiles').select('*').eq('id', authId).maybeSingle();
+        if (!profile) {
+          profile = {
+            id: authId,
+            name: cleanEmail.split('@')[0],
+            email: cleanEmail,
+            phone: '0000000000',
+            role: cleanEmail.toLowerCase() === 'bitwiselearning0@gmail.com' ? 'admin' : 'student'
+          };
+          await supabase.from('profiles').upsert([profile]);
+        }
 
         currentUser = profile;
         setStoredData('bw_mock_current_user', currentUser);
         await dbService.registerDeviceSession(profile.id);
         return { data: profile, error: null };
       } catch (err: any) {
-        return { data: null, error: err.message || 'Error resetting password.' };
+        return { data: null, error: err.message || 'Error verifying code and updating password.' };
       }
     } else {
       const user = mockUsers.find(u => u.email.toLowerCase() === cleanEmail);
       if (!user) {
-        return { data: null, error: 'No registered account found matching this email address.' };
-      }
-      const userPhone = (user.phone || '').replace(/\D/g, '');
-      if (userPhone && cleanPhone && userPhone !== cleanPhone) {
-        return { data: null, error: 'Phone number does not match our records for this account.' };
+        return { data: null, error: 'No registered user found with this email.' };
       }
       currentUser = user;
       setStoredData('bw_mock_current_user', currentUser);
