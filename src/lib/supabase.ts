@@ -1011,9 +1011,17 @@ export const dbService = {
             localStorage.removeItem('bw_all_licenses_revoked');
           }
 
-          // If DB confirms 0 active purchases (revoked by Admin), wipe offline download index on phone!
+          // If DB confirms 0 active purchases (revoked by Admin or 0 assigned), wipe stale local mock data!
           if (freshPurchases.length === 0) {
             dbService.clearOfflineNotes();
+            if (typeof localStorage !== 'undefined') {
+              const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+              delete storedMapV2[currentUser.id];
+              if (cleanEmail) delete storedMapV2[cleanEmail];
+              setStoredData('bw_mock_purchases_map_v2', storedMapV2);
+              setStoredData('bw_mock_purchases_v2', []);
+              mockPurchasesV2 = [];
+            }
           }
         }
       } catch (err) {
