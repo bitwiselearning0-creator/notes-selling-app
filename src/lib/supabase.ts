@@ -51,6 +51,13 @@ export const generateUUID = (): string => {
   });
 };
 
+export const SYSTEM_REVOKED_MARKER_UUID = '00000000-0000-0000-0000-000000000000';
+
+export const isValidUUID = (id: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return typeof id === 'string' && uuidRegex.test(id);
+};
+
 // --- HIGH-SECURITY DEVICE-BOUND AES ENCRYPTION ENGINE ---
 const ENCRYPTION_SALT_SECRET = 'BW_SECURE_VAULT_ENCRYPT_KEY_v9_2026';
 
@@ -366,10 +373,10 @@ if (typeof localStorage !== 'undefined' && !localStorage.getItem('bw_global_purg
         try {
           const nowIso = new Date().toISOString();
           const globalMarker = {
-            id: `rev_all_mark_${Date.now()}`,
-            userId: 'REVOKED_MARKER',
-            itemId: 'ALL_LICENSES',
-            itemType: 'revoked_all',
+            id: generateUUID(),
+            userId: SYSTEM_REVOKED_MARKER_UUID,
+            itemId: 'REVOKED_ALL',
+            itemType: 'bundle',
             purchasedAt: nowIso,
             expiresAt: '2099-01-01T00:00:00.000Z'
           };
@@ -930,22 +937,26 @@ export const dbService = {
     if (!isOffline && !isMock && supabase) {
       try {
         const cleanEmail = currentUser.email ? currentUser.email.trim().toLowerCase() : '';
-        const userIdsToQuery = new Set<string>([currentUser.id, 'REVOKED_MARKER']);
+        const userIdsToQuery = new Set<string>();
+        if (isValidUUID(currentUser.id)) {
+          userIdsToQuery.add(currentUser.id);
+        }
+        userIdsToQuery.add(SYSTEM_REVOKED_MARKER_UUID);
 
         // Find any other profile IDs with the same email (e.g. created during manual licensing)
         if (cleanEmail) {
           try {
             const { data: matchedProfiles } = await supabase.from('profiles').select('id').ilike('email', cleanEmail);
             if (matchedProfiles && matchedProfiles.length > 0) {
-              matchedProfiles.forEach((p: any) => userIdsToQuery.add(p.id));
+              matchedProfiles.forEach((p: any) => {
+                if (isValidUUID(p.id)) userIdsToQuery.add(p.id);
+              });
             }
           } catch (e) {
             // RLS may block cross-profile reads — that's OK, we continue with what we have
           }
         }
 
-        // Also search purchases table directly for any rows linked to alternate profile IDs
-        // This catches admin-granted licenses where the profile ID differs from Auth UUID
         const idsArray = Array.from(userIdsToQuery);
         
         // Primary query: by all known user IDs
@@ -1644,10 +1655,10 @@ export const dbService = {
     // 3. Issue DB Revocation Marker insert + delete + expire in Supabase DB if online
     if (!isMock && supabase) {
       try {
-        // Insert DB Revocation Marker (using valid 'bundle' itemType to satisfy DB check constraint)
+        // Insert DB Revocation Marker (using valid UUIDs to satisfy Postgres UUID constraint)
         const markerPayload = {
-          id: `rev_mark_${purchaseId}`,
-          userId: 'REVOKED_MARKER',
+          id: generateUUID(),
+          userId: SYSTEM_REVOKED_MARKER_UUID,
           itemId: `REVOKED_SINGLE:${purchaseId}`,
           itemType: 'bundle',
           purchasedAt: new Date().toISOString(),
@@ -1704,8 +1715,8 @@ export const dbService = {
       try {
         const nowIso = new Date().toISOString();
         const globalMarker = {
-          id: `rev_all_mark_${Date.now()}`,
-          userId: 'REVOKED_MARKER',
+          id: generateUUID(),
+          userId: SYSTEM_REVOKED_MARKER_UUID,
           itemId: 'REVOKED_ALL',
           itemType: 'bundle',
           purchasedAt: nowIso,
