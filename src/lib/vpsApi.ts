@@ -1,6 +1,6 @@
 // VPS API Client Service for Bitwise Learning (Self-Hosted on Bluehost VPS)
 
-const API_BASE_URL = typeof window !== 'undefined' && window.location.origin.includes('localhost') 
+const API_BASE_URL = typeof window !== 'undefined' && (window.location.origin.includes('localhost') || window.location.protocol === 'file:' || window.location.origin.includes('capacitor'))
   ? 'https://bitwiselearning.online/api' 
   : '/api';
 
@@ -25,100 +25,103 @@ export interface ApiPurchase {
   expires_at?: string;
 }
 
+const safeFetchJson = async (url: string, options?: RequestInit) => {
+  try {
+    const res = await fetch(url, options);
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await res.text();
+      console.warn(`Non-JSON response from ${url}:`, text);
+      return { data: null, error: `Server response error (${res.status}). Please try again.` };
+    }
+    return await res.json();
+  } catch (err: any) {
+    console.error(`Fetch error from ${url}:`, err);
+    return { data: null, error: err?.message || 'Network request failed.' };
+  }
+};
+
 export const vpsApi = {
   // Auth Methods
   signUp: async (name: string, email: string, phone: string, password: string) => {
-    const res = await fetch(`${API_BASE_URL}/auth/signup`, {
+    return safeFetchJson(`${API_BASE_URL}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, phone, password })
     });
-    return res.json();
   },
 
   signIn: async (email: string, password: string) => {
-    const res = await fetch(`${API_BASE_URL}/auth/signin`, {
+    return safeFetchJson(`${API_BASE_URL}/auth/signin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    return res.json();
   },
 
   sendPasswordResetOtp: async (email: string) => {
-    const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
+    return safeFetchJson(`${API_BASE_URL}/auth/send-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     });
-    return res.json();
   },
 
   verifyOtpAndUpdatePassword: async (email: string, otpCode: string, newPassword: string) => {
-    const res = await fetch(`${API_BASE_URL}/auth/verify-otp-reset`, {
+    return safeFetchJson(`${API_BASE_URL}/auth/verify-otp-reset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otpCode, newPassword })
     });
-    return res.json();
   },
 
   registerDeviceSession: async (userId: string) => {
-    const res = await fetch(`${API_BASE_URL}/auth/device-session`, {
+    return safeFetchJson(`${API_BASE_URL}/auth/device-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId })
     });
-    return res.json();
   },
 
   // Catalog Methods
   getNotes: async () => {
-    const res = await fetch(`${API_BASE_URL}/notes`);
-    return res.json();
+    return safeFetchJson(`${API_BASE_URL}/notes`);
   },
 
   getBundles: async () => {
-    const res = await fetch(`${API_BASE_URL}/bundles`);
-    return res.json();
+    return safeFetchJson(`${API_BASE_URL}/bundles`);
   },
 
   getPlaylists: async () => {
-    const res = await fetch(`${API_BASE_URL}/playlists`);
-    return res.json();
+    return safeFetchJson(`${API_BASE_URL}/playlists`);
   },
 
   // Purchase & Access Methods
   getUserPurchases: async (userId: string) => {
-    const res = await fetch(`${API_BASE_URL}/purchases/user/${userId}`);
-    return res.json();
+    return safeFetchJson(`${API_BASE_URL}/purchases/user/${userId}`);
   },
 
   getAllPurchases: async () => {
-    const res = await fetch(`${API_BASE_URL}/purchases/all`);
-    return res.json();
+    return safeFetchJson(`${API_BASE_URL}/purchases/all`);
   },
 
   grantPurchase: async (userId: string, itemId: string, itemType: 'note' | 'bundle' = 'note', amount = 0, razorpayPaymentId?: string) => {
-    const res = await fetch(`${API_BASE_URL}/purchases/grant`, {
+    return safeFetchJson(`${API_BASE_URL}/purchases/grant`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, itemId, itemType, amount, razorpayPaymentId })
     });
-    return res.json();
   },
 
   revokePurchase: async (userId: string, itemId: string) => {
-    const res = await fetch(`${API_BASE_URL}/purchases/revoke`, {
+    return safeFetchJson(`${API_BASE_URL}/purchases/revoke`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, itemId })
     });
-    return res.json();
   },
 
   getAllProfiles: async () => {
-    const res = await fetch(`${API_BASE_URL}/profiles/all`);
-    return res.json();
+    return safeFetchJson(`${API_BASE_URL}/profiles/all`);
   }
 };
