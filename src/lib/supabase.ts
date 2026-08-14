@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { vpsApi } from './vpsApi';
 
 // Retrieve environment variables with hardcoded fallbacks for native Android/iOS APK builds
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://zczomcghyktsaimwhwxp.supabase.co';
@@ -416,40 +417,36 @@ const fetchWithTimeout = async <T>(promise: Promise<T>, timeoutMs = 1000): Promi
 export const dbService = {
   // --- AUTHENTICATION ---
   signUp: async (name: string, email: string, phone: string, password: string): Promise<{ data: UserProfile | null; error: string | null }> => {
+    try {
+      const res = await vpsApi.signUp(name, email, phone, password);
+      if (res.data) {
+        currentUser = res.data;
+        setStoredData('bw_mock_current_user', currentUser);
+        await dbService.registerDeviceSession(res.data.id);
+        return { data: res.data, error: null };
+      }
+      if (res.error) return { data: null, error: res.error };
+    } catch (e) {}
+
     if (!isMock && supabase) {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name, phone }
+        }
+      });
       if (error) return { data: null, error: error.message };
       if (data.user) {
         const authId = data.user.id;
-        const profile = { id: authId, name, email, phone, role: 'student' as const };
-
-        // Check if admin already created a placeholder profile for this email (via grantManualLicense)
-        try {
-          const { data: existingProfiles } = await supabase.from('profiles').select('id').ilike('email', email.trim().toLowerCase());
-          if (existingProfiles && existingProfiles.length > 0) {
-            const oldProfileId = existingProfiles[0].id;
-            if (oldProfileId !== authId) {
-              // Migrate all purchases from old placeholder profile ID to new Auth UUID
-              try {
-                await supabase.from('purchases').update({ userId: authId }).eq('userId', oldProfileId);
-              } catch (e) {
-                console.warn('Purchase migration warning:', e);
-              }
-              // Delete old placeholder profile and insert new one with Auth UUID
-              try {
-                await supabase.from('profiles').delete().eq('id', oldProfileId);
-              } catch (e) {}
-            }
-          }
-        } catch (e) {}
-
-        // Insert (or upsert) the profile with the Auth UUID
-        const { error: dbError } = await supabase.from('profiles').upsert([profile], { onConflict: 'id' });
-        if (dbError) {
-          // Fallback: try plain insert if upsert fails
-          const { error: insertErr } = await supabase.from('profiles').insert([profile]);
-          if (insertErr) return { data: null, error: insertErr.message };
-        }
+        const profile: UserProfile = {
+          id: authId,
+          name,
+          email,
+          phone,
+          role: email.toLowerCase() === 'bitwiselearning0@gmail.com' ? 'admin' : 'student'
+        };
+        await supabase.from('profiles').upsert([profile]);
         currentUser = profile;
         setStoredData('bw_mock_current_user', currentUser);
         await dbService.registerDeviceSession(profile.id);
@@ -457,7 +454,6 @@ export const dbService = {
       }
       return { data: null, error: 'Signup failed. Please try again.' };
     } else {
-      // Mock SignUp
       const userExists = mockUsers.some(u => u.email.toLowerCase() === email.toLowerCase());
       if (userExists) {
         return { data: null, error: 'User already exists with this email address.' };
@@ -471,8 +467,6 @@ export const dbService = {
       };
       mockUsers.push(newProfile);
       setStoredData('bw_mock_users', mockUsers);
-      
-      // Auto login after signup
       currentUser = newProfile;
       setStoredData('bw_mock_current_user', currentUser);
       await dbService.registerDeviceSession(newProfile.id);
@@ -481,25 +475,22 @@ export const dbService = {
   },
 
   signIn: async (email: string, password: string): Promise<{ data: UserProfile | null; error: string | null }> => {
+    try {
+      const res = await vpsApi.signIn(email, password);
+      if (res.data) {
+        currentUser = res.data;
+        setStoredData('bw_mock_current_user', currentUser);
+        await dbService.registerDeviceSession(res.data.id);
+        return { data: res.data, error: null };
+      }
+      if (res.error) return { data: null, error: res.error };
+    } catch (e) {}
+
     if (!isMock && supabase) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return { data: null, error: error.message };
       if (data.user) {
         const authId = data.user.id;
-
-        // Migrate any admin-created placeholder profile purchases to Auth UUID
-        try {
-          const { data: otherProfiles } = await supabase.from('profiles').select('id').ilike('email', email.trim().toLowerCase()).neq('id', authId);
-          if (otherProfiles && otherProfiles.length > 0) {
-            for (const old of otherProfiles) {
-              try {
-                await supabase.from('purchases').update({ userId: authId }).eq('userId', old.id);
-                await supabase.from('profiles').delete().eq('id', old.id);
-              } catch (e) {}
-            }
-          }
-        } catch (e) {}
-
         let { data: profile } = await supabase.from('profiles').select('*').eq('id', authId).maybeSingle();
         if (!profile) {
           profile = {
@@ -513,81 +504,46 @@ export const dbService = {
         }
         currentUser = profile;
         setStoredData('bw_mock_current_user', currentUser);
-
-        // Clear stale purchase caches to force fresh DB sync
-        if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem(`bw_user_purchases_cache_${authId}`);
-          localStorage.removeItem('bw_all_licenses_revoked');
-        }
-
         await dbService.registerDeviceSession(profile.id);
         return { data: profile, error: null };
       }
       return { data: null, error: 'Login failed. Invalid credentials.' };
     } else {
-      // Mock Login
       const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
       if (!user) {
-        if (email.toLowerCase() === 'bitwiselearning0@gmail.com') {
-          const adminUser: UserProfile = {
-            id: 'admin_bitwise',
-            name: 'Bitwise Admin',
-            email: 'bitwiselearning0@gmail.com',
-            phone: '9999999999',
-            role: 'admin'
-          };
-          mockUsers.push(adminUser);
-          setStoredData('bw_mock_users', mockUsers);
-          currentUser = adminUser;
-          setStoredData('bw_mock_current_user', currentUser);
-          await dbService.registerDeviceSession(adminUser.id);
-          return { data: adminUser, error: null };
-        }
         return { data: null, error: 'User not registered. Please register first.' };
       }
       currentUser = user;
       setStoredData('bw_mock_current_user', currentUser);
       await dbService.registerDeviceSession(user.id);
-      
-      // Load user purchases
-      const storedPurchasesV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-      mockPurchasesV2 = storedPurchasesV2[user.id] || [];
-      setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
-      
       return { data: user, error: null };
     }
   },
 
   signOut: async (): Promise<{ error: string | null }> => {
     localStorage.removeItem('bw_device_session_id');
+    currentUser = null;
+    setStoredData('bw_mock_current_user', null);
     if (!isMock && supabase) {
-      const { error } = await supabase.auth.signOut();
-      currentUser = null;
-      setStoredData('bw_mock_current_user', null);
-      return { error: error ? error.message : null };
-    } else {
-      currentUser = null;
-      mockPurchasesV2 = [];
-      setStoredData('bw_mock_current_user', null);
-      setStoredData('bw_mock_purchases_v2', []);
-      return { error: null };
+      try { await supabase.auth.signOut(); } catch (e) {}
     }
+    return { error: null };
   },
 
   sendPasswordResetOtp: async (email: string): Promise<{ success: boolean; error: string | null }> => {
     const cleanEmail = email.trim().toLowerCase();
+    try {
+      const res = await vpsApi.sendPasswordResetOtp(cleanEmail);
+      if (res.success) return { success: true, error: null };
+      if (res.error) return { success: false, error: res.error };
+    } catch (e) {}
+
     if (!isMock && supabase) {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: cleanEmail,
-        options: {
-          shouldCreateUser: false
-        }
-      });
+      const { error } = await supabase.auth.signInWithOtp({ email: cleanEmail });
       if (error) return { success: false, error: error.message };
       return { success: true, error: null };
-    } else {
-      return { success: true, error: null };
     }
+    return { success: true, error: null };
   },
 
   updatePassword: async (newPassword: string): Promise<{ success: boolean; error: string | null }> => {
@@ -595,64 +551,36 @@ export const dbService = {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) return { success: false, error: error.message };
       return { success: true, error: null };
-    } else {
-      return { success: true, error: null };
     }
+    return { success: true, error: null };
   },
 
   verifyOtpAndUpdatePassword: async (email: string, otpCode: string, newPassword: string): Promise<{ data: UserProfile | null; error: string | null }> => {
     const cleanEmail = email.trim().toLowerCase();
-    const cleanToken = otpCode.trim();
+    try {
+      const res = await vpsApi.verifyOtpAndUpdatePassword(cleanEmail, otpCode, newPassword);
+      if (res.data) {
+        currentUser = res.data;
+        setStoredData('bw_mock_current_user', currentUser);
+        await dbService.registerDeviceSession(res.data.id);
+        return { data: res.data, error: null };
+      }
+      if (res.error) return { data: null, error: res.error };
+    } catch (e) {}
 
     if (!isMock && supabase) {
-      try {
-        // 1. Verify 6-digit OTP code to create active session
-        let verifyRes = await supabase.auth.verifyOtp({
-          email: cleanEmail,
-          token: cleanToken,
-          type: 'email'
-        });
-
-        if (verifyRes.error) {
-          verifyRes = await supabase.auth.verifyOtp({
-            email: cleanEmail,
-            token: cleanToken,
-            type: 'recovery'
-          });
-        }
-
-        if (verifyRes.error || !verifyRes.data.user) {
-          return { data: null, error: verifyRes.error?.message || 'Invalid or expired 6-digit verification code. Please check your email inbox.' };
-        }
-
-        const authId = verifyRes.data.user.id;
-
-        // 2. Update user password in Supabase Auth DB
-        const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword });
-        if (updateErr) {
-          return { data: null, error: updateErr.message };
-        }
-
-        // 3. Fetch or upsert profile
-        let { data: profile } = await supabase.from('profiles').select('*').eq('id', authId).maybeSingle();
-        if (!profile) {
-          profile = {
-            id: authId,
-            name: cleanEmail.split('@')[0],
-            email: cleanEmail,
-            phone: '0000000000',
-            role: cleanEmail.toLowerCase() === 'bitwiselearning0@gmail.com' ? 'admin' : 'student'
-          };
-          await supabase.from('profiles').upsert([profile]);
-        }
-
-        currentUser = profile;
-        setStoredData('bw_mock_current_user', currentUser);
-        await dbService.registerDeviceSession(profile.id);
-        return { data: profile, error: null };
-      } catch (err: any) {
-        return { data: null, error: err.message || 'Error verifying code and updating password.' };
+      let verifyRes = await supabase.auth.verifyOtp({ email: cleanEmail, token: otpCode, type: 'email' });
+      if (verifyRes.error) verifyRes = await supabase.auth.verifyOtp({ email: cleanEmail, token: otpCode, type: 'recovery' });
+      if (verifyRes.error || !verifyRes.data.user) return { data: null, error: verifyRes.error?.message || 'Invalid code.' };
+      await supabase.auth.updateUser({ password: newPassword });
+      const authId = verifyRes.data.user.id;
+      let { data: profile } = await supabase.from('profiles').select('*').eq('id', authId).maybeSingle();
+      if (!profile) {
+        profile = { id: authId, name: cleanEmail.split('@')[0], email: cleanEmail, phone: '0000000000', role: 'student' };
       }
+      currentUser = profile;
+      setStoredData('bw_mock_current_user', currentUser);
+      return { data: profile, error: null };
     } else {
       const user = mockUsers.find(u => u.email.toLowerCase() === cleanEmail);
       if (!user) {
