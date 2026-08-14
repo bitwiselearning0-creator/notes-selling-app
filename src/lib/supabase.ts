@@ -577,7 +577,7 @@ export const dbService = {
   resetPasswordForEmail: async (email: string): Promise<{ success: boolean; error: string | null }> => {
     const cleanEmail = email.trim().toLowerCase();
     if (!isMock && supabase) {
-      const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://bitwiselearning.online';
+      const siteUrl = 'https://bitwiselearning.online';
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: `${siteUrl}/#reset-password`
       });
