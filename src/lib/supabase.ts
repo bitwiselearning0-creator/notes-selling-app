@@ -148,6 +148,22 @@ export interface Purchase {
   signature?: string;
 }
 
+export const SUBJECT_THUMBNAILS_MAP: Record<string, string> = {
+  'operating system': 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80',
+  'tafl': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80',
+  'theory of automata and formal languages': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80',
+  'java': 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop&q=80',
+  'dstl': 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80',
+  'discrete structures & theory of logic': 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80',
+  'data structure': 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80',
+  'data structures': 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80',
+  'engineering physics': 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&auto=format&fit=crop&q=80',
+  'cyber security': 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=800&auto=format&fit=crop&q=80',
+  'python programming': 'https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=800&auto=format&fit=crop&q=80',
+  'coa': 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
+  'computer organization & architecture': 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80'
+};
+
 export const INITIAL_NOTES: Note[] = [];
 export const INITIAL_PLAYLISTS: Playlist[] = [
   {
@@ -833,28 +849,39 @@ export const dbService = {
 
   // --- PLAYLISTS SERVICE ---
   getPlaylists: async (year?: string): Promise<{ data: Playlist[]; error: string | null }> => {
-    const cachedPlaylists = getStoredData<Playlist[]>('bw_cached_playlists', mockPlaylists);
+    let cachedPlaylists = getStoredData<Playlist[]>('bw_cached_playlists', []);
+    if (!cachedPlaylists || cachedPlaylists.length === 0) {
+      cachedPlaylists = mockPlaylists;
+    }
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
-    const getLocalPlaylists = () => year ? cachedPlaylists.filter(p => p.year === year) : cachedPlaylists;
+    const sanitizePlaylists = (list: Playlist[]) => {
+      return list.map(p => {
+        let url = p.thumbnailUrl ? p.thumbnailUrl.trim() : '';
+        if (!url || url.includes('/vi/PL') || url.includes('/vi_webp/PL')) {
+          const subjectKey = p.subject ? p.subject.toLowerCase().trim() : '';
+          url = SUBJECT_THUMBNAILS_MAP[subjectKey] || 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=800&auto=format&fit=crop&q=80';
+        }
+        return { ...p, thumbnailUrl: url };
+      });
+    };
 
-    if (isOffline || isMock || !supabase || cachedPlaylists.length > 0) {
-      if (!isOffline && !isMock && supabase) {
-        (async () => {
-          try {
-            let query = supabase.from('playlists').select('*');
-            if (year) query = query.eq('year', year);
-            const res: any = await fetchWithTimeout(query as any, 800);
-            if (res?.data && res.data.length > 0) {
-              setStoredData('bw_cached_playlists', res.data);
-            }
-          } catch (e) {}
-        })();
-      }
-      return { data: getLocalPlaylists(), error: null };
+    if (!isOffline && !isMock && supabase) {
+      try {
+        let query = supabase.from('playlists').select('*');
+        if (year) query = query.eq('year', year);
+        const res: any = await fetchWithTimeout(query as any, 2500);
+        if (res?.data && res.data.length > 0) {
+          const sanitizedDb = sanitizePlaylists(res.data);
+          setStoredData('bw_cached_playlists', sanitizedDb);
+          return { data: sanitizedDb, error: null };
+        }
+      } catch (e) {}
     }
 
-    return { data: getLocalPlaylists(), error: null };
+    const sanitizedLocal = sanitizePlaylists(cachedPlaylists);
+    const finalData = year ? sanitizedLocal.filter(p => p.year === year) : sanitizedLocal;
+    return { data: finalData, error: null };
   },
 
   addPlaylist: async (playlist: Omit<Playlist, 'id'>): Promise<{ data: Playlist | null; error: string | null }> => {
@@ -1006,22 +1033,17 @@ export const dbService = {
           allPurchases = freshPurchases;
           liveDbFetched = true;
 
-          // If active purchases exist, clear any stale global revocation flag on user device!
-          if (freshPurchases.length > 0 && typeof localStorage !== 'undefined') {
-            localStorage.removeItem('bw_all_licenses_revoked');
+          // Merge local cache purchases so offline or local grants are never lost
+          const localMap = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+          const localUserPurchases = localMap[currentUser.id] || localMap[currentUser.email?.trim().toLowerCase() || ''] || [];
+          for (const lp of localUserPurchases) {
+            if (!allPurchases.some(p => p.itemId === lp.itemId && p.itemType === lp.itemType)) {
+              allPurchases.push(lp);
+            }
           }
 
-          // If DB confirms 0 active purchases (revoked by Admin or 0 assigned), wipe stale local mock data!
-          if (freshPurchases.length === 0) {
-            dbService.clearOfflineNotes();
-            if (typeof localStorage !== 'undefined') {
-              const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-              delete storedMapV2[currentUser.id];
-              if (cleanEmail) delete storedMapV2[cleanEmail];
-              setStoredData('bw_mock_purchases_map_v2', storedMapV2);
-              setStoredData('bw_mock_purchases_v2', []);
-              mockPurchasesV2 = [];
-            }
+          if (allPurchases.length > 0 && typeof localStorage !== 'undefined') {
+            localStorage.removeItem('bw_all_licenses_revoked');
           }
         }
       } catch (err) {
@@ -1747,7 +1769,6 @@ export const dbService = {
     let dbProfiles: UserProfile[] = [];
     let dbNotes: Note[] = [];
     let dbBundles: Bundle[] = [];
-    let dbSuccess = false;
     const revokedSingleSet = new Set<string>();
     let globalRevokeAllTime: number | null = null;
 
@@ -1789,8 +1810,6 @@ export const dbService = {
             if (globalRevokeAllTime && new Date(p.purchasedAt).getTime() <= globalRevokeAllTime) return false;
             return true;
           });
-
-          dbSuccess = true;
         }
         if (profilesRes?.data) {
           dbProfiles = (profilesRes.data || []).map((u: any) => ({
@@ -1808,12 +1827,15 @@ export const dbService = {
       }
     }
 
-    if (!dbSuccess) {
-      const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
-      Object.keys(storedMapV2).forEach(uid => {
-        rawPurchases.push(...storedMapV2[uid]);
-      });
-    }
+    const storedMapV2 = getStoredData<Record<string, Purchase[]>>('bw_mock_purchases_map_v2', {});
+    Object.keys(storedMapV2).forEach(uid => {
+      const ulist = storedMapV2[uid] || [];
+      for (const p of ulist) {
+        if (!rawPurchases.some(rp => rp.id === p.id || (rp.itemId === p.itemId && rp.userId === p.userId))) {
+          rawPurchases.push(p);
+        }
+      }
+    });
 
     // Filter out blacklisted revoked purchase IDs
     const revokedIds = getStoredData<string[]>('bw_revoked_purchase_ids', []);
