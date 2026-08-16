@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Play } from 'lucide-react';
-import type { Playlist } from '../lib/supabase';
+import type { Playlist } from '../lib/dbService';
 
 interface VideoCardProps {
   playlist: Playlist;
@@ -26,24 +26,28 @@ const SUBJECT_THUMBNAILS: Record<string, string> = {
 const DEFAULT_FALLBACK_THUMBNAIL = 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=800&auto=format&fit=crop&q=80';
 
 export const VideoCard: React.FC<VideoCardProps> = ({ playlist }) => {
+  const rawId = (playlist?.playlistId || (playlist as any)?.youtube_url || (playlist as any)?.youtubeUrl || '').trim();
+  const rawThumb = (playlist?.thumbnailUrl || (playlist as any)?.thumbnail || '').trim();
+
   const [imgSrc, setImgSrc] = useState<string>(() => {
-    let url = playlist.thumbnailUrl ? playlist.thumbnailUrl.trim() : '';
-    // Fix invalid YouTube playlist thumbnail URLs (which use PL... in /vi/ path)
-    if (url.includes('/vi/PL') || url.includes('/vi_webp/PL')) {
-      const subjectKey = playlist.subject ? playlist.subject.toLowerCase().trim() : '';
+    let url = rawThumb;
+    if (!url || url.includes('/vi/PL') || url.includes('/vi_webp/PL')) {
+      const subjectKey = playlist?.subject ? playlist.subject.toLowerCase().trim() : '';
       return SUBJECT_THUMBNAILS[subjectKey] || DEFAULT_FALLBACK_THUMBNAIL;
     }
-    return url || (SUBJECT_THUMBNAILS[playlist.subject?.toLowerCase().trim() || ''] || DEFAULT_FALLBACK_THUMBNAIL);
+    return url || (SUBJECT_THUMBNAILS[playlist?.subject?.toLowerCase().trim() || ''] || DEFAULT_FALLBACK_THUMBNAIL);
   });
 
-  const watchUrl = playlist.playlistId.startsWith('http')
-    ? playlist.playlistId
-    : playlist.playlistId.startsWith('search_')
-      ? `https://www.youtube.com/results?search_query=AKTU+${encodeURIComponent(playlist.subject)}+Full+Course+Playlist`
-      : `https://www.youtube.com/playlist?list=${playlist.playlistId}`;
+  const watchUrl = rawId.startsWith('http')
+    ? rawId
+    : rawId.startsWith('search_')
+      ? `https://www.youtube.com/results?search_query=AKTU+${encodeURIComponent(playlist?.subject || '')}+Full+Course+Playlist`
+      : rawId
+        ? `https://www.youtube.com/playlist?list=${rawId}`
+        : `https://www.youtube.com/results?search_query=AKTU+${encodeURIComponent(playlist?.subject || '')}+Full+Course+Playlist`;
 
   const handleImgError = () => {
-    const subjectKey = playlist.subject ? playlist.subject.toLowerCase().trim() : '';
+    const subjectKey = playlist?.subject ? playlist.subject.toLowerCase().trim() : '';
     const fallback = SUBJECT_THUMBNAILS[subjectKey] || DEFAULT_FALLBACK_THUMBNAIL;
     if (imgSrc !== fallback) {
       setImgSrc(fallback);

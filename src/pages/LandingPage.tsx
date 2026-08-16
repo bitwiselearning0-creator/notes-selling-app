@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, BookOpen, Sparkles, Video, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { dbService } from '../lib/supabase';
-import type { Playlist } from '../lib/supabase';
+import { dbService } from '../lib/dbService';
+import type { Playlist } from '../lib/dbService';
 import { VideoCard } from '../components/VideoCard';
 import { FAQ } from '../components/FAQ';
 
@@ -87,13 +87,51 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate, setSelectedY
     };
   }, []);
 
+  // Typewriter effect state engine for 1-2 words at the end of Line 2
+  const highlightWords = [
+    'Handwritten Notes!',
+    'Solved PYQs!',
+    'One-Shot Packs!',
+    'Complete Ease!'
+  ];
+
+  const [wordIndex, setWordIndex] = useState(0);
+  const [charIndex, setCharIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    const currentWord = highlightWords[wordIndex];
+
+    const typingSpeed = isDeleting ? 40 : 85;
+    const pauseDelay = isDeleting ? 40 : 2000;
+
+    if (!isDeleting && charIndex === currentWord.length) {
+      const timeout = setTimeout(() => setIsDeleting(true), pauseDelay);
+      return () => clearTimeout(timeout);
+    }
+
+    if (isDeleting && charIndex === 0) {
+      setIsDeleting(false);
+      setWordIndex((prev) => (prev + 1) % highlightWords.length);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setCharIndex((prev) => prev + (isDeleting ? -1 : 1));
+    }, typingSpeed);
+
+    return () => clearTimeout(timeout);
+  }, [charIndex, isDeleting, wordIndex]);
+
+  const typedWord = highlightWords[wordIndex].slice(0, charIndex);
+
   const handleYearClick = (year: '1st Year' | '2nd Year' | '3rd Year' | '4th Year') => {
     setSelectedYear(year);
     navigate('dashboard');
   };
 
   return (
-    <div className="fade-in">
+    <div className="fade-in landing-page-wrapper">
       {/* Liquid background decorative elements */}
       <div className="liquid-bg">
         <div className="blob blob-1"></div>
@@ -102,16 +140,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate, setSelectedY
       </div>
 
       {/* Hero Section */}
-      <header className="hero container">
+      <header className="hero container" style={{ position: 'relative' }}>
         <div className="hero-badge">
           <Sparkles size={14} className="yellow-accent" />
           <span>One-Shot Mastery For Engineering Students</span>
         </div>
         <h1 className="hero-title">
-          Boost Your Grades in a <span>Flash</span>: Master Every Subject Easily!
+          <div>Level Up Your Engineering Preparation</div>
+          <div>Master Subjects with <span style={{ color: '#38bdf8' }}>{typedWord}<span className="typewriter-cursor">|</span></span></div>
         </h1>
         <p className="hero-desc">
-          Welcome to <strong>Bitwise Learning!</strong> We offer highly concise, comprehensive engineering hand-written notes, PYQ solutions, and syllabus discussions to help students excel in placements and university examinations.
+          Welcome to <strong>Bitwise Learning!</strong> Download premier <strong>AKTU BTech handwritten study notes</strong>, unit-wise revision bundles, solved PYQ question papers, and syllabus video lectures for 1st, 2nd, 3rd, and 4th year CSE/IT engineering students.
         </p>
         <div className="hero-ctas">
           <button className="btn-primary" onClick={() => navigate('dashboard')}>
@@ -248,6 +287,64 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate, setSelectedY
               <h4 style={{ fontSize: '18px', marginBottom: '8px' }}>6 Months Library Access</h4>
               <p style={{ color: 'var(--color-muted)', fontSize: '14px' }}>Once unlocked, you will get 6 months full access to revision folders, subject updates, and exam alerts.</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* AKTU BTech Notes SEO Directory Section */}
+      <section className="section-padding container" style={{ borderTop: '1px solid var(--glass-border)' }}>
+        <div className="section-header">
+          <h2 className="section-title">AKTU BTech Notes &amp; Solved PYQs Directory</h2>
+          <p className="section-subtitle">Browse unit-wise handwritten engineering notes, Quantum revision guides, and exam question solutions by academic year.</p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '16px', color: '#60a5fa', marginBottom: '12px' }}>AKTU 1st Year Notes</h3>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '13px', color: 'var(--color-muted)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <li>• Engineering Physics Notes</li>
+              <li>• Engineering Chemistry Notes</li>
+              <li>• Engineering Mathematics-I &amp; II</li>
+              <li>• Programming for Problem Solving (PPS)</li>
+              <li>• Basic Electronics Engineering</li>
+              <li>• Environment &amp; Ecology</li>
+            </ul>
+          </div>
+
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '16px', color: '#f59e0b', marginBottom: '12px' }}>AKTU 2nd Year CSE/IT Notes</h3>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '13px', color: 'var(--color-muted)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <li>• Data Structures (DS) Notes</li>
+              <li>• Computer Org &amp; Architecture (COA)</li>
+              <li>• Discrete Structures (DSTL)</li>
+              <li>• Operating System (OS) Notes</li>
+              <li>• Automata Theory (TAFL) Notes</li>
+              <li>• OOPs with Java &amp; Python</li>
+            </ul>
+          </div>
+
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '16px', color: '#34d399', marginBottom: '12px' }}>AKTU 3rd Year CSE Notes</h3>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '13px', color: 'var(--color-muted)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <li>• Database Management System (DBMS)</li>
+              <li>• Design &amp; Analysis of Algo (DAA)</li>
+              <li>• Web Technology (WT) Notes</li>
+              <li>• Computer Networks (CN) Notes</li>
+              <li>• Software Engineering (SE)</li>
+              <li>• Compiler Design &amp; Data Analytics</li>
+            </ul>
+          </div>
+
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '16px', color: '#c084fc', marginBottom: '12px' }}>AKTU 4th Year CSE Notes</h3>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '13px', color: 'var(--color-muted)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <li>• Cloud Computing Notes</li>
+              <li>• Machine Learning (ML) Notes</li>
+              <li>• Information Security Notes</li>
+              <li>• Deep Learning &amp; Neural Networks</li>
+              <li>• Internet of Things (IoT) Notes</li>
+              <li>• AKTU Past 5 Years Solved PYQs</li>
+            </ul>
           </div>
         </div>
       </section>

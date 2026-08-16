@@ -9,8 +9,14 @@ CREATE TABLE IF NOT EXISTS profiles (
     phone VARCHAR(255),
     role VARCHAR(50) DEFAULT 'student',
     password_hash VARCHAR(255),
+    auth_provider VARCHAR(50) DEFAULT 'email',
+    provider_user_id VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50) DEFAULT 'email';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS provider_user_id VARCHAR(255);
+CREATE INDEX IF NOT EXISTS idx_profiles_provider ON profiles(auth_provider, provider_user_id);
 
 CREATE TABLE IF NOT EXISTS notes (
     id VARCHAR(255) PRIMARY KEY,

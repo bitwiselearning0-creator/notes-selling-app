@@ -52,7 +52,7 @@ print("\n⬆️ Step 3: Uploading Express Backend Code to VPS...", flush=True)
 run_cmd(f"mkdir -p {REMOTE_SERVER_DIR}")
 
 sftp = client.open_sftp()
-for file_name in ["package.json", "schema.sql", "db.js", "authController.js", "catalogController.js", "index.js", "seed.js"]:
+for file_name in ["package.json", "schema.sql", "db.js", "authController.js", "catalogController.js", "razorpayController.js", "index.js", "seed.js", "migrateFromSupabase.js"]:
     local_path = os.path.join(LOCAL_SERVER_DIR, file_name)
     remote_path = os.path.join(REMOTE_SERVER_DIR, file_name)
     if os.path.exists(local_path):
@@ -68,6 +68,7 @@ run_cmd(f"su - postgres -c \"psql -d bitwise_db -f {REMOTE_SERVER_DIR}/schema.sq
 print("\n⚡ Step 5: Installing npm modules, seeding database & launching backend API...", flush=True)
 run_cmd(f"cd {REMOTE_SERVER_DIR} && npm install --production")
 run_cmd(f"cd {REMOTE_SERVER_DIR} && node seed.js")
+run_cmd(f"cd {REMOTE_SERVER_DIR} && node migrateFromSupabase.js")
 run_cmd("pm2 delete bitwise-api || true")
 run_cmd(f"cd {REMOTE_SERVER_DIR} && pm2 start index.js --name bitwise-api")
 run_cmd("pm2 save")
@@ -83,6 +84,8 @@ nginx_config = f"""server {{
 
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    client_max_body_size 200M;
 
     location / {{
         try_files $uri $uri/ /index.html;

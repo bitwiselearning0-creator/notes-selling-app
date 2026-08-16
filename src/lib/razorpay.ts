@@ -1,3 +1,5 @@
+import { vpsApi } from './vpsApi';
+
 // Razorpay Payment Gateway Helper Module
 
 export const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_live_TFg9OXfFsCcrwA';
@@ -64,16 +66,27 @@ export const openRazorpayCheckout = async ({
     return false;
   }
 
-  // Convert amount from Rupees to Paise (1 INR = 100 Paise)
+  // Attempt to create a trackable Razorpay Order ID via VPS API
+  let orderId: string | undefined;
+  try {
+    const orderRes = await vpsApi.createRazorpayOrder(price, { item_title: title, item_type: type });
+    if (orderRes?.data?.id) {
+      orderId = orderRes.data.id;
+    }
+  } catch (e) {
+    console.warn('Could not pre-create Razorpay Order ID, falling back to standard checkout:', e);
+  }
+
   const amountInPaise = Math.round(price * 100);
 
-  const options = {
+  const options: any = {
     key: RAZORPAY_KEY_ID,
     amount: amountInPaise,
     currency: 'INR',
     name: 'Bitwise Learning',
     description: `${type === 'bundle' ? 'Semester Combo' : 'Study Notes'}: ${title}`,
     image: '/logo.jpg',
+    order_id: orderId,
     prefill: {
       name: user?.name || '',
       email: user?.email || '',
@@ -84,7 +97,7 @@ export const openRazorpayCheckout = async ({
       item_type: type
     },
     theme: {
-      color: '#3b82f6' // Match app blue theme accent
+      color: '#3b82f6'
     },
     handler: function (response: RazorpaySuccessResponse) {
       if (response && response.razorpay_payment_id) {

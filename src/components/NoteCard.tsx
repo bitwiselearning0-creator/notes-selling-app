@@ -1,6 +1,7 @@
 import React from 'react';
 import { Unlock, FileText } from 'lucide-react';
-import type { Note } from '../lib/supabase';
+import { isNotePdfAvailable } from '../lib/dbService';
+import type { Note } from '../lib/dbService';
 
 interface NoteCardProps {
   note: Note;
@@ -27,22 +28,15 @@ export const NoteCard: React.FC<NoteCardProps> = ({
 
   // Accent colors based on type
   const accentColor = isPyq ? '#a78bfa' : '#60a5fa';
-  const badgeBg = isPyq ? 'rgba(167, 139, 250, 0.15)' : 'rgba(96, 165, 250, 0.15)';
   const badgeBorder = isPyq ? 'rgba(167, 139, 250, 0.3)' : 'rgba(96, 165, 250, 0.3)';
-  const cardGradient = isPyq
-    ? 'radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.16) 0%, rgba(15, 23, 42, 0.96) 100%)'
-    : 'radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.16) 0%, rgba(15, 23, 42, 0.96) 100%)';
 
   return (
     <div 
-      className="glass-card fade-in"
+      className={`glass-card note-unit-card fade-in ${isPyq ? 'is-pyq-card' : 'is-notes-card'}`}
       style={{
-        background: cardGradient,
-        border: `1px solid ${badgeBorder}`,
         borderRadius: '18px',
         padding: '16px 18px',
         marginBottom: '14px',
-        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.35)',
         position: 'relative',
         overflow: 'hidden',
         textAlign: 'left'
@@ -50,12 +44,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     >
       {/* Row 1: Header Badge & Status */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <span style={{
+        <span className="note-unit-badge" style={{
           fontSize: '10px',
           fontWeight: '800',
-          color: accentColor,
-          background: badgeBg,
-          border: `1px solid ${badgeBorder}`,
           padding: '3px 10px',
           borderRadius: '100px',
           textTransform: 'uppercase',
@@ -72,17 +63,16 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             <Unlock size={10} /> {isFree ? 'FREE' : 'UNLOCKED'}
           </span>
         ) : (
-          <span style={{ fontSize: '10px', fontWeight: '600', color: 'var(--color-muted)' }}>
+          <span className="note-access-text" style={{ fontSize: '10px', fontWeight: '600' }}>
             {purchaseDetails?.daysLeft ? `${purchaseDetails.daysLeft} Days` : '6 Months Access'}
           </span>
         )}
       </div>
 
       {/* Row 2: Title */}
-      <h4 style={{ 
+      <h4 className="note-unit-title" style={{ 
         fontSize: '15px', 
         fontWeight: '800', 
-        color: '#fff', 
         margin: '0 0 8px 0', 
         lineHeight: '1.3'
       }}>
@@ -93,12 +83,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       {note.topics && note.topics.length > 0 && (
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
           {note.topics.slice(0, 3).map((topic, i) => (
-            <span key={i} style={{
+            <span key={i} className="note-topic-chip" style={{
               fontSize: '10px',
               fontWeight: '600',
-              color: '#cbd5e1',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
               padding: '2px 8px',
               borderRadius: '6px'
             }}>
@@ -118,9 +105,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         borderTop: '1px solid rgba(255, 255, 255, 0.08)'
       }}>
         {/* Left: Document Stats */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: 'var(--color-muted)' }}>
-          <FileText size={13} style={{ color: accentColor }} />
-          <span>{note.pagesCount} PDF Pages</span>
+        <div className="note-stats-text" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600' }}>
+          <FileText size={13} className="note-stats-icon" />
+          <span>{isNotePdfAvailable(note) ? `${note.pagesCount} PDF Pages` : '✦ Under Faculty Review'}</span>
         </div>
 
         {/* Right: Price & Unlock/Read Button */}

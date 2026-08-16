@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Lock, AlertTriangle, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Lock, FileText, SunMoon } from 'lucide-react';
 import type { Note } from '../lib/supabase';
+import { isNotePdfAvailable } from '../lib/dbService';
 
 interface PDFViewerProps {
   note: Note;
@@ -16,7 +17,9 @@ const CanvasPage: React.FC<{
   rotation: number;
   zoom: number;
   isPinching?: boolean;
-}> = React.memo(({ pageNumber, pdfDoc, rotation, zoom }) => {
+  isInverted?: boolean;
+  pageAspectRatio?: number;
+}> = React.memo(({ pageNumber, pdfDoc, rotation, zoom, isInverted, pageAspectRatio = 1.414 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
@@ -32,7 +35,7 @@ const CanvasPage: React.FC<{
         setIsVisible(true);
         observer.disconnect();
       }
-    }, { rootMargin: '400px 0px 400px 0px' });
+    }, { rootMargin: '500px 0px 500px 0px' });
 
     observer.observe(el);
     return () => observer.disconnect();
@@ -96,6 +99,7 @@ const CanvasPage: React.FC<{
   const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
   const baseWidth = Math.min(screenWidth - 24, 850);
   const targetWidth = Math.round(baseWidth * (zoom / 100));
+  const estimatedMinHeight = Math.round(targetWidth * pageAspectRatio);
 
   return (
     <div 
@@ -109,6 +113,7 @@ const CanvasPage: React.FC<{
         justifyContent: 'center', 
         alignItems: 'center',
         width: `${targetWidth}px`,
+        minHeight: isVisible ? 'auto' : `${estimatedMinHeight}px`,
         maxWidth: 'none',
         boxSizing: 'border-box',
         transition: 'none'
@@ -122,7 +127,9 @@ const CanvasPage: React.FC<{
           display: isVisible ? 'block' : 'none',
           borderRadius: '12px',
           boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1)',
-          background: '#ffffff'
+          background: isInverted ? '#0f172a' : '#ffffff',
+          filter: isInverted ? 'invert(1) hue-rotate(180deg)' : 'none',
+          transition: 'filter 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease'
         }} 
       />
     </div>
@@ -138,11 +145,13 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   }, [zoom]);
 
   const [rotation, setRotation] = useState(0);
+  const [isInverted, setIsInverted] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [scrollPage, setScrollPage] = useState(1);
   const [jumpPageInput, setJumpPageInput] = useState<string>('1');
   const [pdfjsLoaded, setPdfjsLoaded] = useState(false);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
+  const [pageAspectRatio, setPageAspectRatio] = useState<number>(1.414);
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [controlsVisible, setControlsVisible] = useState(() => {
@@ -216,9 +225,24 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     }
   }, [note.previewUrl]);
 
+  // Reset document state whenever active note changes
+  useEffect(() => {
+    setPdfDoc(null);
+    setLoadError(null);
+    setScrollPage(1);
+    setJumpPageInput('1');
+  }, [note.id]);
+
   // 3. Load PDF Document via PDF.js when script and URL are ready
   useEffect(() => {
     if (!pdfjsLoaded || !pdfUrl) return;
+
+    if (!isNotePdfAvailable(note)) {
+      setLoadError('PDF document is currently under faculty review.');
+      setPdfDoc(null);
+      setLoadingDoc(false);
+      return;
+    }
 
     const loadDocument = async () => {
       setLoadingDoc(true);
@@ -227,17 +251,25 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         const pdfjsLib = (window as any).pdfjsLib;
         const loadingTask = pdfjsLib.getDocument(pdfUrl);
         const pdf = await loadingTask.promise;
+        try {
+          const firstPage = await pdf.getPage(1);
+          const vp = firstPage.getViewport({ scale: 1 });
+          if (vp && vp.width > 0 && vp.height > 0) {
+            setPageAspectRatio(vp.height / vp.width);
+          }
+        } catch (e) {}
         setPdfDoc(pdf);
       } catch (err: any) {
         console.error('Error loading PDF document:', err);
         setLoadError(err.message || 'Error parsing document content.');
+        setPdfDoc(null);
       } finally {
         setLoadingDoc(false);
       }
     };
 
     loadDocument();
-  }, [pdfjsLoaded, pdfUrl]);
+  }, [pdfjsLoaded, pdfUrl, note]);
 
   // Sync jumpPageInput with active scroll page
   useEffect(() => {
@@ -403,7 +435,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   // Calculate total pages count (0 when locked/revoked)
   const totalPages = isUnlocked ? (pdfDoc ? pdfDoc.numPages : note.pagesCount) : 0;
 
-  // 5. Jump directly to specific page number function
+  const isInputFocusedRef = useRef(false);
+  const isJumpingRef = useRef(false);
+  const jumpTimeoutRef = useRef<any>(null);
+
+  // 5. Jump directly to specific page number function with 100% physical accuracy
   const handleJumpToPage = (targetNum?: number) => {
     const pageToJump = targetNum !== undefined ? targetNum : parseInt(jumpPageInput, 10);
     if (isNaN(pageToJump)) return;
@@ -412,28 +448,60 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
     setScrollPage(validPage);
     setJumpPageInput(validPage.toString());
 
+    isJumpingRef.current = true;
+    if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+
     const targetEl = pageRefs.current[validPage - 1];
-    if (targetEl && scrollContainerRef.current) {
-      const topPos = targetEl.offsetTop - 85;
-      scrollContainerRef.current.scrollTo({
-        top: topPos,
+    const container = scrollContainerRef.current;
+    if (targetEl && container) {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = targetEl.getBoundingClientRect();
+      const targetTopRelative = targetRect.top - containerRect.top + container.scrollTop;
+      
+      container.scrollTo({
+        top: Math.max(0, targetTopRelative - 70),
         behavior: 'smooth'
       });
+
+      jumpTimeoutRef.current = setTimeout(() => {
+        isJumpingRef.current = false;
+      }, 850);
+    } else {
+      isJumpingRef.current = false;
     }
   };
 
-  // 6. Handle scroll position: Page Counter & Auto-Hide/Show Header-Footer Controls
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.currentTarget;
-    const scrollTop = target.scrollTop;
-    const scrollHeight = target.scrollHeight - target.clientHeight;
+  // 6. Handle scroll position: Exact Physical Element Intersection & Auto-Hide/Show Controls
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container || totalPages <= 0) return;
+
+    const scrollTop = container.scrollTop;
     
-    if (scrollHeight <= 0) return;
-    
-    // Estimate current page
-    const percentage = scrollTop / scrollHeight;
-    const page = Math.min(totalPages, Math.max(1, Math.round(percentage * (totalPages - 1)) + 1));
-    setScrollPage(page);
+    // Find closest page element to container viewport center
+    const containerRect = container.getBoundingClientRect();
+    const viewportCenter = containerRect.top + (containerRect.height / 2);
+
+    let closestPage = 1;
+    let minDistance = Infinity;
+
+    for (let i = 0; i < totalPages; i++) {
+      const pageEl = pageRefs.current[i];
+      if (pageEl) {
+        const rect = pageEl.getBoundingClientRect();
+        const pageCenter = rect.top + (rect.height / 2);
+        const distance = Math.abs(pageCenter - viewportCenter);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestPage = i + 1;
+        }
+      }
+    }
+
+    setScrollPage(closestPage);
+    if (!isInputFocusedRef.current && !isJumpingRef.current) {
+      setJumpPageInput(closestPage.toString());
+    }
 
     // Auto-hide controls when scrolling DOWN, Auto-show when scrolling UP or near TOP
     const delta = scrollTop - lastScrollTopRef.current;
@@ -604,7 +672,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         {/* Left Section: Prominent Large Back Button & Note Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
           <button 
-            className="btn-secondary" 
+            className="btn-secondary viewer-back-btn" 
             onClick={onBack} 
             title="Back to Catalog"
             style={{ 
@@ -674,6 +742,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           }}>
             {/* Enlarged Glowing Active Page Input Box */}
             <input 
+              className="jump-input-box"
               type="number"
               inputMode="numeric"
               pattern="[0-9]*"
@@ -688,7 +757,14 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                   handleJumpToPage();
                 }
               }}
-              onFocus={(e) => e.target.select()}
+              onFocus={(e) => {
+                isInputFocusedRef.current = true;
+                e.target.select();
+              }}
+              onBlur={() => {
+                isInputFocusedRef.current = false;
+                handleJumpToPage();
+              }}
               style={{
                 width: '60px',
                 height: '34px',
@@ -716,6 +792,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             </span>
 
             <button 
+              className="jump-go-btn"
               onClick={(e) => {
                 e.stopPropagation();
                 handleJumpToPage();
@@ -746,6 +823,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
 
           {/* Rotation Button */}
           <button 
+            className="viewer-action-btn viewer-rotate-btn"
             onClick={(e) => {
               e.stopPropagation();
               setRotation(r => (r + 90) % 360);
@@ -766,6 +844,32 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
             }}
           >
             <RotateCw size={18} />
+          </button>
+
+          {/* Color Inversion Toggle Button (Icon only) */}
+          <button 
+            className="viewer-action-btn viewer-invert-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsInverted(prev => !prev);
+            }} 
+            title={isInverted ? "Original PDF Colors" : "Invert PDF Colors"} 
+            style={{ 
+              width: '42px', 
+              height: '42px', 
+              borderRadius: '12px', 
+              border: isInverted ? '1.5px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.22)', 
+              background: isInverted ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255, 255, 255, 0.08)', 
+              display: 'flex', 
+              alignItems: 'center',  
+              justifyContent: 'center', 
+              color: isInverted ? '#38bdf8' : 'var(--color-white)', 
+              cursor: 'pointer',
+              flexShrink: 0,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <SunMoon size={18} />
           </button>
         </div>
       </div>
@@ -793,27 +897,24 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
           boxSizing: 'border-box'
         }}
       >
-        {/* Loading / Error States */}
-        {(!pdfjsLoaded || loadingDoc || !pdfUrl) && (
+        {/* PDF Page Renderer & State Controller */}
+        {loadError ? (
+          <div className="pdf-error-container fade-in" style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center', padding: '30px 20px', maxWidth: '480px' }}>
+            <div className="pdf-error-icon-box" style={{ width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FileText size={32} />
+            </div>
+            <h3 className="pdf-error-title" style={{ fontSize: '20px', fontWeight: '800', margin: 0 }}>📄 PDF Document Under Faculty Review</h3>
+            <p className="pdf-error-desc" style={{ fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
+              High-quality study notes for <strong>{note.title}</strong> are currently being finalized by faculty and will be updated shortly.
+            </p>
+            <button className="btn-secondary pdf-error-btn" onClick={onBack} style={{ marginTop: '8px', padding: '10px 20px', fontSize: '13px', fontWeight: '700', borderRadius: '10px' }}>
+              Back to Catalog
+            </button>
+          </div>
+        ) : (!pdfjsLoaded || loadingDoc || !pdfUrl) ? (
           <div style={{ margin: 'auto', width: '90%', maxWidth: '600px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '20px 0' }} className="fade-in">
             <div className="skeleton-box" style={{ width: '100%', height: '520px', borderRadius: '16px' }}></div>
             <div className="skeleton-box" style={{ width: '180px', height: '14px', borderRadius: '4px' }}></div>
-          </div>
-        )}
-
-        {loadError && (
-          <div style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: '#f87171', textAlign: 'center', padding: '20px' }}>
-            <AlertTriangle size={36} />
-            <span style={{ fontSize: '14px', fontWeight: '700' }}>Error Loading Document: {loadError}</span>
-            <button className="btn-secondary" onClick={() => window.location.reload()} style={{ marginTop: '8px' }}>Retry Load</button>
-          </div>
-        )}
-
-        {/* PDF Page Renderer */}
-        {!pdfjsLoaded ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '16px' }}>
-            <Loader2 className="spinner" size={42} style={{ color: 'var(--color-yellow)' }} />
-            <p style={{ color: 'var(--color-muted)', fontSize: '14px', margin: 0 }}>Rendering HD Document PDF...</p>
           </div>
         ) : !isUnlocked ? (
           /* ============================================================== */
@@ -928,6 +1029,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
                     pdfDoc={pdfDoc} 
                     rotation={rotation} 
                     zoom={zoom}
+                    isInverted={isInverted}
+                    pageAspectRatio={pageAspectRatio}
                   />
                 </div>
               );

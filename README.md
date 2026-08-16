@@ -36,7 +36,7 @@ Bitwise Learning is a highly optimized, premium hybrid application (Web & Native
 *   **Bundler**: Vite 8.x
 *   **Styling**: Custom Vanilla CSS (Dark glassmorphism, glowing neon outlines, responsive layouts).
 *   **Icons**: Lucide Icons
-*   **Hosting**: Deployed on Render
+*   **Hosting**: Deployed on Bluehost VPS (`https://bitwiselearning.online`)
 
 ### 📱 Android Application
 *   **Runtime Container**: Capacitor 8.x

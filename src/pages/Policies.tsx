@@ -1,11 +1,12 @@
 import React from 'react';
-import { ShieldCheck, Receipt, Scale, Mail, Globe } from 'lucide-react';
+import { ShieldCheck, Receipt, Scale, Mail, Globe, ArrowLeft } from 'lucide-react';
 
 interface PoliciesProps {
   policyType: 'terms' | 'refund' | 'privacy' | 'contact';
+  onBack?: () => void;
 }
 
-export const Policies: React.FC<PoliciesProps> = ({ policyType }) => {
+export const Policies: React.FC<PoliciesProps> = ({ policyType, onBack }) => {
   
   const renderTerms = () => (
     <div className="fade-in">
@@ -148,6 +149,17 @@ export const Policies: React.FC<PoliciesProps> = ({ policyType }) => {
 
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
         <div className="glass-card" style={{ padding: '40px', position: 'relative' }}>
+          {onBack && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: '16px' }}>
+              <button 
+                className="btn-secondary" 
+                onClick={onBack}
+                style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '100px' }}
+              >
+                <ArrowLeft size={15} /> Back
+              </button>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
             {getIcon()}
           </div>

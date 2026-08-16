@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FilePlus, Video, FolderHeart, ShieldAlert, Loader2, CheckCircle2, 
-  Layers, Trash2, Edit2, Key, Users, AlertCircle, BookOpen, Search, Filter
+  Layers, Trash2, Edit2, Key, Users, AlertCircle, BookOpen, Search, Filter,
+  Smartphone, RefreshCw, LogOut, ArrowLeft
 } from 'lucide-react';
-import { dbService } from '../lib/supabase';
-import type { Note, UserProfile, Bundle, Purchase, Playlist } from '../lib/supabase';
+import { dbService, deriveBundleType } from '../lib/dbService';
+import type { Note, UserProfile, Bundle, Purchase, Playlist } from '../lib/dbService';
+import { sanitizeSearchQuery } from '../lib/security';
 
 const getPredefinedSubjects = (year: string, sem: number | string): string[] => {
   const sNum = Number(sem);
@@ -96,13 +98,18 @@ interface AdminProps {
 }
 
 export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
-  const [activeTab, setActiveTab] = useState<'uploads' | 'inventory' | 'licenses'>('uploads');
+  const [activeTab, setActiveTab] = useState<'uploads' | 'inventory' | 'licenses' | 'sessions'>('uploads');
   const [notes, setNotes] = useState<Note[]>([]);
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [purchases, setPurchases] = useState<(Purchase & { userEmail?: string; itemName?: string })[]>([]);
+  const [licenseSearchQuery, setLicenseSearchQuery] = useState('');
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
+  const [sessionSearchQuery, setSessionSearchQuery] = useState('');
+  const [loadingSessions, setLoadingSessions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [inventoryActiveEditor, setInventoryActiveEditor] = useState<'notes' | 'combos' | 'subjects' | 'playlists' | null>(null);
 
   // --- Note Form Fields ---
   const [noteTitle, setNoteTitle] = useState('');
@@ -206,10 +213,30 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
       const purchasesData = await dbService.getAllPurchases();
       setPurchases(purchasesData.data || []);
+
+      fetchActiveSessions();
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchActiveSessions = async () => {
+    setLoadingSessions(true);
+    const { data } = await dbService.getAllActiveSessions();
+    setActiveSessions(data || []);
+    setLoadingSessions(false);
+  };
+
+  const handleTerminateSession = async (userId: string, userEmail: string) => {
+    if (!confirm(`Are you sure you want to terminate active session for ${userEmail}? The student will be logged out immediately.`)) return;
+    const { success, error } = await dbService.terminateDeviceSession(userId);
+    if (success) {
+      setSuccessMsg(`Active session terminated for ${userEmail}. Student device logged out.`);
+      fetchActiveSessions();
+    } else {
+      alert(error || 'Failed to terminate session.');
     }
   };
 
@@ -224,14 +251,29 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
     if (licenseType === 'notes' && notes.length > 0) {
       setSelectedLicenseItem(notes[0].id);
     } else if (licenseType === 'subject') {
-      const availableSubjects = Array.from(new Set(notes.map(n => n.subject).filter(Boolean))).sort();
-      if (availableSubjects.length > 0) {
-        setSelectedLicenseItem(availableSubjects[0]);
+      const subjectPacks = bundles.filter(b => deriveBundleType(b) === 'subject');
+      const semesterCombos = bundles.filter(b => deriveBundleType(b) === 'semester');
+      if (subjectPacks.length > 0) {
+        setSelectedLicenseItem(subjectPacks[0].id);
+      } else if (semesterCombos.length > 0) {
+        setSelectedLicenseItem(semesterCombos[0].id);
+      } else if (bundles.length > 0) {
+        setSelectedLicenseItem(bundles[0].id);
       } else {
         setSelectedLicenseItem('');
       }
-    } else if (licenseType === 'bundle' && bundles.length > 0) {
-      setSelectedLicenseItem(bundles[0].id);
+    } else if (licenseType === 'bundle') {
+      const semesterCombos = bundles.filter(b => deriveBundleType(b) === 'semester');
+      const subjectPacks = bundles.filter(b => deriveBundleType(b) === 'subject');
+      if (semesterCombos.length > 0) {
+        setSelectedLicenseItem(semesterCombos[0].id);
+      } else if (subjectPacks.length > 0) {
+        setSelectedLicenseItem(subjectPacks[0].id);
+      } else if (bundles.length > 0) {
+        setSelectedLicenseItem(bundles[0].id);
+      } else {
+        setSelectedLicenseItem('');
+      }
     } else {
       setSelectedLicenseItem('');
     }
@@ -309,57 +351,54 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
     }
 
     setUploading(true);
-    let finalPreviewUrl = selectedFileBase64;
+    try {
+      let finalPreviewUrl = selectedFileBase64;
 
-    const isMockMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (!isMockMode) {
       const { url, error: uploadError } = await dbService.uploadFile(selectedFile, noteType);
-      if (uploadError) {
-        if (selectedFile.size > 2.5 * 1024 * 1024) {
-          alert(`File upload failed: ${uploadError}. Because the file is large (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB), it cannot be saved directly in the database. Please ensure you have created a public bucket named 'notes-bucket' in your Supabase storage dashboard.`);
-          setUploading(false);
-          return;
-        }
-        console.warn('Supabase storage upload failed, falling back to base64 for small file:', uploadError);
-      } else if (url) {
+      if (url) {
         finalPreviewUrl = url;
+      } else if (uploadError) {
+        alert(`File upload failed: ${uploadError}`);
+        return;
       }
-    }
 
-    const topicsArray = noteTopics.split(',').map(t => t.trim()).filter(Boolean);
+      const topicsArray = noteTopics.split(',').map(t => t.trim()).filter(Boolean);
 
-    const notePayload = {
-      title: noteTitle,
-      subject: noteSubject,
-      year: noteYear,
-      semester: Number(noteSemester),
-      price: Number(notePrice),
-      originalPrice: Number(noteOriginalPrice),
-      description: noteDesc,
-      previewUrl: finalPreviewUrl,
-      pagesCount: Number(notePages),
-      topics: topicsArray.length > 0 ? topicsArray : ['Core syllabus', 'PYQs solutions'],
-      type: noteType
-    };
+      const notePayload = {
+        title: noteTitle,
+        subject: noteSubject,
+        year: noteYear,
+        semester: Number(noteSemester),
+        price: Number(notePrice),
+        originalPrice: Number(noteOriginalPrice),
+        description: noteDesc,
+        previewUrl: finalPreviewUrl,
+        pagesCount: Number(notePages),
+        topics: topicsArray.length > 0 ? topicsArray : ['Core syllabus', 'PYQs solutions'],
+        type: noteType
+      };
 
-    const { data, error } = await dbService.addNote(notePayload);
-    setUploading(true); // Wait, in original code it does setUploading(false) right before checking data. Let's make sure it is setUploading(false)
-    setUploading(false);
-    
-    if (data) {
-      showNotification('Note successfully added to catalog!');
-      setNoteTitle('');
-      setNoteSubject('');
-      setNoteTopics('');
-      setNotePrice(99);
-      setNoteOriginalPrice(199);
-      setNotePages(100);
-      setNoteType('notes');
-      setSelectedFile(null);
-      setSelectedFileBase64('');
-      loadInventory();
-    } else {
-      alert(error || 'Failed to add note to database.');
+      const { data, error } = await dbService.addNote(notePayload);
+      
+      if (data) {
+        showNotification('Note successfully added to catalog!');
+        setNoteTitle('');
+        setNoteSubject('');
+        setNoteTopics('');
+        setNotePrice(99);
+        setNoteOriginalPrice(199);
+        setNotePages(100);
+        setNoteType('notes');
+        setSelectedFile(null);
+        setSelectedFileBase64('');
+        loadInventory();
+      } else {
+        alert(error || 'Failed to add note to database.');
+      }
+    } catch (err: any) {
+      alert(`Upload error: ${err.message || err}`);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -369,56 +408,55 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
     if (!editingNote) return;
 
     setUploading(true);
-    const topicsArray = typeof editingNote.topics === 'string'
-      ? (editingNote.topics as string).split(',').map(t => t.trim()).filter(Boolean)
-      : editingNote.topics;
+    try {
+      const topicsArray = typeof editingNote.topics === 'string'
+        ? (editingNote.topics as string).split(',').map(t => t.trim()).filter(Boolean)
+        : editingNote.topics;
 
-    let updatedPreviewUrl = editingNote.previewUrl;
-    
-    if (editSelectedFile && editSelectedFileBase64) {
-      updatedPreviewUrl = editSelectedFileBase64;
-      const isMockMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
-      if (!isMockMode) {
+      let updatedPreviewUrl = editingNote.previewUrl;
+      
+      if (editSelectedFile && editSelectedFileBase64) {
+        updatedPreviewUrl = editSelectedFileBase64;
         const { url, error: uploadError } = await dbService.uploadFile(editSelectedFile, editingNote.type || 'notes');
-        if (uploadError) {
-          if (editSelectedFile.size > 2.5 * 1024 * 1024) {
-            alert(`File upload failed: ${uploadError}. Because the file is large (${(editSelectedFile.size / (1024 * 1024)).toFixed(2)} MB), it cannot be saved directly in the database. Please ensure you have created a public bucket named 'notes-bucket' in your Supabase storage dashboard.`);
-            setUploading(false);
-            return;
-          }
-          console.warn('Supabase storage upload failed, falling back to base64 for small file:', uploadError);
-        } else if (url) {
+        if (url) {
           updatedPreviewUrl = url;
+        } else if (uploadError) {
+          alert(`File upload failed: ${uploadError}`);
+          return;
         }
       }
-    }
 
-    const { success, error } = await dbService.updateNote(editingNote.id, {
-      ...editingNote,
-      previewUrl: updatedPreviewUrl,
-      topics: topicsArray
-    });
+      const { success, error } = await dbService.updateNote(editingNote.id, {
+        ...editingNote,
+        previewUrl: updatedPreviewUrl,
+        topics: topicsArray
+      });
 
-    setUploading(false);
-
-    if (success) {
-      showNotification('Notes pack successfully updated!');
-      setEditingNote(null);
-      setEditSelectedFile(null);
-      setEditSelectedFileBase64('');
-      loadInventory();
-    } else {
-      alert(error || 'Failed to update note.');
+      if (success) {
+        showNotification('Notes pack successfully updated!');
+        setEditingNote(null);
+        setEditSelectedFile(null);
+        setEditSelectedFileBase64('');
+        loadInventory();
+      } else {
+        alert(error || 'Failed to update note.');
+      }
+    } catch (err: any) {
+      alert(`Update error: ${err.message || err}`);
+    } finally {
+      setUploading(false);
     }
   };
 
   // Handle Note Deletion
   const handleDeleteNote = async (id: string) => {
     if (!confirm('Are you sure you want to delete this note pack? This will also remove it from any semester bundles!')) return;
-    const { success } = await dbService.deleteNote(id);
+    const { success, error } = await dbService.deleteNote(id);
     if (success) {
       showNotification('Note pack removed from database.');
-      loadInventory();
+      await loadInventory();
+    } else {
+      alert(error || 'Failed to delete note pack.');
     }
   };
 
@@ -731,6 +769,15 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
           onClick={() => setActiveTab('licenses')}
         >
           <Key size={16} style={{ marginRight: '6px' }} /> Student Keys Locker
+        </button>
+        <button 
+          className={`sem-filter-btn ${activeTab === 'sessions' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('sessions');
+            fetchActiveSessions();
+          }}
+        >
+          <Smartphone size={16} style={{ marginRight: '6px' }} /> Active Sessions ({activeSessions.length})
         </button>
       </div>
 
@@ -1283,35 +1330,407 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
           )}
 
           {/* ============================================================== */}
-          {/* TAB 2: INVENTORY EDITOR */}
+          {/* TAB 2: INVENTORY MANAGER */}
           {/* ============================================================== */}
           {activeTab === 'inventory' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-              {/* Reset Database Button block */}
-              <div className="glass-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.02)', borderRadius: '16px', flexWrap: 'wrap', gap: '16px' }}>
-                <div>
-                  <h4 style={{ color: 'var(--color-white)', fontSize: '15px', fontWeight: '700' }}>Reset Local Database Cache</h4>
-                  <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginTop: '2px' }}>
-                    Clear all pre-populated mock notes, combos, and synced keys to start with a completely empty registry for testing.
-                  </p>
-                </div>
-                <button 
-                  className="btn-secondary" 
-                  style={{ borderColor: '#ef4444', color: '#f87171', padding: '10px 20px', fontSize: '13px' }}
-                  onClick={async () => {
-                    if (confirm('WARNING: This will wipe out all cached notes, bundles, playlists, and manual student licenses in your browser. This cannot be undone. Proceed?')) {
-                      await (dbService as any).clearDatabase();
-                      showNotification('Database cleared! Refreshing inventory...');
-                      loadInventory();
-                    }
-                  }}
-                >
-                  Clear All Data
-                </button>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+              
+              {/* Back to All Editors button when an editor is active */}
+              {inventoryActiveEditor !== null && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setInventoryActiveEditor(null)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 18px',
+                      borderRadius: '12px',
+                      fontSize: '13px',
+                      fontWeight: '800',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      borderColor: 'rgba(255, 255, 255, 0.15)',
+                      color: 'var(--color-white)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <ArrowLeft size={16} /> Back to Inventory Hub
+                  </button>
 
-              {/* Organized Notes Inventory */}
-              {(() => {
+                  <span style={{ fontSize: '13px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                    Active Editor: <strong style={{ color: 'var(--color-yellow)' }}>
+                      {inventoryActiveEditor === 'notes' ? 'Notes Packages Editor' :
+                       inventoryActiveEditor === 'combos' ? 'Semester Combo Packs Editor' :
+                       inventoryActiveEditor === 'subjects' ? 'Subject All-In-One Packs Editor' : 'YouTube Playlists Editor'}
+                    </strong>
+                  </span>
+                </div>
+              )}
+
+              {/* 🎴 VIEW MODE 1: MASTER 4-CARDS HUB (VISIBLE ONLY WHEN NO EDITOR IS OPEN) */}
+              {inventoryActiveEditor === null && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }} className="fade-in">
+                  
+                  {/* Reset Database Cache Block */}
+                  <div className="glass-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.02)', borderRadius: '16px', flexWrap: 'wrap', gap: '16px' }}>
+                    <div>
+                      <h4 style={{ color: 'var(--color-white)', fontSize: '15px', fontWeight: '700' }}>Reset Local Database Cache</h4>
+                      <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginTop: '2px' }}>
+                        Clear all pre-populated mock notes, combos, and synced keys to start with a completely empty registry for testing.
+                      </p>
+                    </div>
+                    <button 
+                      className="btn-secondary" 
+                      style={{ borderColor: '#ef4444', color: '#f87171', padding: '10px 20px', fontSize: '13px' }}
+                      onClick={async () => {
+                        if (confirm('WARNING: This will wipe out all cached notes, bundles, playlists, and manual student licenses in your browser. This cannot be undone. Proceed?')) {
+                          await (dbService as any).clearDatabase();
+                          showNotification('Database cleared! Refreshing inventory...');
+                          loadInventory();
+                        }
+                      }}
+                    >
+                      Clear All Data
+                    </button>
+                  </div>
+
+                  {/* 4 CARDS GRID (EXACTLY 2 CARDS PER ROW ON DESKTOP) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
+                    
+                    {/* CARD 1: NOTES PACKAGES EDITOR */}
+                    <div 
+                      className="glass-card library-hub-card fade-in"
+                      style={{
+                        borderRadius: '24px',
+                        border: '1px solid rgba(59, 130, 246, 0.35)',
+                        background: 'radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.16) 0%, rgba(15, 23, 42, 0.96) 100%)',
+                        padding: '28px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxShadow: '0 10px 35px rgba(0, 0, 0, 0.45)',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        minHeight: '260px',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        transition: 'transform 0.2s ease, border-color 0.2s ease'
+                      }}
+                      onClick={() => setInventoryActiveEditor('notes')}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                          <div style={{
+                            width: '60px',
+                            height: '60px',
+                            borderRadius: '18px',
+                            background: 'rgba(59, 130, 246, 0.18)',
+                            border: '1px solid rgba(59, 130, 246, 0.4)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#60a5fa',
+                            boxShadow: '0 0 20px rgba(59, 130, 246, 0.2)'
+                          }}>
+                            <FolderHeart size={30} />
+                          </div>
+
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: '800',
+                            color: '#60a5fa',
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            padding: '4px 14px',
+                            borderRadius: '100px'
+                          }}>
+                            {notes.length} Packs Total
+                          </span>
+                        </div>
+
+                        <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-white)', margin: '0 0 8px' }}>
+                          Notes Packages Editor
+                        </h3>
+
+                        <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: 0, lineHeight: '1.5' }}>
+                          Manage individual unit study notes, hand-written guides & exam PYQ papers across all semesters.
+                        </p>
+                      </div>
+
+                      <button
+                        className="btn-primary"
+                        style={{
+                          width: '100%',
+                          marginTop: '24px',
+                          padding: '12px 18px',
+                          fontSize: '14px',
+                          fontWeight: '800',
+                          borderRadius: '14px',
+                          background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                          boxShadow: '0 4px 15px rgba(59, 130, 246, 0.35)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        Open Notes Packages Editor →
+                      </button>
+                    </div>
+
+                    {/* CARD 2: SEMESTER COMBO PACKS EDITOR */}
+                    <div 
+                      className="glass-card library-hub-card fade-in"
+                      style={{
+                        borderRadius: '24px',
+                        border: '1px solid rgba(251, 191, 36, 0.35)',
+                        background: 'radial-gradient(circle at 0% 0%, rgba(251, 191, 36, 0.16) 0%, rgba(15, 23, 42, 0.96) 100%)',
+                        padding: '28px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxShadow: '0 10px 35px rgba(0, 0, 0, 0.45)',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        minHeight: '260px',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        transition: 'transform 0.2s ease, border-color 0.2s ease'
+                      }}
+                      onClick={() => setInventoryActiveEditor('combos')}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                          <div style={{
+                            width: '60px',
+                            height: '60px',
+                            borderRadius: '18px',
+                            background: 'rgba(251, 191, 36, 0.18)',
+                            border: '1px solid rgba(251, 191, 36, 0.4)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--color-yellow)',
+                            boxShadow: '0 0 20px rgba(251, 191, 36, 0.2)'
+                          }}>
+                            <Layers size={30} />
+                          </div>
+
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: '800',
+                            color: 'var(--color-yellow)',
+                            background: 'rgba(251, 191, 36, 0.15)',
+                            border: '1px solid rgba(251, 191, 36, 0.3)',
+                            padding: '4px 14px',
+                            borderRadius: '100px'
+                          }}>
+                            {bundles.filter(b => deriveBundleType(b) === 'semester').length} Combos Total
+                          </span>
+                        </div>
+
+                        <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-white)', margin: '0 0 8px' }}>
+                          Semester Combo Packs Editor
+                        </h3>
+
+                        <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: 0, lineHeight: '1.5' }}>
+                          Manage multi-subject complete semester bundles, pricing, included subjects, and discounts.
+                        </p>
+                      </div>
+
+                      <button
+                        className="btn-primary"
+                        style={{
+                          width: '100%',
+                          marginTop: '24px',
+                          padding: '12px 18px',
+                          fontSize: '14px',
+                          fontWeight: '800',
+                          borderRadius: '14px',
+                          background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                          color: '#0f172a',
+                          boxShadow: '0 4px 15px rgba(245, 158, 11, 0.35)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        Open Semester Combo Editor →
+                      </button>
+                    </div>
+
+                    {/* CARD 3: SUBJECT ALL-IN-ONE PACKS EDITOR */}
+                    <div 
+                      className="glass-card library-hub-card fade-in"
+                      style={{
+                        borderRadius: '24px',
+                        border: '1px solid rgba(167, 139, 250, 0.35)',
+                        background: 'radial-gradient(circle at 0% 0%, rgba(167, 139, 250, 0.16) 0%, rgba(15, 23, 42, 0.96) 100%)',
+                        padding: '28px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxShadow: '0 10px 35px rgba(0, 0, 0, 0.45)',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        minHeight: '260px',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        transition: 'transform 0.2s ease, border-color 0.2s ease'
+                      }}
+                      onClick={() => setInventoryActiveEditor('subjects')}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                          <div style={{
+                            width: '60px',
+                            height: '60px',
+                            borderRadius: '18px',
+                            background: 'rgba(167, 139, 250, 0.18)',
+                            border: '1px solid rgba(167, 139, 250, 0.4)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#a78bfa',
+                            boxShadow: '0 0 20px rgba(167, 139, 250, 0.2)'
+                          }}>
+                            <BookOpen size={30} />
+                          </div>
+
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: '800',
+                            color: '#a78bfa',
+                            background: 'rgba(167, 139, 250, 0.15)',
+                            border: '1px solid rgba(167, 139, 250, 0.3)',
+                            padding: '4px 14px',
+                            borderRadius: '100px'
+                          }}>
+                            {bundles.filter(b => deriveBundleType(b) === 'subject').length} Packs Total
+                          </span>
+                        </div>
+
+                        <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-white)', margin: '0 0 8px' }}>
+                          Subject All-In-One Packs Editor
+                        </h3>
+
+                        <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: 0, lineHeight: '1.5' }}>
+                          Manage single-subject bundles containing Unit 1-5 notes & exam solved PYQ papers.
+                        </p>
+                      </div>
+
+                      <button
+                        className="btn-primary"
+                        style={{
+                          width: '100%',
+                          marginTop: '24px',
+                          padding: '12px 18px',
+                          fontSize: '14px',
+                          fontWeight: '800',
+                          borderRadius: '14px',
+                          background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+                          boxShadow: '0 4px 15px rgba(139, 92, 246, 0.35)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        Open Subject Packs Editor →
+                      </button>
+                    </div>
+
+                    {/* CARD 4: YOUTUBE PLAYLISTS EDITOR */}
+                    <div 
+                      className="glass-card library-hub-card fade-in"
+                      style={{
+                        borderRadius: '24px',
+                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                        background: 'radial-gradient(circle at 0% 0%, rgba(239, 68, 68, 0.16) 0%, rgba(15, 23, 42, 0.96) 100%)',
+                        padding: '28px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxShadow: '0 10px 35px rgba(0, 0, 0, 0.45)',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        minHeight: '260px',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        transition: 'transform 0.2s ease, border-color 0.2s ease'
+                      }}
+                      onClick={() => setInventoryActiveEditor('playlists')}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                          <div style={{
+                            width: '60px',
+                            height: '60px',
+                            borderRadius: '18px',
+                            background: 'rgba(239, 68, 68, 0.18)',
+                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#f87171',
+                            boxShadow: '0 0 20px rgba(239, 68, 68, 0.2)'
+                          }}>
+                            <Video size={30} />
+                          </div>
+
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: '800',
+                            color: '#f87171',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            padding: '4px 14px',
+                            borderRadius: '100px'
+                          }}>
+                            {playlists.length} Lists Synced
+                          </span>
+                        </div>
+
+                        <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-white)', margin: '0 0 8px' }}>
+                          YouTube Playlists Editor
+                        </h3>
+
+                        <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: 0, lineHeight: '1.5' }}>
+                          Manage embedded YouTube video lecture playlists mapped to specific subjects and semesters.
+                        </p>
+                      </div>
+
+                      <button
+                        className="btn-primary"
+                        style={{
+                          width: '100%',
+                          marginTop: '24px',
+                          padding: '12px 18px',
+                          fontSize: '14px',
+                          fontWeight: '800',
+                          borderRadius: '14px',
+                          background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+                          boxShadow: '0 4px 15px rgba(239, 68, 68, 0.35)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        Open YouTube Playlists Editor →
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+              {/* 🟨 VIEW MODE 2: ISOLATED INDIVIDUAL EDITOR VIEWS */}
+
+              {/* EDITOR 1: NOTES PACKAGES EDITOR */}
+              {inventoryActiveEditor === 'notes' && (() => {
                 const filteredNotesList = notes.filter(n => {
                   const matchesSem = notesFilterSem === 'all' || n.semester === notesFilterSem;
                   const matchesSubj = notesFilterSubject === 'all' || n.subject.toLowerCase() === notesFilterSubject.toLowerCase();
@@ -1333,7 +1752,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                 )).sort();
 
                 return (
-                  <div className="admin-list-card glass-card" style={{ padding: '24px' }}>
+                  <div className="admin-list-card glass-card fade-in" style={{ padding: '24px' }}>
                     {/* Header with Search & Subject Filter controls */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', marginBottom: '18px' }}>
                       <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }} className="blue-accent">
@@ -1452,7 +1871,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                               <tr key={n.id}>
                                 <td>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                    <span style={{ fontWeight: '700', color: '#fff', fontSize: '13px' }}>{n.title}</span>
+                                    <span style={{ fontWeight: '700', color: 'var(--color-white)', fontSize: '13px' }}>{n.title}</span>
                                     <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: '600' }}>{n.subject}</span>
                                   </div>
                                 </td>
@@ -1518,11 +1937,12 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                 );
               })()}
 
-              {/* Semester Combo Packs Inventory */}
-              {(() => {
-                const semesterCombos = bundles.filter(b => b.type === 'semester' || !b.type);
+              {/* EDITOR 2: SEMESTER COMBO PACKS EDITOR */}
+              {inventoryActiveEditor === 'combos' && (() => {
+                const semesterCombos = bundles.filter(b => deriveBundleType(b) === 'semester');
+
                 return (
-                  <div className="admin-list-card glass-card" style={{ padding: '24px' }}>
+                  <div className="admin-list-card glass-card fade-in" style={{ padding: '24px' }}>
                     <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }} className="yellow-accent">
                       <Layers size={20} /> Semester Combo Packs Editor ({semesterCombos.length} Combos)
                     </h3>
@@ -1603,61 +2023,84 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                 );
               })()}
 
-              {/* Individual Subject Bundles Inventory */}
-              {(() => {
-                const subjectBundles = bundles.filter(b => b.type === 'subject');
+              {/* EDITOR 3: SUBJECT ALL-IN-ONE PACKS EDITOR */}
+              {inventoryActiveEditor === 'subjects' && (() => {
+                const subjectPacks = bundles.filter(b => deriveBundleType(b) === 'subject');
+
                 return (
-                  <div className="admin-list-card glass-card" style={{ padding: '24px' }}>
-                    <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }} className="blue-accent">
-                      <Layers size={20} /> Individual Subject Bundles Editor ({subjectBundles.length} Bundles)
+                  <div className="admin-list-card glass-card fade-in" style={{ padding: '24px', border: '1px solid rgba(167, 139, 250, 0.25)' }}>
+                    <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', color: '#a78bfa' }}>
+                      <BookOpen size={20} /> Subject All-In-One Packs Editor ({subjectPacks.length} Packs)
                     </h3>
                     <div className="admin-table-wrapper">
                       <table className="admin-table">
                         <thead>
                           <tr>
-                            <th>Bundle Title</th>
-                            <th>Subject Name</th>
-                            <th>Year & Sem</th>
+                            <th>Subject Pack Title</th>
+                            <th>Target Subject / Sem</th>
+                            <th>Notes & PYQs Included</th>
                             <th>Price (Disc / Orig)</th>
-                            <th>Notes Count</th>
                             <th style={{ textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {subjectBundles.length > 0 ? (
-                            subjectBundles.map(b => (
-                              <tr key={b.id}>
-                                <td style={{ fontWeight: '600' }}>{b.title}</td>
-                                <td style={{ color: '#60a5fa', fontWeight: '600' }}>{b.subject || 'Custom Subject'}</td>
-                                <td style={{ color: 'var(--color-muted)' }}>{b.year} (Sem {b.semester})</td>
-                                <td className="blue-accent" style={{ fontWeight: '700' }}>
-                                  ₹{b.price} <span style={{ textDecoration: 'line-through', color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal', marginLeft: '4px' }}>₹{b.originalPrice ?? (b.price + 100)}</span>
-                                </td>
-                                <td>{b.notesIds.length} note files</td>
-                                <td style={{ textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                    <button 
-                                      className="btn-secondary" 
-                                      style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                      onClick={() => setEditingBundle(b)}
-                                    >
-                                      <Edit2 size={12} /> Edit
-                                    </button>
-                                    <button 
-                                      className="btn-secondary" 
-                                      style={{ padding: '6px 12px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                      onClick={() => handleDeleteBundle(b.id)}
-                                    >
-                                      <Trash2 size={12} /> Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))
+                          {subjectPacks.length > 0 ? (
+                            subjectPacks.map(b => {
+                              const includedSubjs = (b.subjects && b.subjects.length > 0) 
+                                ? b.subjects 
+                                : [b.subject || b.title];
+
+                              return (
+                                <tr key={b.id}>
+                                  <td style={{ fontWeight: '600' }}>{b.title}</td>
+                                  <td style={{ color: '#a78bfa', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                                    {b.subject || b.title} <span style={{ color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal' }}>(Sem {b.semester})</span>
+                                  </td>
+                                  <td>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxWidth: '420px', padding: '4px 0' }}>
+                                      {includedSubjs.map((subj, sIdx) => (
+                                        <span key={sIdx} style={{
+                                          background: 'rgba(167, 139, 250, 0.12)',
+                                          color: '#c4b5fd',
+                                          border: '1px solid rgba(167, 139, 250, 0.3)',
+                                          borderRadius: '6px',
+                                          padding: '3px 9px',
+                                          fontSize: '11px',
+                                          fontWeight: '600'
+                                        }}>
+                                          {subj}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td style={{ color: '#a78bfa', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                                    ₹{b.price} <span style={{ textDecoration: 'line-through', color: 'var(--color-muted)', fontSize: '11px', fontWeight: 'normal', marginLeft: '4px' }}>₹{b.originalPrice ?? (b.price + 100)}</span>
+                                  </td>
+                                  <td style={{ textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                      <button 
+                                        className="btn-secondary" 
+                                        style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        onClick={() => setEditingBundle(b)}
+                                      >
+                                        <Edit2 size={12} /> Edit
+                                      </button>
+                                      <button 
+                                        className="btn-secondary" 
+                                        style={{ padding: '6px 12px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        onClick={() => handleDeleteBundle(b.id)}
+                                      >
+                                        <Trash2 size={12} /> Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
                           ) : (
                             <tr>
-                              <td colSpan={6} style={{ textAlign: 'center', color: 'var(--color-muted)', fontStyle: 'italic', padding: '20px' }}>
-                                No individual subject bundles created yet.
+                              <td colSpan={5} style={{ textAlign: 'center', color: 'var(--color-muted)', fontStyle: 'italic', padding: '20px' }}>
+                                No subject all-in-one packs created yet.
                               </td>
                             </tr>
                           )}
@@ -1668,47 +2111,50 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                 );
               })()}
 
-              {/* YouTube Playlists Inventory */}
-              <div className="admin-list-card glass-card" style={{ padding: '24px' }}>
-                <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }} className="blue-accent">
-                  <Video size={20} /> Synced YouTube Playlists ({playlists.length} Lists)
-                </h3>
-                <div className="admin-table-wrapper">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Playlist Title</th>
-                        <th>Subject Category</th>
-                        <th>Year / Semester</th>
-                        <th>Playlist ID</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {playlists.map(p => (
-                        <tr key={p.id}>
-                          <td style={{ fontWeight: '600' }}>{p.title}</td>
-                          <td style={{ color: 'var(--color-muted)' }}>{p.subject}</td>
-                          <td>
-                            <span className="badge badge-year" style={{ marginRight: '6px', background: 'rgba(59, 130, 246, 0.1)', color: '#93c5fd', padding: '2px 8px', borderRadius: '100px', fontSize: '11px' }}>{p.year}</span>
-                            <span className="badge badge-semester" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#fcd34d', padding: '2px 8px', borderRadius: '100px', fontSize: '11px' }}>Sem {p.semester}</span>
-                          </td>
-                          <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{p.playlistId}</td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button 
-                              className="btn-secondary" 
-                              style={{ padding: '6px 12px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }}
-                              onClick={() => handleDeletePlaylist(p.id)}
-                            >
-                              <Trash2 size={12} /> Unsync
-                            </button>
-                          </td>
+              {/* EDITOR 4: YOUTUBE PLAYLISTS EDITOR */}
+              {inventoryActiveEditor === 'playlists' && (
+                <div className="admin-list-card glass-card fade-in" style={{ padding: '24px' }}>
+                  <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }} className="blue-accent">
+                    <Video size={20} /> Synced YouTube Playlists ({playlists.length} Lists)
+                  </h3>
+                  <div className="admin-table-wrapper">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Playlist Title</th>
+                          <th>Subject Category</th>
+                          <th>Year / Semester</th>
+                          <th>Playlist ID</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {playlists.map(p => (
+                          <tr key={p.id}>
+                            <td style={{ fontWeight: '600' }}>{p.title}</td>
+                            <td style={{ color: 'var(--color-muted)' }}>{p.subject}</td>
+                            <td>
+                              <span className="badge badge-year" style={{ marginRight: '6px', background: 'rgba(59, 130, 246, 0.1)', color: '#93c5fd', padding: '2px 8px', borderRadius: '100px', fontSize: '11px' }}>{p.year}</span>
+                              <span className="badge badge-semester" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#fcd34d', padding: '2px 8px', borderRadius: '100px', fontSize: '11px' }}>Sem {p.semester}</span>
+                            </td>
+                            <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{p.playlistId}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button 
+                                className="btn-secondary" 
+                                style={{ padding: '6px 12px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }}
+                                onClick={() => handleDeletePlaylist(p.id)}
+                              >
+                                <Trash2 size={12} /> Unsync
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              )}
+
             </div>
           )}
 
@@ -1757,20 +2203,57 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                       required
                     >
                       {licenseType === 'notes' ? (
-                        notes.map(n => (
-                          <option key={n.id} value={n.id}>[{n.type === 'pyqs' ? 'PYQ' : 'Notes'}] {n.title} (Sem {n.semester})</option>
-                        ))
+                        <optgroup label="Individual Notes & PYQs">
+                          {notes.map(n => (
+                            <option key={n.id} value={n.id}>[{n.type === 'pyqs' ? 'PYQ' : 'Notes'}] {n.title} (Sem {n.semester})</option>
+                          ))}
+                        </optgroup>
                       ) : licenseType === 'subject' ? (
-                        Array.from(new Set(notes.map(n => n.subject).filter(Boolean))).sort().map(sub => {
-                          const count = notes.filter(n => n.subject === sub).length;
+                        (() => {
+                          const subjectPacks = bundles.filter(b => deriveBundleType(b) === 'subject');
+                          const semesterBundles = bundles.filter(b => deriveBundleType(b) === 'semester');
                           return (
-                            <option key={sub} value={sub}>[Subject Pack] {sub} ({count} Files)</option>
+                            <>
+                              {subjectPacks.length > 0 && (
+                                <optgroup label="Subject All-In-One Packs & Bundles">
+                                  {subjectPacks.map(b => (
+                                    <option key={b.id} value={b.id}>[Subject Pack] {b.title} ({b.year || '2nd Year'}, Sem {b.semester || 4})</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              {semesterBundles.length > 0 && (
+                                <optgroup label="Semester Combo Bundles">
+                                  {semesterBundles.map(b => (
+                                    <option key={b.id} value={b.id}>[Semester Bundle] {b.title} ({b.year || '2nd Year'}, Sem {b.semester || 4})</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                            </>
                           );
-                        })
+                        })()
                       ) : (
-                        bundles.map(b => (
-                          <option key={b.id} value={b.id}>[Bundle] {b.title}</option>
-                        ))
+                        (() => {
+                          const semesterBundles = bundles.filter(b => deriveBundleType(b) === 'semester');
+                          const subjectPacks = bundles.filter(b => deriveBundleType(b) === 'subject');
+                          return (
+                            <>
+                              {semesterBundles.length > 0 && (
+                                <optgroup label="Semester Combo Bundles">
+                                  {semesterBundles.map(b => (
+                                    <option key={b.id} value={b.id}>[Semester Bundle] {b.title} ({b.year || '2nd Year'}, Sem {b.semester || 4})</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              {subjectPacks.length > 0 && (
+                                <optgroup label="Subject All-In-One Packs & Bundles">
+                                  {subjectPacks.map(b => (
+                                    <option key={b.id} value={b.id}>[Subject Pack] {b.title} ({b.year || '2nd Year'}, Sem {b.semester || 4})</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                            </>
+                          );
+                        })()
                       )}
                     </select>
                   </div>
@@ -1794,52 +2277,113 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
               </div>
 
               {/* Active License Transactions */}
-              <div className="admin-list-card glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-                  <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }} className="blue-accent">
-                    <Users size={20} /> Active Licenses Registry ({purchases.length} Keys)
-                  </h3>
-                  {purchases.length > 0 && (
-                    <button 
-                      type="button"
-                      className="btn-secondary" 
-                      style={{
-                        borderColor: 'rgba(239, 68, 68, 0.4)',
-                        color: '#f87171',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        padding: '6px 14px',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        borderRadius: '8px'
-                      }}
-                      onClick={handleRevokeAllLicenses}
-                    >
-                      <Trash2 size={13} /> Revoke All Licenses
-                    </button>
-                  )}
-                </div>
-                
-                {purchases.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-muted)' }}>
-                    <AlertCircle size={32} style={{ margin: '0 auto 12px' }} />
-                    <p style={{ fontSize: '14px' }}>No active unlocked notes licenses registered yet.</p>
-                  </div>
-                ) : (
-                  <div className="admin-table-wrapper" style={{ flexGrow: 1 }}>
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Student Email</th>
-                          <th>Unlocked Item Name</th>
-                          <th>Expiry Date</th>
-                          <th style={{ textAlign: 'right' }}>Access Control</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {purchases.map(p => {
+              {(() => {
+                const filteredPurchases = purchases.filter(p => {
+                  if (!licenseSearchQuery.trim()) return true;
+                  const q = licenseSearchQuery.toLowerCase().trim();
+                  const email = (p.userEmail || p.userId || '').toLowerCase();
+                  const name = (p.userName || '').toLowerCase();
+                  const item = (p.itemName || p.itemId || '').toLowerCase();
+                  return email.includes(q) || name.includes(q) || item.includes(q);
+                });
+
+                return (
+                  <div className="admin-list-card glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+                      <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }} className="blue-accent">
+                        <Users size={20} /> Active Licenses Registry ({filteredPurchases.length} / {purchases.length} Keys)
+                      </h3>
+                      {purchases.length > 0 && (
+                        <button 
+                          type="button"
+                          className="btn-secondary" 
+                          style={{
+                            borderColor: 'rgba(239, 68, 68, 0.4)',
+                            color: '#f87171',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            padding: '6px 14px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            borderRadius: '8px'
+                          }}
+                          onClick={handleRevokeAllLicenses}
+                        >
+                          <Trash2 size={13} /> Revoke All Licenses
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Candidate Search Bar */}
+                    <div style={{ marginBottom: '16px', position: 'relative' }}>
+                      <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)' }} />
+                      <input
+                        type="text"
+                        value={licenseSearchQuery}
+                        maxLength={100}
+                        onChange={(e) => setLicenseSearchQuery(sanitizeSearchQuery(e.target.value))}
+                        placeholder="Search candidate by email ID, student name, or item name..."
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px 10px 40px',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          borderRadius: '10px',
+                          color: 'var(--color-white)',
+                          fontSize: '13px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      {licenseSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setLicenseSearchQuery('')}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'rgba(255,255,255,0.1)',
+                            border: 'none',
+                            color: 'var(--color-white)',
+                            borderRadius: '6px',
+                            padding: '2px 8px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: '700'
+                          }}
+                        >
+                          ✕ Clear
+                        </button>
+                      )}
+                    </div>
+                    
+                    {purchases.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-muted)' }}>
+                        <AlertCircle size={32} style={{ margin: '0 auto 12px' }} />
+                        <p style={{ fontSize: '14px' }}>No active unlocked notes licenses registered yet.</p>
+                      </div>
+                    ) : filteredPurchases.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-muted)' }}>
+                        <Search size={28} style={{ margin: '0 auto 10px', opacity: 0.6 }} />
+                        <p style={{ fontSize: '14px', margin: 0 }}>No licenses found matching "{licenseSearchQuery}"</p>
+                      </div>
+                    ) : (
+                      <div className="admin-table-wrapper" style={{ flexGrow: 1 }}>
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>Student Email</th>
+                              <th>Unlocked Item Name</th>
+                              <th>Expiry Date</th>
+                              <th style={{ textAlign: 'right' }}>Access Control</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredPurchases.map(p => {
                           const expDate = new Date(p.expiresAt);
                           const isExpired = expDate < new Date();
                           const formattedDate = isExpired ? 'Expired' : expDate.toLocaleDateString('en-IN', {
@@ -1850,28 +2394,61 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                           return (
                             <tr key={p.id}>
-                              <td style={{ fontWeight: '700', fontSize: '13px', color: '#ffffff' }}>
+                              <td style={{ fontWeight: '700', fontSize: '13px', color: 'var(--color-white)' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                  <span style={{ fontWeight: '700', color: '#ffffff', fontSize: '13px' }}>
-                                    {(p as any).userEmail || 'student@gmail.com'}
+                                  <span style={{ fontWeight: '700', color: 'var(--color-white)', fontSize: '13px' }}>
+                                    {p.userEmail || p.userId || 'Student'}
                                   </span>
-                                  {(p as any).userName && (
-                                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>
-                                      {(p as any).userName}
+                                  {p.userName && (
+                                    <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '500' }}>
+                                      {p.userName}
                                     </span>
                                   )}
                                 </div>
                               </td>
-                              <td style={{ fontSize: '13px', color: '#e2e8f0' }}>
+                              <td style={{ fontSize: '13px', color: 'var(--color-white)' }}>
                                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                  <span className={`semester-tag ${p.itemType === 'bundle' ? 'yellow-accent' : p.itemType === 'subject' ? 'purple-accent' : 'blue-accent'}`} style={{ fontSize: '9px', padding: '2px 6px', marginTop: '2px', fontWeight: 'bold', flexShrink: 0 }}>
-                                    {p.itemType === 'subject' ? 'SUBJECT PACK' : p.itemType === 'bundle' ? 'SEMESTER BUNDLE' : 'NOTES PACK'}
-                                  </span>
+                                  {(() => {
+                                    const itemTypeLower = ((p.itemType as string) || '').toLowerCase();
+                                    const itemIdLower = (p.itemId || '').toLowerCase();
+                                    const itemNameLower = (p.itemName || '').toLowerCase();
+
+                                    const isExplicitIndividualNote = 
+                                      itemTypeLower === 'note' || 
+                                      itemTypeLower === 'notes' || 
+                                      itemTypeLower === 'unit' || 
+                                      itemTypeLower === 'file' ||
+                                      itemIdLower.startsWith('note_') || 
+                                      itemIdLower.startsWith('unit_') ||
+                                      itemIdLower.includes('_unit') ||
+                                      itemNameLower.includes('unit ');
+
+                                    let isSem = false;
+                                    let isSub = false;
+
+                                    if (!isExplicitIndividualNote) {
+                                      const foundBundle = bundles.find(b => b.id === p.itemId);
+                                      const derivedType = (itemTypeLower === 'subject' || itemTypeLower === 'semester')
+                                        ? itemTypeLower
+                                        : (foundBundle ? deriveBundleType(foundBundle) : 'individual');
+
+                                      isSem = derivedType === 'semester';
+                                      isSub = derivedType === 'subject';
+                                    }
+
+                                    return (
+                                      <span className={`semester-tag ${isSem ? 'yellow-accent' : isSub ? 'purple-accent' : 'blue-accent'}`} style={{ fontSize: '9px', padding: '2px 6px', marginTop: '2px', fontWeight: 'bold', flexShrink: 0 }}>
+                                        {isSem ? 'SEMESTER BUNDLE' : isSub ? 'SUBJECT PACK' : 'INDIVIDUAL NOTE'}
+                                      </span>
+                                    );
+                                  })()}
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                    <span style={{ fontWeight: '700', color: '#ffffff', fontSize: '13px' }}>{p.itemName || 'Unlocked Resource'}</span>
-                                    {(p as any).itemSubject && (
+                                    <span style={{ fontWeight: '700', color: 'var(--color-white)', fontSize: '13px' }}>
+                                      {p.itemName || p.itemId || 'Unlocked Item'}
+                                    </span>
+                                    {p.itemSubject && p.itemSubject !== p.itemName && (
                                       <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: '600' }}>
-                                        📚 Subject: {(p as any).itemSubject}
+                                        📚 Subject: {p.itemSubject}
                                       </span>
                                     )}
                                   </div>
@@ -1897,6 +2474,185 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                   </div>
                 )}
               </div>
+            );
+          })()}
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* ACTIVE DEVICE SESSIONS TAB */}
+          {/* ============================================================== */}
+          {activeTab === 'sessions' && (
+            <div className="glass-card" style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }} className="blue-accent">
+                    <Smartphone size={20} /> Live Device Sessions Tracker
+                  </h3>
+                  <p style={{ color: 'var(--color-muted)', fontSize: '12px', marginTop: '4px', margin: 0 }}>
+                    Real-time monitoring of all active logged-in student accounts. Terminate unauthorized or shared device sessions instantly.
+                  </p>
+                </div>
+                <button 
+                  className="btn-secondary"
+                  onClick={fetchActiveSessions}
+                  disabled={loadingSessions}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '6px 14px' }}
+                >
+                  <RefreshCw size={14} className={loadingSessions ? 'spin' : ''} /> {loadingSessions ? 'Refreshing...' : 'Refresh Active Sessions'}
+                </button>
+              </div>
+
+              {/* Search filter */}
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <div style={{ position: 'relative' }}>
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)' }} />
+                  <input 
+                    type="text" 
+                    placeholder="Search active sessions by student name, email, phone or session ID..."
+                    value={sessionSearchQuery}
+                    onChange={(e) => setSessionSearchQuery(e.target.value)}
+                    style={{ paddingLeft: '38px', background: 'rgba(10, 17, 40, 0.6)' }}
+                  />
+                </div>
+              </div>
+
+              {/* Sessions List Table */}
+              {(() => {
+                const filteredSessions = activeSessions.filter(s => {
+                  if (!sessionSearchQuery) return true;
+                  const q = sessionSearchQuery.toLowerCase();
+                  return (
+                    (s.user_name || '').toLowerCase().includes(q) ||
+                    (s.user_email || '').toLowerCase().includes(q) ||
+                    (s.user_phone || '').toLowerCase().includes(q) ||
+                    (s.session_id || '').toLowerCase().includes(q)
+                  );
+                });
+
+                if (loadingSessions) {
+                  return (
+                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-muted)' }}>
+                      <RefreshCw size={24} className="spin" style={{ marginBottom: '10px' }} />
+                      <p>Fetching active device sessions from server...</p>
+                    </div>
+                  );
+                }
+
+                if (filteredSessions.length === 0) {
+                  return (
+                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-muted)', border: '1px dashed var(--glass-border)', borderRadius: '12px' }}>
+                      <Smartphone size={32} style={{ opacity: 0.5, marginBottom: '10px' }} />
+                      <p style={{ margin: 0, fontWeight: '600' }}>No Active Sessions Found</p>
+                      <span style={{ fontSize: '12px', opacity: 0.8 }}>No student devices are currently active or matching your filter.</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--color-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          <th style={{ padding: '10px 12px' }}>Student Profile</th>
+                          <th style={{ padding: '10px 12px' }}>Active Device Session ID</th>
+                          <th style={{ padding: '10px 12px' }}>Last Activity / Login</th>
+                          <th style={{ padding: '10px 12px' }}>Session Status</th>
+                          <th style={{ padding: '10px 12px', textAlign: 'right' }}>Terminate Access</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredSessions.map(s => {
+                          const updated = s.updated_at ? new Date(s.updated_at) : null;
+                          const formattedTime = updated ? updated.toLocaleString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : 'Just now';
+
+                          return (
+                            <tr key={s.user_id + s.session_id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                              <td style={{ padding: '12px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                  <span style={{ fontWeight: '700', color: 'var(--color-white)', fontSize: '13px' }}>
+                                    {s.user_name || 'Student'}
+                                  </span>
+                                  <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: '500' }}>
+                                    {s.user_email || s.user_id}
+                                  </span>
+                                  {s.user_phone && s.user_phone !== 'N/A' && (
+                                    <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                                      📞 {s.user_phone}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td style={{ padding: '12px' }}>
+                                <span style={{
+                                  fontFamily: 'monospace',
+                                  fontSize: '11px',
+                                  color: '#fef08a',
+                                  background: 'rgba(245, 158, 11, 0.12)',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  display: 'inline-block'
+                                }}>
+                                  {s.session_id}
+                                </span>
+                              </td>
+
+                              <td style={{ padding: '12px', fontSize: '12px', color: 'var(--color-white)' }}>
+                                {formattedTime}
+                              </td>
+
+                              <td style={{ padding: '12px' }}>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  background: s.is_active ? 'rgba(52, 211, 153, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                  border: s.is_active ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)',
+                                  color: s.is_active ? '#34d399' : '#fef08a',
+                                  fontSize: '10px',
+                                  fontWeight: '800',
+                                  padding: '2px 8px',
+                                  borderRadius: '20px'
+                                }}>
+                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: s.is_active ? '#34d399' : '#f59e0b', boxShadow: s.is_active ? '0 0 6px #34d399' : 'none' }}></span>
+                                  {s.is_active ? 'ACTIVE DEVICE' : 'REGISTERED ACCOUNT'}
+                                </span>
+                              </td>
+
+                              <td style={{ padding: '12px', textAlign: 'right' }}>
+                                <button 
+                                  className="btn-secondary" 
+                                  style={{
+                                    padding: '6px 12px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    borderColor: 'rgba(239, 68, 68, 0.4)',
+                                    color: '#f87171',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                  onClick={() => handleTerminateSession(s.user_id, s.user_email || s.user_name)}
+                                >
+                                  <LogOut size={12} /> Terminate Session
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </>

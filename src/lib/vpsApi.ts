@@ -59,6 +59,14 @@ export const vpsApi = {
     });
   },
 
+  googleSignIn: async (email: string, name?: string, phone?: string, googleId?: string, idToken?: string) => {
+    return safeFetchJson(`${API_BASE_URL}/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name, phone, googleId, idToken })
+    });
+  },
+
   sendPasswordResetOtp: async (email: string) => {
     return safeFetchJson(`${API_BASE_URL}/auth/send-otp`, {
       method: 'POST',
@@ -83,22 +91,109 @@ export const vpsApi = {
     });
   },
 
+  verifyDeviceSession: async (userId: string, sessionId: string) => {
+    return safeFetchJson(`${API_BASE_URL}/auth/verify-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, sessionId })
+    });
+  },
+
+  getAllActiveSessions: async () => {
+    return safeFetchJson(`${API_BASE_URL}/admin/active-sessions`);
+  },
+
+  terminateSession: async (userId: string) => {
+    return safeFetchJson(`${API_BASE_URL}/admin/terminate-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+  },
+
   // Catalog Methods
   getNotes: async () => {
     return safeFetchJson(`${API_BASE_URL}/notes`);
+  },
+
+  addNote: async (noteData: any) => {
+    return safeFetchJson(`${API_BASE_URL}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(noteData)
+    });
+  },
+
+  updateNote: async (id: string, noteData: any) => {
+    return safeFetchJson(`${API_BASE_URL}/notes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(noteData)
+    });
+  },
+
+  deleteNote: async (id: string) => {
+    return safeFetchJson(`${API_BASE_URL}/notes/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  uploadFile: async (fileData: string) => {
+    return safeFetchJson(`${API_BASE_URL}/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileData })
+    });
   },
 
   getBundles: async () => {
     return safeFetchJson(`${API_BASE_URL}/bundles`);
   },
 
+  addBundle: async (bundleData: any) => {
+    return safeFetchJson(`${API_BASE_URL}/bundles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bundleData)
+    });
+  },
+
+  updateBundle: async (id: string, bundleData: any) => {
+    return safeFetchJson(`${API_BASE_URL}/bundles/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bundleData)
+    });
+  },
+
+  deleteBundle: async (id: string) => {
+    return safeFetchJson(`${API_BASE_URL}/bundles/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
   getPlaylists: async () => {
     return safeFetchJson(`${API_BASE_URL}/playlists`);
   },
 
+  addPlaylist: async (playlistData: any) => {
+    return safeFetchJson(`${API_BASE_URL}/playlists`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(playlistData)
+    });
+  },
+
+  deletePlaylist: async (id: string) => {
+    return safeFetchJson(`${API_BASE_URL}/playlists/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
   // Purchase & Access Methods
-  getUserPurchases: async (userId: string) => {
-    return safeFetchJson(`${API_BASE_URL}/purchases/user/${userId}`);
+  getUserPurchases: async (userId: string, email?: string) => {
+    const query = email ? `?email=${encodeURIComponent(email)}` : '';
+    return safeFetchJson(`${API_BASE_URL}/purchases/user/${encodeURIComponent(userId)}${query}`);
   },
 
   getAllPurchases: async () => {
@@ -121,7 +216,54 @@ export const vpsApi = {
     });
   },
 
+  revokePurchaseById: async (purchaseId: string) => {
+    return safeFetchJson(`${API_BASE_URL}/purchases/revoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ purchaseId })
+    });
+  },
+
+  revokeAllPurchases: async () => {
+    return safeFetchJson(`${API_BASE_URL}/purchases/revoke-all`, {
+      method: 'POST'
+    });
+  },
+
   getAllProfiles: async () => {
     return safeFetchJson(`${API_BASE_URL}/profiles/all`);
+  },
+
+  // Razorpay Gateway Integration
+  createRazorpayOrder: async (amount: number, notes?: any) => {
+    return safeFetchJson(`${API_BASE_URL}/razorpay/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, notes })
+    });
+  },
+
+  verifyRazorpayPayment: async (paymentPayload: {
+    razorpayOrderId?: string;
+    razorpayPaymentId: string;
+    razorpaySignature?: string;
+    userId: string;
+    itemId: string;
+    itemType: string;
+    amount: number;
+  }) => {
+    return safeFetchJson(`${API_BASE_URL}/razorpay/verify-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(paymentPayload)
+    });
+  },
+
+  verifyManualPayment: async (paymentId: string, userId: string, itemId: string, itemType: string) => {
+    return safeFetchJson(`${API_BASE_URL}/razorpay/verify-manual-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentId, userId, itemId, itemType })
+    });
   }
 };

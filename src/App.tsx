@@ -8,10 +8,11 @@ import { Admin } from './pages/Admin';
 import { AdminLogin } from './pages/AdminLogin';
 import { Policies } from './pages/Policies';
 import { PDFViewer } from './components/PDFViewer';
+import { applyThemePreference } from './lib/theme';
 import { Profile } from './pages/Profile';
 import { ResetPasswordModal } from './components/ResetPasswordModal';
-import { dbService } from './lib/supabase';
-import type { UserProfile, Note } from './lib/supabase';
+import { dbService } from './lib/dbService';
+import type { UserProfile, Note } from './lib/dbService';
 import { BookOpen, Library, ShieldCheck, User, LogOut } from 'lucide-react';
 import { App as CapApp } from '@capacitor/app';
 
@@ -34,6 +35,8 @@ function App() {
   const [showResetModal, setShowResetModal] = useState(false);
   const childBackHandlerRef = useRef<(() => boolean) | null>(null);
 
+  const historyStackRef = useRef<string[]>([]);
+
   // Ref that always holds the LATEST back navigation handler (avoids stale closures)
   const backHandlerRef = useRef<() => boolean>(() => false);
 
@@ -49,43 +52,116 @@ function App() {
     };
   }, []);
 
-  // Keep backHandlerRef always in sync with latest React state (no stale closures)
-  useEffect(() => {
-    backHandlerRef.current = () => {
-      // 1. If Exit Modal is currently open, close modal
-      if (showExitModal) {
-        setShowExitModal(false);
-        return true;
-      }
+  // Centralized Stack-Based Back Navigation Handler
+  const goBack = (): boolean => {
+    // 1. If Exit Modal is currently open, close modal
+    if (showExitModal) {
+      setShowExitModal(false);
+      return true;
+    }
 
-      // 2. If PDF viewer is open, exit reader mode
-      if (currentPage === 'viewer' || readingNote !== null) {
-        setReadingNote(null);
-        setCurrentPage(previousPage || 'dashboard');
-        return true;
-      }
+    // 2. If Reset Password Modal is open, close modal
+    if (showResetModal) {
+      setShowResetModal(false);
+      return true;
+    }
 
-      // 3. Check child component back handler (e.g. Dashboard subject/search/sem detail view)
-      if (childBackHandlerRef.current && childBackHandlerRef.current()) {
-        return true;
+    // 3. If PDF viewer is open, exit reader mode
+    if (currentPage === 'viewer' || readingNote !== null) {
+      setReadingNote(null);
+      if (window.history.length > 1) {
+        window.history.back();
       }
+      return true;
+    }
 
-      // 4. If on Library, Profile, Policies, or Admin tab, return to Dashboard Catalog Root
-      if (currentPage === 'library' || currentPage === 'profile' || currentPage === 'admin' || currentPage.startsWith('policy-')) {
-        setCurrentPage('dashboard');
-        window.location.hash = '#catalog';
-        return true;
-      }
+    // 4. Check child component back handler
+    if (childBackHandlerRef.current && childBackHandlerRef.current()) {
+      return true;
+    }
 
-      // 5. If already at Dashboard Root — show Exit Confirmation Modal
-      if (currentPage === 'dashboard' || currentPage === 'landing') {
+    // 5. Native Browser & Android History Back
+    const fullHash = window.location.hash;
+    const baseHash = fullHash.split('?')[0];
+    const isRootLocation = baseHash === '' || baseHash === '#home' || ((baseHash === '#catalog' || baseHash === '#library') && !fullHash.includes('?'));
+
+    if (window.history.length > 1 && !isRootLocation) {
+      window.history.back();
+      return true;
+    }
+
+    // 6. Root location handling in App Mode vs Web Mode
+    if (isRootLocation) {
+      if (isAppMode) {
         setShowExitModal(true);
-        return true;
+      } else if (window.history.length > 1) {
+        window.history.back();
       }
+      return true;
+    }
 
-      return false;
+    // 7. Fallback for deep-links without prior history stack
+    if (fullHash.startsWith('#library')) {
+      if (fullHash.includes('&subject=')) {
+        const parentHash = fullHash.split('&subject=')[0];
+        window.history.pushState(null, '', parentHash);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } else if (fullHash.includes('&pack=')) {
+        const parentHash = fullHash.split('&pack=')[0];
+        window.history.pushState(null, '', parentHash);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } else if (fullHash.includes('?cat=')) {
+        window.history.pushState(null, '', '#library');
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } else {
+        if (isAppMode) setShowExitModal(true);
+      }
+      return true;
+    }
+
+    if (fullHash.startsWith('#catalog')) {
+      if (fullHash.includes('&cat=')) {
+        const parentHash = fullHash.split('&cat=')[0];
+        window.history.pushState(null, '', parentHash);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } else if (fullHash.includes('&subject=')) {
+        const parentHash = fullHash.split('&subject=')[0];
+        window.history.pushState(null, '', parentHash);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } else if (fullHash.includes('&sem=')) {
+        const parentHash = fullHash.split('&sem=')[0];
+        window.history.pushState(null, '', parentHash);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } else if (fullHash.includes('?year=')) {
+        window.history.pushState(null, '', '#catalog');
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } else {
+        if (isAppMode) setShowExitModal(true);
+      }
+      return true;
+    }
+
+    if (isAppMode) {
+      setShowExitModal(true);
+    }
+    return true;
+  };
+
+  // Keep backHandlerRef always in sync with latest React state & goBack function
+  useEffect(() => {
+    backHandlerRef.current = goBack;
+  });
+
+  // Global Browser PopState Listener (intercepts Browser Back Button & Android System Gestures)
+  useEffect(() => {
+    const handlePopState = () => {
+      if (backHandlerRef.current) {
+        backHandlerRef.current();
+      }
     };
-  }, [currentPage, readingNote, previousPage, showExitModal]);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Hardware back button — registered ONCE, calls through ref (never stale)
   useEffect(() => {
@@ -124,6 +200,34 @@ function App() {
     };
   }, []); // Empty deps — registered exactly ONCE
 
+  // Periodic Single Active Device Session Check (Every 5 seconds)
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    let isMounted = true;
+
+    const checkDeviceSession = async () => {
+      if (!currentUser?.id) return;
+      const res = await dbService.verifyDeviceSession(currentUser.id);
+      if (isMounted && res.valid === false) {
+        alert("🔒 LOGOUT NOTICE: Your account was logged in on another device. Only 1 active device is permitted per account.");
+        await dbService.signOut();
+        setCurrentUser(null);
+        setReadingNote(null);
+        setCurrentPage('auth');
+        window.location.hash = '#login';
+      }
+    };
+
+    checkDeviceSession();
+    const interval = setInterval(checkDeviceSession, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [currentUser?.id]);
+
   // Check user session on mount & handle hash routing (e.g. #admin)
   useEffect(() => {
     // 0. Cache buster for App Mode to clear stale cached state from yesterday
@@ -146,6 +250,15 @@ function App() {
       const activeUser = dbService.getCurrentUser();
       if (activeUser) {
         setCurrentUser(activeUser);
+        const check = await dbService.verifyDeviceSession(activeUser.id);
+        if (check.valid === false) {
+          alert("🔒 LOGOUT NOTICE: Your account was logged in on another device. Only 1 active device is allowed per account.");
+          await dbService.signOut();
+          setCurrentUser(null);
+          setCurrentPage('auth');
+          window.location.hash = '#login';
+          return;
+        }
       }
       if (isApp && !activeUser) {
         setCurrentPage('auth');
@@ -153,10 +266,15 @@ function App() {
     };
     syncCurrentSession();
 
-    // 3. Hash routing check for admin/student access
+    // 3. Hash routing check for admin/student access & browser back/forward history
     const handleHashRouting = () => {
       const activeHash = window.location.hash.split('?')[0];
       const activeUser = currentUser || dbService.getCurrentUser();
+
+      // If browser back/forward was clicked while PDF viewer was open
+      if (activeHash !== '#viewer' && readingNote !== null) {
+        setReadingNote(null);
+      }
 
       // Strict protection for App Mode: redirect to login if not authenticated
       if (isApp && !activeUser) {
@@ -205,6 +323,14 @@ function App() {
           setCurrentPage('auth');
           window.location.hash = '#login';
         }
+      } else if (activeHash === '#policy-terms') {
+        setCurrentPage('policy-terms');
+      } else if (activeHash === '#policy-refund') {
+        setCurrentPage('policy-refund');
+      } else if (activeHash === '#policy-privacy') {
+        setCurrentPage('policy-privacy');
+      } else if (activeHash === '#policy-contact') {
+        setCurrentPage('policy-contact');
       } else if (activeHash === '#home' || activeHash === '') {
         if (isApp) {
           setCurrentPage('dashboard');
@@ -264,12 +390,14 @@ function App() {
 
     handleHashRouting();
     window.addEventListener('hashchange', handleHashRouting);
+    window.addEventListener('popstate', handleHashRouting);
     window.addEventListener('contextmenu', preventRightClick);
     window.addEventListener('keydown', handleKeyDown);
     document.addEventListener('selectstart', preventSelection);
 
     return () => {
       window.removeEventListener('hashchange', handleHashRouting);
+      window.removeEventListener('popstate', handleHashRouting);
       window.removeEventListener('contextmenu', preventRightClick);
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('selectstart', preventSelection);
@@ -313,32 +441,43 @@ function App() {
     return 0;
   };
 
-  // Custom navigate wrapper to sync hash and views synchronously with horizontal slide direction
-  const navigate = (page: string) => {
+  // Custom navigate wrapper to sync hash and views synchronously with horizontal slide direction & history stack
+  const navigate = (page: string, isBackNav: boolean = false) => {
+    if (page === currentPage && !isBackNav) return;
+
+    if (!isBackNav) {
+      const stack = historyStackRef.current;
+      if (stack.length === 0 || stack[stack.length - 1] !== currentPage) {
+        stack.push(currentPage);
+      }
+      if (stack.length > 50) {
+        stack.shift();
+      }
+    }
+
     const currentRank = getTabRank(currentPage);
     const nextRank = getTabRank(page);
-    if (nextRank >= currentRank) {
-      setTabSlideDir('right');
-    } else {
+    if (isBackNav || nextRank < currentRank) {
       setTabSlideDir('left');
+    } else {
+      setTabSlideDir('right');
     }
     setPreviousPage(currentPage);
     setCurrentPage(page);
 
-    if (page === 'landing') {
-      window.location.hash = '#home';
-    } else if (page === 'dashboard') {
-      window.location.hash = '#catalog';
-    } else if (page === 'auth') {
-      window.location.hash = '#login';
-    } else if (page === 'admin-login') {
-      window.location.hash = '#admin-login';
-    } else if (page === 'admin') {
-      window.location.hash = '#admin';
-    } else if (page === 'library') {
-      window.location.hash = '#library';
-    } else if (page === 'profile') {
-      window.location.hash = '#profile';
+    const targetHash = page === 'landing' ? '#home'
+      : page === 'dashboard' ? '#catalog'
+      : page === 'auth' ? '#login'
+      : page === 'admin-login' ? '#admin-login'
+      : page === 'admin' ? '#admin'
+      : page === 'library' ? '#library'
+      : page === 'profile' ? '#profile'
+      : `#${page}`;
+
+    if (page === 'dashboard' && window.location.hash.startsWith('#catalog?')) {
+      // Preserve subject query parameters in location hash when navigating to subject portal
+    } else if (window.location.hash !== targetHash) {
+      window.history.pushState({ page }, '', targetHash);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -392,10 +531,14 @@ function App() {
     setReadingNote(note);
     setReadingNoteUnlocked(unlocked);
     setCurrentPage('viewer');
+    
+    if (window.location.hash !== '#viewer') {
+      window.history.pushState({ viewer: true }, '', '#viewer');
+    }
 
     // Fetch full note payload (with previewUrl) in background & auto-cache locally for permanent 0ms offline reading
     dbService.getNoteById(note.id).then(({ data: fullNote }) => {
-      if (fullNote) {
+      if (fullNote && fullNote.previewUrl) {
         setReadingNote(fullNote);
         if (unlocked || note.price === 0) {
           dbService.saveNoteForOffline(fullNote);
@@ -417,10 +560,11 @@ function App() {
     }
   };
 
-  // Dynamically toggle body class for app-mode specific styles
+  // Dynamically toggle body class for app-mode specific styles & force Dark Theme in Android App
   useEffect(() => {
     if (isAppMode) {
       document.body.classList.add('app-mode');
+      applyThemePreference('dark');
     } else {
       document.body.classList.remove('app-mode');
     }
@@ -551,6 +695,8 @@ function App() {
               user={currentUser} 
               onLogout={handleLogout} 
               navigate={navigate} 
+              onBack={() => goBack()}
+              isAppMode={isAppMode}
             />
           )}
 
@@ -558,10 +704,7 @@ function App() {
             <PDFViewer 
               note={readingNote} 
               isUnlocked={readingNoteUnlocked}
-              onBack={() => {
-                setReadingNote(null);
-                navigate(previousPage || 'dashboard');
-              }}
+              onBack={() => goBack()}
               onUnlock={handleUnlockInViewer}
             />
           )}
@@ -569,6 +712,7 @@ function App() {
           {currentPage.startsWith('policy-') && (
             <Policies 
               policyType={currentPage.replace('policy-', '') as any} 
+              onBack={() => goBack()}
             />
           )}
 
@@ -598,7 +742,10 @@ function App() {
                   <div className="logo-img-wrapper" style={{ width: '32px', height: '32px' }}>
                     <img src="/logo.jpg" alt="Bitwise Learning" className="logo-img" />
                   </div>
-                  <span className="logo-text" style={{ fontSize: '16px' }}>BITWISE LEARNING</span>
+                  <span className="logo-text" style={{ fontSize: '16px' }}>
+                    <span className="brand-bitwise">BITWISE</span>
+                    <span className="brand-learning">LEARNING</span>
+                  </span>
                 </div>
                 <p className="footer-desc">
                   Simplifying BTech syllabus examinations with concise, high-quality, hand-written study notes and video solutions.
@@ -646,7 +793,7 @@ function App() {
               </div>
             </div>
 
-            <div className="footer-bottom">
+            <div className="footer-bottom" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
               <p>&copy; {new Date().getFullYear()} Bitwise Learning. All rights reserved. Created for BTech Learners.</p>
             </div>
           </div>

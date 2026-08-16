@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, ShieldAlert, Loader2, Lock, Mail } from 'lucide-react';
-import { dbService } from '../lib/supabase';
-import type { UserProfile } from '../lib/supabase';
+import { dbService } from '../lib/dbService';
+import type { UserProfile } from '../lib/dbService';
 
 interface AdminLoginProps {
   onLoginSuccess: (user: UserProfile) => void;

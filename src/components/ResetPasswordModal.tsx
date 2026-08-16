@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, ArrowRight, ShieldCheck, ShieldAlert, CheckCircle2 } from 'lucide-react';
-import { dbService } from '../lib/supabase';
+import { dbService } from '../lib/dbService';
 
 interface ResetPasswordModalProps {
   isOpen: boolean;

@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight, Sparkles, Clock, FileText, Video } from 'lucide-react';
-import { dbService } from '../lib/supabase';
-import type { Note, UserProfile, Bundle, Playlist } from '../lib/supabase';
+import { dbService, decodeBundleFromDb, isSameSubject, deriveBundleType } from '../lib/dbService';
+import type { Note, UserProfile, Bundle, Playlist } from '../lib/dbService';
 import { openRazorpayCheckout } from '../lib/razorpay';
 import { NoteCard } from '../components/NoteCard';
 import { VideoCard } from '../components/VideoCard';
+import { sanitizeSearchQuery } from '../lib/security';
 
 interface SubjectItem {
   name: string;
@@ -12,12 +13,28 @@ interface SubjectItem {
   isComingSoon?: boolean;
 }
 
+export const isTrueStudyNote = (n: Note): boolean => {
+  if (n.type === 'pyqs') return false;
+  if ((n.type as string) === 'bundle' || (n.type as string) === 'subject' || (n.type as string) === 'combo') return false;
+  
+  const titleLower = n.title.toLowerCase();
+  
+  // Check if ID or Title indicates a Bundle / Subject Pack
+  if (n.id.startsWith('subject_pack_') || n.id.startsWith('bundle_')) return false;
+  if (titleLower.includes('bundle')) return false;
+  if (titleLower.includes('subject pack') || titleLower.includes('combo pack') || titleLower.includes('combo bundle')) return false;
+  
+  return true;
+};
+
 const getSubjectsForActiveFilter = (
   year: '1st Year' | '2nd Year' | '3rd Year' | '4th Year',
-  sem: number | null
+  sem: number | null,
+  allNotes: Note[] = []
 ): SubjectItem[] => {
+  let predefined: SubjectItem[] = [];
   if (year === '1st Year') {
-    return [
+    predefined = [
       { name: 'Engineering Physics', semester: 'Common' },
       { name: 'Engineering Chemistry', semester: 'Common' },
       { name: 'Engineering Mathematics-I', semester: 'Common' },
@@ -26,8 +43,7 @@ const getSubjectsForActiveFilter = (
       { name: 'Environment and Ecology', semester: 'Common' },
       { name: 'Soft Skills', semester: 'Common' }
     ];
-  }
-  if (year === '2nd Year') {
+  } else if (year === '2nd Year') {
     const sem3: SubjectItem[] = [
       { name: 'Data Structure', semester: 3 },
       { name: 'Computer Organization & Architecture', semester: 3 },
@@ -46,12 +62,10 @@ const getSubjectsForActiveFilter = (
       { name: 'UHV', semester: 'Common' },
       { name: 'Energy Science and Engineering', semester: 'Common' }
     ];
-
-    if (sem === 3) return [...sem3, ...common];
-    if (sem === 4) return [...sem4, ...common];
-    return [...sem3, ...sem4, ...common];
-  }
-  if (year === '3rd Year') {
+    if (sem === 3) predefined = [...sem3, ...common];
+    else if (sem === 4) predefined = [...sem4, ...common];
+    else predefined = [...sem3, ...sem4, ...common];
+  } else if (year === '3rd Year') {
     const sem5: SubjectItem[] = [
       { name: 'Database Management System', semester: 5 },
       { name: 'Web Technology', semester: 5 },
@@ -73,18 +87,31 @@ const getSubjectsForActiveFilter = (
       { name: 'Constitution of India (COI)', semester: 'Common' },
       { name: 'Essence of Indian Traditional Knowledge (EITK)', semester: 'Common' }
     ];
-
-    if (sem === 5) return [...sem5, ...common];
-    if (sem === 6) return [...sem6, ...common];
-    return [...sem5, ...sem6, ...common];
-  }
-  if (year === '4th Year') {
-    return [
+    if (sem === 5) predefined = [...sem5, ...common];
+    else if (sem === 6) predefined = [...sem6, ...common];
+    else predefined = [...sem5, ...sem6, ...common];
+  } else if (year === '4th Year') {
+    predefined = [
       { name: 'Semester 7 subjects', semester: 'Coming Soon', isComingSoon: true },
       { name: 'Semester 8 subjects', semester: 'Coming Soon', isComingSoon: true }
     ];
   }
-  return [];
+
+  // Dynamically include any uploaded custom subject from notes that is not in predefined list
+  if (allNotes && allNotes.length > 0) {
+    for (const n of allNotes) {
+      if (!n.subject) continue;
+      const alreadyExists = predefined.some(p => isSameSubject(p.name, n.subject));
+      if (!alreadyExists) {
+        predefined.push({
+          name: n.subject,
+          semester: n.semester || 'Common'
+        });
+      }
+    }
+  }
+
+  return predefined;
 };
 
 interface DashboardProps {
@@ -114,32 +141,111 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<'notes' | 'pyqs' | null>(null);
+  
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const hash = window.location.hash;
+    if (!hash.startsWith('#catalog')) return null;
+    const queryStr = hash.includes('?') ? hash.split('?')[1] : '';
+    const params = new URLSearchParams(queryStr);
+    const subj = params.get('subject');
+    return subj ? decodeURIComponent(subj) : null;
+  });
+
+  const [selectedCategory, setSelectedCategory] = useState<'notes' | 'pyqs' | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const hash = window.location.hash;
+    if (!hash.startsWith('#catalog')) return null;
+    const queryStr = hash.includes('?') ? hash.split('?')[1] : '';
+    const params = new URLSearchParams(queryStr);
+    const cat = params.get('cat');
+    return (cat === 'notes' || cat === 'pyqs') ? cat : null;
+  });
+
   const [navAnimDir, setNavAnimDir] = useState<'forward' | 'back'>('forward');
+
+  // URL Hash Synchronizer for seamless Browser & Native Back Button support
+  useEffect(() => {
+    const syncDashboardHashState = () => {
+      const hash = window.location.hash;
+      if (!hash.startsWith('#catalog')) return;
+
+      const queryStr = hash.includes('?') ? hash.split('?')[1] : '';
+      const params = new URLSearchParams(queryStr);
+      const subjParam = params.get('subject');
+      const catParam = params.get('cat') as 'notes' | 'pyqs' | null;
+
+      if (subjParam) {
+        setSelectedSubject(decodeURIComponent(subjParam));
+      } else if (hash === '#catalog') {
+        setSelectedSubject(null);
+      }
+
+      if (catParam === 'notes' || catParam === 'pyqs') {
+        setSelectedCategory(catParam);
+      } else if (!hash.includes('&cat=')) {
+        setSelectedCategory(null);
+      }
+    };
+
+    syncDashboardHashState();
+    window.addEventListener('popstate', syncDashboardHashState);
+    return () => {
+      window.removeEventListener('popstate', syncDashboardHashState);
+    };
+  }, []);
 
   const handleOpenSubject = (subjectName: string) => {
     setNavAnimDir('forward');
     setSelectedSubject(subjectName);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setSelectedCategory(null);
+    const targetHash = `#catalog?subject=${encodeURIComponent(subjectName)}`;
+    if (window.location.hash !== targetHash) {
+      window.history.pushState(null, '', targetHash);
+    }
+    window.scrollTo(0, 0);
   };
 
   const handleOpenCategory = (cat: 'notes' | 'pyqs') => {
     setNavAnimDir('forward');
     setSelectedCategory(cat);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (selectedSubject) {
+      const targetHash = `#catalog?subject=${encodeURIComponent(selectedSubject)}&cat=${cat}`;
+      if (window.location.hash !== targetHash) {
+        window.history.pushState(null, '', targetHash);
+      }
+    }
+    window.scrollTo(0, 0);
   };
 
   const handleBackCategory = () => {
     setNavAnimDir('back');
-    setSelectedCategory(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (window.history.length > 1 && window.location.hash.includes('&cat=')) {
+      window.history.back();
+    } else {
+      setSelectedCategory(null);
+      if (selectedSubject) {
+        const targetHash = `#catalog?subject=${encodeURIComponent(selectedSubject)}`;
+        if (window.location.hash !== targetHash) {
+          window.history.pushState(null, '', targetHash);
+        }
+      }
+    }
+    window.scrollTo(0, 0);
   };
 
   const handleBackSubject = () => {
     setNavAnimDir('back');
-    setSelectedSubject(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (window.history.length > 1 && window.location.hash.includes('?')) {
+      window.history.back();
+    } else {
+      setSelectedSubject(null);
+      setSelectedCategory(null);
+      if (window.location.hash !== '#catalog') {
+        window.history.pushState(null, '', '#catalog');
+      }
+    }
+    window.scrollTo(0, 0);
   };
   
   // Loading & payment states
@@ -148,40 +254,51 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [paying, setPaying] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
-  // Load notes, bundles, playlists, and user purchases in high-performance batch (0ms Instant Load)
-  const loadDashboardData = async () => {
-    // 0ms Synchronous local cache hydration for instant catalog display!
-    const cachedCatalog = localStorage.getItem('bw_cached_notes_catalog') ? JSON.parse(localStorage.getItem('bw_cached_notes_catalog')!) : [];
-    const cachedBundles = localStorage.getItem('bw_cached_bundles') ? JSON.parse(localStorage.getItem('bw_cached_bundles')!) : [];
-    const cachedPlaylists = localStorage.getItem('bw_cached_playlists') ? JSON.parse(localStorage.getItem('bw_cached_playlists')!) : [];
+  const isInitialLoad = useRef(true);
 
-    if (cachedCatalog.length > 0 || cachedBundles.length > 0 || cachedPlaylists.length > 0) {
-      setNotes(selectedYear ? cachedCatalog.filter((n: Note) => n.year === selectedYear) : cachedCatalog);
-      setBundles(selectedYear ? cachedBundles.filter((b: Bundle) => b.year === selectedYear) : cachedBundles);
-      setPlaylists(selectedYear ? cachedPlaylists.filter((p: Playlist) => p.year === selectedYear) : cachedPlaylists);
-      setLoading(false); // 0ms instant display!
-    } else {
-      if (notes.length === 0) setLoading(true);
+  // Load notes, bundles, playlists, and user purchases
+  const loadDashboardData = async () => {
+    // Initial 0ms synchronous local cache hydration for instant display across all subjects
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      const deletedIds = new Set(JSON.parse(localStorage.getItem('bw_deleted_notes') || '[]'));
+      const rawCached = localStorage.getItem('bw_cached_notes') ? JSON.parse(localStorage.getItem('bw_cached_notes')!) : [];
+      const cachedCatalog = rawCached.filter((n: any) => !deletedIds.has(n.id));
+      const cachedBundles = localStorage.getItem('bw_cached_bundles') ? JSON.parse(localStorage.getItem('bw_cached_bundles')!) : [];
+      const cachedPlaylists = localStorage.getItem('bw_cached_playlists') ? JSON.parse(localStorage.getItem('bw_cached_playlists')!) : [];
+
+      if (cachedCatalog.length > 0 || cachedBundles.length > 0 || cachedPlaylists.length > 0) {
+        setNotes(cachedCatalog);
+        setBundles(cachedBundles);
+        setPlaylists(cachedPlaylists);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
     }
 
     try {
+      // Fetch full catalog across all years so any subject opened via URL/Subject Pack loads 100% instantly
       const [notesRes, bundlesRes, playlistsRes] = await Promise.all([
-        dbService.getNotes(selectedYear),
-        dbService.getBundles(selectedYear),
-        dbService.getPlaylists(selectedYear)
+        dbService.getNotes(),
+        dbService.getBundles(),
+        dbService.getPlaylists()
       ]);
 
       const activeNotes = notesRes.data || [];
       const activeBundles = bundlesRes.data || [];
-      setNotes(activeNotes);
-      setBundles(activeBundles);
-      setPlaylists(playlistsRes.data || []);
+      const activePlaylists = playlistsRes.data || [];
+
+      // Avoid state mutations if content is unchanged to prevent layout flicker
+      setNotes(prev => JSON.stringify(prev) === JSON.stringify(activeNotes) ? prev : activeNotes);
+      setBundles(prev => JSON.stringify(prev) === JSON.stringify(activeBundles) ? prev : activeBundles);
+      setPlaylists(prev => JSON.stringify(prev) === JSON.stringify(activePlaylists) ? prev : activePlaylists);
 
       if (user) {
         const purchaseState = await dbService.getAllUserPurchasesState();
-        setPurchasedIds(purchaseState.purchasedNoteIds);
+        setPurchasedIds(prev => JSON.stringify(prev) === JSON.stringify(purchaseState.purchasedNoteIds) ? prev : purchaseState.purchasedNoteIds);
         setPurchaseDetailsMap(purchaseState.noteDetailsMap);
-        setPurchasedBundleIds(purchaseState.purchasedBundleIds);
+        setPurchasedBundleIds(prev => JSON.stringify(prev) === JSON.stringify(purchaseState.purchasedBundleIds) ? prev : purchaseState.purchasedBundleIds);
         setBundlePurchaseDetailsMap(purchaseState.bundleDetailsMap);
       } else {
         setPurchasedIds([]);
@@ -199,20 +316,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
   useEffect(() => {
     loadDashboardData();
 
-    const handleFocus = () => {
+    const handlePurchaseUpdate = () => {
       loadDashboardData();
     };
 
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('bw_purchases_updated', handleFocus);
-    const interval = setInterval(loadDashboardData, 10000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadDashboardData();
+      }
+    };
+
+    window.addEventListener('bw_purchases_updated', handlePurchaseUpdate);
+    window.addEventListener('focus', handlePurchaseUpdate);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('bw_purchases_updated', handleFocus);
-      clearInterval(interval);
+      window.removeEventListener('bw_purchases_updated', handlePurchaseUpdate);
+      window.removeEventListener('focus', handlePurchaseUpdate);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [selectedYear, user]);
+
+  // Automatically sync active year tab when opening a subject portal from URL hash or My Library
+  useEffect(() => {
+    if (selectedSubject && notes.length > 0) {
+      const match = notes.find(n => isSameSubject(n.subject, selectedSubject));
+      if (match && match.year && match.year !== selectedYear) {
+        setSelectedYear(match.year as any);
+      }
+    }
+  }, [selectedSubject, notes, selectedYear, setSelectedYear]);
 
   // Handle physical/browser back button for Dashboard Card View, Subject View, Search, & Semester Filter
   useEffect(() => {
@@ -282,39 +415,53 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Filter notes based on search, sem filter & subject filter
   const filteredNotes = notes.filter(n => {
-    const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch = !searchQuery || 
+                          n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           n.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           n.topics.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    if (selectedSubject) {
+      return matchesSearch && isSameSubject(n.subject, selectedSubject);
+    }
+
     const matchesSem = selectedSemester === null || n.semester === selectedSemester;
-    const matchesSubject = selectedSubject === null || n.subject.toLowerCase() === selectedSubject.toLowerCase();
-    return matchesSearch && matchesSem && matchesSubject;
+    const matchesYear = !selectedYear || !n.year || (() => {
+      const nY = n.year.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const fY = selectedYear.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return nY === fY || nY.includes(fY) || fY.includes(nY);
+    })();
+    return matchesSearch && matchesSem && matchesYear;
   });
 
-  const studyNotes = filteredNotes.filter(n => n.type !== 'pyqs');
+  const studyNotes = filteredNotes.filter(isTrueStudyNote);
   const pyqs = filteredNotes.filter(n => n.type === 'pyqs');
 
-  // Filter playlists based on semester & subject selection
-  const filteredPlaylists = playlists.filter(p => {
-    const matchesSem = selectedSemester === null || p.semester === selectedSemester;
-    if (selectedSubject) {
-      const subLower = selectedSubject.toLowerCase();
-      const pSubLower = p.subject.toLowerCase();
+  // Filter playlists based on semester, year & subject selection with smart deduplication
+  const filteredPlaylists = (() => {
+    const list = playlists.filter(p => {
+      // Drop dummy unsplash / pl_ seed playlists
+      if (p.id.startsWith('pl_') || (p.thumbnailUrl && p.thumbnailUrl.includes('unsplash'))) {
+        return false;
+      }
+      if (selectedSubject) {
+        return isSameSubject(p.subject, selectedSubject);
+      }
+      const matchesYear = !selectedYear || p.year === selectedYear || !p.year;
+      const matchesSem = selectedSemester === null || p.semester === selectedSemester;
+      return matchesYear && matchesSem;
+    });
 
-      const isMath4Match = (subLower.includes('math') && (subLower.includes('4') || subLower.includes('iv'))) &&
-                           (pSubLower.includes('math') && (pSubLower.includes('4') || pSubLower.includes('iv')));
-      const isCoaMatch = (subLower.includes('coa') || subLower.includes('computer organization')) &&
-                         (pSubLower.includes('coa') || pSubLower.includes('computer organization'));
-
-      const matchesSubject = pSubLower === subLower || 
-                             pSubLower.includes(subLower) || 
-                             subLower.includes(pSubLower) ||
-                             isMath4Match ||
-                             isCoaMatch;
-
-      return matchesSubject;
+    const unique: Playlist[] = [];
+    const seen = new Set<string>();
+    for (const item of list) {
+      const key = item.subject ? item.subject.toLowerCase().trim() : item.title.toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(item);
+      }
     }
-    return matchesSem;
-  });
+    return unique;
+  })();
 
   // Execute Razorpay Checkout Directly
   const executePurchase = async (targetId: string, price: number, type: 'notes' | 'bundle', title: string) => {
@@ -338,18 +485,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
           signature: response.razorpay_signature || ''
         };
 
-        let res;
         if (type === 'notes') {
-          res = await dbService.purchaseNotes(targetId, paymentDetails);
+          await dbService.purchaseNotes(targetId, paymentDetails);
         } else {
-          res = await dbService.purchaseBundle(targetId, paymentDetails);
+          await dbService.purchaseBundle(targetId, paymentDetails);
         }
 
-        if (res.success) {
-          setPaymentSuccess(true);
-          await loadDashboardData(); // Refresh all purchases
-        }
+        setPaymentSuccess(true);
         setPaying(false);
+        await loadDashboardData(); // Refresh all purchases
 
         setTimeout(() => {
           setPaymentTarget(null);
@@ -386,7 +530,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   return (
-    <div className="dashboard-container container fade-in">
+    <div className="dashboard-container container fade-in" style={{ minHeight: '75vh' }}>
       {/* Background blobs */}
       <div className="liquid-bg">
         <div className="blob blob-1"></div>
@@ -396,8 +540,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Premium Welcome Header Card (Only visible on main catalog page) */}
       {selectedSubject === null && (
-        <div className="glass-card welcome-dashboard-card" style={{
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.45) 100%)',
+        <div className="dark-card welcome-dashboard-card" data-dark-card="true" style={{
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%)',
           border: '1px solid rgba(255, 255, 255, 0.08)',
           borderRadius: '20px',
           padding: '24px',
@@ -598,10 +742,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
 
               {/* Subject Hero Header */}
-              <div className="glass-card" style={{
-                background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%)',
-                border: '1px solid var(--glass-border)',
+              <div className="glass-card subject-portal-header" style={{
                 borderRadius: '16px',
+                border: '1px solid var(--glass-border)',
                 padding: '16px 20px',
                 marginBottom: '16px',
                 textAlign: 'left',
@@ -653,25 +796,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </button>
               </div>
 
-              {/* Subject All-In-One Bundle Card (if any exists for this subject) */}
-              {bundles.filter(b => b.type === 'subject' && b.subject?.toLowerCase() === selectedSubject.toLowerCase()).map(bundle => {
-                const isPurchased = purchasedBundleIds.includes(bundle.id);
-                const normalSum = bundle.notesIds.reduce((sum, id) => {
-                  const note = notes.find(n => n.id === id);
-                  return sum + (note ? note.price : 99);
-                }, 0);
+              {/* Golden Subject All-In-One Combo Banner (Positioned Right Above 2 Square Cards ONLY if created by Admin) */}
+              {(() => {
+                const subjectPack = bundles.find(b => {
+                  const isSub = (b.type as string) === 'subject' || (!b.id.startsWith('bundle_') && !b.title.toLowerCase().includes('combo pack') && !b.title.toLowerCase().includes('semester combo'));
+                  return isSub && isSameSubject(b.subject || b.title, selectedSubject);
+                });
+
+                // Do not render anything above cards if admin hasn't explicitly created a subject bundle in Admin
+                if (!subjectPack) return null;
+
+                const isPurchased = purchasedBundleIds.includes(subjectPack.id) || 
+                                    purchasedIds.includes(subjectPack.id) ||
+                                    (notes.filter(n => isSameSubject(n.subject, selectedSubject)).length > 0 &&
+                                     notes.filter(n => isSameSubject(n.subject, selectedSubject)).every(n => purchasedIds.includes(n.id)));
 
                 return (
                   <div 
-                    key={bundle.id} 
-                    className="glass-card fade-in"
+                    key={subjectPack.id} 
+                    className="glass-card subject-pack-banner fade-in"
                     style={{
-                      background: 'radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.18) 0%, rgba(15, 23, 42, 0.96) 100%)',
-                      border: '1px solid rgba(96, 165, 250, 0.35)',
                       borderRadius: '18px',
                       padding: '16px 18px',
-                      marginBottom: '16px',
-                      boxShadow: '0 8px 25px rgba(0, 0, 0, 0.35)',
+                      marginBottom: '20px',
                       position: 'relative',
                       overflow: 'hidden'
                     }}
@@ -681,31 +828,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <span style={{
                         fontSize: '10px',
                         fontWeight: '800',
-                        color: '#60a5fa',
-                        background: 'rgba(59, 130, 246, 0.15)',
-                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        color: 'var(--color-yellow)',
+                        background: 'rgba(245, 158, 11, 0.15)',
+                        border: '1px solid rgba(245, 158, 11, 0.3)',
                         padding: '3px 10px',
                         borderRadius: '100px',
                         textTransform: 'uppercase',
-                        letterSpacing: '0.05em'
+                        letterSpacing: '0.05em',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
                       }}>
-                        {isPurchased ? 'Unlocked Subject Pack' : '⚡ Subject All-In-One Pack'}
+                        <Sparkles size={11} /> {isPurchased ? 'Unlocked Subject Pack' : '🔥 Subject All-In-One Pack'}
                       </span>
-                      <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                      <span className="pack-access-text" style={{ fontSize: '11px', fontWeight: '600' }}>
                         6 Months Access
                       </span>
                     </div>
 
                     {/* Row 2: Title */}
                     <h4 style={{ 
-                      fontSize: '15px', 
+                      fontSize: '16px', 
                       fontWeight: '800', 
-                      color: '#fff', 
                       margin: '0 0 12px 0', 
                       textAlign: 'left',
                       lineHeight: '1.3'
                     }}>
-                      {bundle.title}
+                      {subjectPack.title}
                     </h4>
 
                     {/* Row 3: Symmetrical Bottom Bar (Features on Left, Price & Action on Right) */}
@@ -719,12 +868,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     }}>
                       {/* Left: Compact Feature Badges */}
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={{
+                        <span className="feature-badge-pill" style={{
                           fontSize: '10px',
                           fontWeight: '600',
-                          color: '#e2e8f0',
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
                           padding: '3px 8px',
                           borderRadius: '6px',
                           display: 'inline-flex',
@@ -732,14 +878,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           gap: '4px'
                         }}>
                           <CheckCircle2 size={11} style={{ color: '#10b981' }} />
-                          All Units
+                          {studyNotes.length} Unit Notes
                         </span>
-                        <span style={{
+                        <span className="feature-badge-pill" style={{
                           fontSize: '10px',
                           fontWeight: '600',
-                          color: '#e2e8f0',
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
                           padding: '3px 8px',
                           borderRadius: '6px',
                           display: 'inline-flex',
@@ -747,7 +890,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           gap: '4px'
                         }}>
                           <CheckCircle2 size={11} style={{ color: '#10b981' }} />
-                          Solved PYQs
+                          {pyqs.length} Solved PYQs
                         </span>
                       </div>
 
@@ -756,10 +899,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         {!isPurchased && (
                           <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '10px', color: 'var(--color-muted)', textDecoration: 'line-through', lineHeight: 1 }}>
-                              ₹{bundle.originalPrice ?? (normalSum || bundle.price + 100)}
+                              ₹{subjectPack.originalPrice || 149}
                             </div>
-                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#60a5fa', lineHeight: 1.1, marginTop: '2px' }}>
-                              ₹{bundle.price}
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: 'var(--color-yellow)', lineHeight: 1.1, marginTop: '2px' }}>
+                              ₹{subjectPack.price}
                             </div>
                           </div>
                         )}
@@ -772,26 +915,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           ) : (
                             <button 
                               className="btn-primary" 
-                              onClick={() => handleBundlePurchaseTrigger(bundle.id, bundle.price)}
-                              style={{ fontSize: '12px', padding: '7px 14px', fontWeight: '700', borderRadius: '10px', boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)' }}
+                              onClick={() => handleBundlePurchaseTrigger(subjectPack.id, subjectPack.price)}
+                              style={{ fontSize: '12px', padding: '7px 14px', fontWeight: '700', borderRadius: '10px', boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#000000' }}
                             >
-                              Unlock Pack
+                              Unlock Subject Pack
                             </button>
                           )
                         ) : (
                           <button 
                             className="btn-primary" 
                             onClick={() => navigate('auth')}
-                            style={{ fontSize: '12px', padding: '7px 14px', fontWeight: '700', borderRadius: '10px' }}
+                            style={{ fontSize: '12px', padding: '7px 14px', fontWeight: '700', borderRadius: '10px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#000000' }}
                           >
-                            Unlock Pack
+                            Unlock Subject Pack
                           </button>
                         )}
                       </div>
                     </div>
                   </div>
                 );
-              })}
+              })()}
 
               {/* 2 Square Cards in 1 Row (Compact & Fits in Same Screen View) */}
               <div style={{ 
@@ -802,54 +945,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
               }}>
                 {/* Square Card 1: Study Notes */}
                 <div 
-                  className="glass-card fade-in"
+                  className="glass-card study-notes-card fade-in"
                   onClick={() => handleOpenCategory('notes')}
                   style={{
                     padding: '16px 12px',
                     borderRadius: '16px',
-                    border: '1px solid rgba(96, 165, 250, 0.25)',
-                    background: 'radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.18) 0%, rgba(10, 17, 43, 0.85) 100%)',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     textAlign: 'center',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.25)'
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}
                 >
-                  <div style={{
+                  <div className="icon-box-blue" style={{
                     width: '42px',
                     height: '42px',
                     borderRadius: '14px',
-                    background: 'rgba(96, 165, 250, 0.15)',
-                    border: '1px solid rgba(96, 165, 250, 0.3)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#60a5fa',
                     marginBottom: '8px'
                   }}>
                     <BookOpen size={20} />
                   </div>
 
-                  <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#fff', margin: '0 0 2px 0' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: '800', margin: '0 0 2px 0' }}>
                     Study Notes
                   </h4>
-                  <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                  <span className="card-sub-count" style={{ fontSize: '11px', fontWeight: '600' }}>
                     {studyNotes.length} Unit Files
                   </span>
 
-                  <span style={{
+                  <span className="action-pill-blue" style={{
                     marginTop: '8px',
                     fontSize: '10px',
                     fontWeight: '700',
-                    color: '#60a5fa',
-                    background: 'rgba(96, 165, 250, 0.15)',
                     padding: '3px 10px',
                     borderRadius: '100px',
-                    border: '1px solid rgba(96, 165, 250, 0.3)',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px'
@@ -860,54 +994,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                 {/* Square Card 2: Exam PYQs */}
                 <div 
-                  className="glass-card fade-in"
+                  className="glass-card pyqs-card fade-in"
                   onClick={() => handleOpenCategory('pyqs')}
                   style={{
                     padding: '16px 12px',
                     borderRadius: '16px',
-                    border: '1px solid rgba(167, 139, 250, 0.25)',
-                    background: 'radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.18) 0%, rgba(10, 17, 43, 0.85) 100%)',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     textAlign: 'center',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.25)'
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}
                 >
-                  <div style={{
+                  <div className="icon-box-purple" style={{
                     width: '42px',
                     height: '42px',
                     borderRadius: '14px',
-                    background: 'rgba(167, 139, 250, 0.15)',
-                    border: '1px solid rgba(167, 139, 250, 0.3)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#a78bfa',
                     marginBottom: '8px'
                   }}>
                     <FileText size={20} />
                   </div>
 
-                  <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#fff', margin: '0 0 2px 0' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: '800', margin: '0 0 2px 0' }}>
                     Exam PYQs
                   </h4>
-                  <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                  <span className="card-sub-count" style={{ fontSize: '11px', fontWeight: '600' }}>
                     {pyqs.length} Solved Papers
                   </span>
 
-                  <span style={{
+                  <span className="action-pill-purple" style={{
                     marginTop: '8px',
                     fontSize: '10px',
                     fontWeight: '700',
-                    color: '#a78bfa',
-                    background: 'rgba(167, 139, 250, 0.15)',
                     padding: '3px 10px',
                     borderRadius: '100px',
-                    border: '1px solid rgba(167, 139, 250, 0.3)',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px'
@@ -952,7 +1077,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 type="text" 
                 placeholder="Search by subject, notes topic, or syllabus..." 
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                maxLength={100}
+                onChange={(e) => setSearchQuery(sanitizeSearchQuery(e.target.value))}
               />
             </div>
 
@@ -1022,19 +1148,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
 
               {/* Matching Subject Cards */}
-              {getSubjectsForActiveFilter(selectedYear, selectedSemester)
+              {getSubjectsForActiveFilter(selectedYear, selectedSemester, notes)
                 .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase().trim())).length > 0 && (
                   <div style={{ marginBottom: '24px' }}>
                     <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700' }}>
                       Matching Subjects:
                     </div>
                     <div className="subject-cards-grid">
-                      {getSubjectsForActiveFilter(selectedYear, selectedSemester)
+                      {getSubjectsForActiveFilter(selectedYear, selectedSemester, notes)
                         .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase().trim()))
                         .map((subject, i) => {
-                          const subjectNotesCount = notes.filter(n => n.subject.toLowerCase() === subject.name.toLowerCase() && n.type !== 'pyqs').length;
-                          const subjectPyqsCount = notes.filter(n => n.subject.toLowerCase() === subject.name.toLowerCase() && n.type === 'pyqs').length;
-                          const subjectVideosCount = playlists.filter(p => p.subject.toLowerCase() === subject.name.toLowerCase()).length;
+                          const subjectNotesCount = notes.filter(n => isSameSubject(n.subject, subject.name) && isTrueStudyNote(n)).length;
+                          const subjectPyqsCount = notes.filter(n => isSameSubject(n.subject, subject.name) && n.type === 'pyqs').length;
+                          const subjectVideosCount = playlists.filter(p => isSameSubject(p.subject, subject.name)).length;
 
                           return (
                             <div 
@@ -1094,7 +1220,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </h3>
                   </div>
                   <div className="subject-cards-grid">
-                    {getSubjectsForActiveFilter(selectedYear, selectedSemester).map((subject, i) => {
+                    {getSubjectsForActiveFilter(selectedYear, selectedSemester, notes).map((subject, i) => {
                       if (subject.isComingSoon) {
                         return (
                           <div key={i} className="subject-card coming-soon">
@@ -1111,13 +1237,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       }
 
                       const subjectNotesCount = notes.filter(
-                        n => n.subject.toLowerCase() === subject.name.toLowerCase() && n.type !== 'pyqs'
+                        n => isSameSubject(n.subject, subject.name) && isTrueStudyNote(n)
                       ).length;
                       const subjectPyqsCount = notes.filter(
-                        n => n.subject.toLowerCase() === subject.name.toLowerCase() && n.type === 'pyqs'
+                        n => isSameSubject(n.subject, subject.name) && n.type === 'pyqs'
                       ).length;
                       const subjectVideosCount = playlists.filter(
-                        p => p.subject.toLowerCase() === subject.name.toLowerCase()
+                        p => isSameSubject(p.subject, subject.name)
                       ).length;
 
                       return (
@@ -1147,19 +1273,51 @@ export const Dashboard: React.FC<DashboardProps> = ({
               )}
 
               {/* Semester Combo Bundles Section (Below Subject Cards Grid) */}
-              {bundles.filter(b => b.year === selectedYear && (b.type === 'semester' || !b.type) && (selectedSemester === null || b.semester === selectedSemester)).length > 0 && (
-                <div className="bundles-container" style={{ marginTop: '30px' }}>
-                  <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '4px' }} className="yellow-accent">
-                    Semester Combo Packs (6 Months Validity)
-                  </h3>
-                  <p style={{ color: 'var(--color-muted)', fontSize: '13px', marginBottom: '20px' }}>
-                    Save more by unlocking all study notes for your active semester at a discounted combo rate.
-                  </p>
+              {(() => {
+                const getBundleSemester = (b: Bundle): number => {
+                  const title = b.title.toLowerCase();
+                  if (title.includes('sem 3') || title.includes('sem-3') || title.includes('semester 3') || title.includes('sem3') || title.includes('3 semester') || title.includes('cobo 3') || title.includes('combo 3')) return 3;
+                  if (title.includes('sem 4') || title.includes('sem-4') || title.includes('semester 4') || title.includes('sem4') || title.includes('4 semester') || title.includes('cobo 4') || title.includes('combo 4')) return 4;
+                  if (title.includes('sem 1') || title.includes('sem-1') || title.includes('semester 1') || title.includes('sem1') || title.includes('1 semester')) return 1;
+                  if (title.includes('sem 2') || title.includes('sem-2') || title.includes('semester 2') || title.includes('sem2') || title.includes('2 semester')) return 2;
+                  if (b.semester && Number(b.semester) > 0) return Number(b.semester);
+                  return 3;
+                };
+
+                const getBundleYear = (b: Bundle): string => {
+                  const sem = getBundleSemester(b);
+                  if (sem === 1 || sem === 2) return '1st Year';
+                  if (sem === 3 || sem === 4) return '2nd Year';
+                  if (sem === 5 || sem === 6) return '3rd Year';
+                  if (sem === 7 || sem === 8) return '4th Year';
+                  if (b.year) return b.year;
+                  return '2nd Year';
+                };
+
+                const semesterComboBundles = bundles.filter(b => {
+                  if (deriveBundleType(b) === 'subject') return false;
                   
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '40px' }}>
-                    {bundles
-                      .filter(b => b.year === selectedYear && (b.type === 'semester' || !b.type) && (selectedSemester === null || b.semester === selectedSemester))
-                      .map(bundle => {
+                  const bYear = getBundleYear(b);
+                  const bSem = getBundleSemester(b);
+
+                  const matchesYear = !selectedYear || bYear === selectedYear;
+                  const matchesSem = selectedSemester === null || Number(bSem) === Number(selectedSemester);
+                  return matchesYear && matchesSem;
+                });
+
+                if (semesterComboBundles.length === 0) return null;
+
+                return (
+                  <div className="bundles-container" style={{ marginTop: '30px' }}>
+                    <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '4px' }} className="yellow-accent">
+                      Semester Combo Packs (6 Months Validity)
+                    </h3>
+                    <p style={{ color: 'var(--color-muted)', fontSize: '13px', marginBottom: '20px' }}>
+                      Save more by unlocking all study notes for your active semester at a discounted combo rate.
+                    </p>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '40px' }}>
+                      {semesterComboBundles.map(bundle => {
                         const isPurchased = purchasedBundleIds.includes(bundle.id);
                         const expiry = bundlePurchaseDetailsMap[bundle.id];
 
@@ -1169,14 +1327,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         }, 0);
 
                         const getBundleSubjectsList = (b: Bundle): string[] => {
-                          // 1. Return subjects selected by admin in Admin Panel
-                          if (b.subjects && Array.isArray(b.subjects) && b.subjects.length > 0) {
-                            return b.subjects.filter(Boolean);
+                          const decoded = decodeBundleFromDb(b);
+                          if (decoded.subjects && Array.isArray(decoded.subjects) && decoded.subjects.filter(Boolean).length > 0) {
+                            return decoded.subjects.filter(Boolean);
                           }
 
-                          // 2. Return all standard subjects for the semester
                           return getSubjectsForActiveFilter(b.year, b.semester)
-                            .filter(s => !s.isComingSoon)
                             .map(s => s.name);
                         };
 
@@ -1185,13 +1341,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         return (
                           <div 
                             key={bundle.id} 
-                            className="glass-card fade-in"
+                            className="glass-card semester-bundle-card fade-in"
                             style={{
-                              background: 'radial-gradient(circle at 0% 0%, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%)',
-                              border: '1px solid rgba(245, 158, 11, 0.3)',
                               borderRadius: '20px',
                               padding: '20px 24px',
-                              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.35)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'space-between',
@@ -1202,26 +1355,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             }}
                           >
                             {/* Ambient Background Glow */}
-                            <div style={{
+                            <div className="bundle-ambient-glow" style={{
                               position: 'absolute',
                               top: '-30px',
                               right: '-30px',
                               width: '140px',
                               height: '140px',
                               borderRadius: '50%',
-                              background: 'radial-gradient(circle, rgba(245, 158, 11, 0.2) 0%, rgba(0, 0, 0, 0) 70%)',
                               pointerEvents: 'none'
                             }} />
 
                             {/* Left Column: Badge, Title & Compact Subject Tags */}
                             <div style={{ flex: 1, minWidth: '240px', textAlign: 'left' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                <span style={{
+                                <span className="semester-bundle-badge" style={{
                                   fontSize: '10px',
                                   fontWeight: '800',
-                                  color: '#f59e0b',
-                                  background: 'rgba(245, 158, 11, 0.15)',
-                                  border: '1px solid rgba(245, 158, 11, 0.3)',
                                   padding: '3px 10px',
                                   borderRadius: '100px',
                                   textTransform: 'uppercase',
@@ -1229,12 +1378,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 }}>
                                   {isPurchased ? 'Unlocked Pack' : '🔥 Semester Discount Combo'}
                                 </span>
-                                <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                                <span className="pack-access-text" style={{ fontSize: '11px', fontWeight: '600' }}>
                                   6 Months Access
                                 </span>
                               </div>
 
-                              <h4 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: '0 0 10px 0' }}>
+                              <h4 className="semester-bundle-title" style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 10px 0' }}>
                                 {bundle.title}
                               </h4>
 
@@ -1243,6 +1392,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 {includedSubjectsList.map((subjName, idx) => (
                                   <span 
                                     key={idx} 
+                                    className="bundle-subject-chip"
                                     onClick={() => {
                                       setSelectedSubject(subjName);
                                       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1250,9 +1400,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     style={{
                                       fontSize: '11px',
                                       fontWeight: '600',
-                                      color: '#e2e8f0',
-                                      background: 'rgba(255, 255, 255, 0.05)',
-                                      border: '1px solid rgba(255, 255, 255, 0.1)',
                                       padding: '3px 10px',
                                       borderRadius: '8px',
                                       cursor: 'pointer',
@@ -1290,7 +1437,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     </button>
                                     {expiry && (
                                       <div style={{ fontSize: '10px', color: 'var(--color-yellow)', fontWeight: '700', marginTop: '4px' }}>
-                                        {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? (expiry.daysLeft > 365 ? 'Lifetime' : `${expiry.daysLeft} Days Left`) : '6 Months'}
+                                        {expiry.daysLeft !== null && expiry.daysLeft !== undefined ? `${expiry.daysLeft} Days Left` : '180 Days Left'}
                                       </div>
                                     )}
                                   </div>
@@ -1316,9 +1463,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           </div>
                         );
                       })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </>
           )}
         </>

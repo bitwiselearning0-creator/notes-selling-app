@@ -41,7 +41,7 @@ The project is architected as a hybrid single-page application (SPA) running in 
 *   **Bundler & Dev Server**: Vite 8.x
 *   **Styling System**: Custom Vanilla CSS (Glassmorphism design, neon glows, responsive cards)
 *   **Icons**: Lucide React
-*   **Deployment**: Hosted on Render (`bitwise-learning.onrender.com`)
+*   **Deployment**: Hosted on Bluehost VPS (`https://bitwiselearning.online` / `https://www.bitwiselearning.online`) with Nginx Web Server & Let's Encrypt SSL.
 
 ### 📱 Mobile App (Android) Tech Stack
 *   **Container Runtime**: Capacitor 8.x (Capacitor Android Core + CLI)
