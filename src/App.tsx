@@ -19,7 +19,7 @@ import { App as CapApp } from '@capacitor/app';
 function App() {
   const [currentPage, setCurrentPage] = useState<string>('landing');
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  
+
   // Dashboard states shared between Landing and Catalog
   const [selectedYear, setSelectedYear] = useState<'1st Year' | '2nd Year' | '3rd Year' | '4th Year'>('1st Year');
 
@@ -34,13 +34,28 @@ function App() {
   const [showExitModal, setShowExitModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const childBackHandlerRef = useRef<(() => boolean) | null>(null);
-
   const historyStackRef = useRef<string[]>([]);
 
-  // Ref that always holds the LATEST back navigation handler (avoids stale closures)
+  // Refs so goBack and hashRouting always see fresh state (no stale closures)
   const backHandlerRef = useRef<() => boolean>(() => false);
+  const currentPageRef = useRef(currentPage);
+  const currentUserRef = useRef(currentUser);
+  const readingNoteRef = useRef(readingNote);
+  const isAppModeRef = useRef(isAppMode);
+  const showExitModalRef = useRef(showExitModal);
+  const showResetModalRef = useRef(showResetModal);
 
-  // Network offline listener for App Mode
+  // Keep all refs in sync every render
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+    currentUserRef.current = currentUser;
+    readingNoteRef.current = readingNote;
+    isAppModeRef.current = isAppMode;
+    showExitModalRef.current = showExitModal;
+    showResetModalRef.current = showResetModal;
+  });
+
+  // Network offline listener
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -52,22 +67,98 @@ function App() {
     };
   }, []);
 
-  // Centralized Stack-Based Back Navigation Handler
+  // ─── Hash Routing (uses refs → never stale) ───────────────────────────────
+  const handleHashRouting = () => {
+    const activeHash = window.location.hash.split('?')[0];
+    const activeUser = currentUserRef.current || dbService.getCurrentUser();
+    const isApp = isAppModeRef.current;
+
+    // Close PDF viewer if hash no longer points to viewer
+    if (activeHash !== '#viewer' && readingNoteRef.current !== null) {
+      setReadingNote(null);
+    }
+
+    // Strict protection for App Mode: redirect to login if not authenticated
+    if (isApp && !activeUser) {
+      if (activeHash !== '#login' && activeHash !== '#admin-login' && activeHash !== '#admin') {
+        window.location.hash = '#login';
+        return;
+      }
+    }
+
+    if (activeHash === '#reset-password' || window.location.href.includes('type=recovery') || window.location.hash.includes('access_token')) {
+      setShowResetModal(true);
+    }
+
+    if (activeHash === '#admin') {
+      if (activeUser?.role === 'admin') {
+        setCurrentPage('admin');
+      } else {
+        window.location.hash = '#admin-login';
+      }
+    } else if (activeHash === '#admin-login') {
+      if (activeUser?.role === 'admin') {
+        window.location.hash = '#admin';
+      } else {
+        setCurrentPage('admin-login');
+      }
+    } else if (activeHash === '#login') {
+      if (activeUser) {
+        setCurrentPage('dashboard');
+        window.location.hash = '#catalog';
+      } else {
+        setCurrentPage('auth');
+      }
+    } else if (activeHash === '#catalog') {
+      setCurrentPage('dashboard');
+    } else if (activeHash === '#library') {
+      if (activeUser) {
+        setCurrentPage('library');
+      } else {
+        setCurrentPage('auth');
+        window.location.hash = '#login';
+      }
+    } else if (activeHash === '#profile') {
+      if (activeUser) {
+        setCurrentPage('profile');
+      } else {
+        setCurrentPage('auth');
+        window.location.hash = '#login';
+      }
+    } else if (activeHash === '#policy-terms') {
+      setCurrentPage('policy-terms');
+    } else if (activeHash === '#policy-refund') {
+      setCurrentPage('policy-refund');
+    } else if (activeHash === '#policy-privacy') {
+      setCurrentPage('policy-privacy');
+    } else if (activeHash === '#policy-contact') {
+      setCurrentPage('policy-contact');
+    } else if (activeHash === '#home' || activeHash === '') {
+      if (isApp) {
+        setCurrentPage('dashboard');
+        window.location.hash = '#catalog';
+      } else {
+        setCurrentPage('landing');
+      }
+    }
+  };
+
+  // ─── Centralized Stack-Based Back Navigation Handler ──────────────────────
   const goBack = (): boolean => {
     // 1. If Exit Modal is currently open, close modal
-    if (showExitModal) {
+    if (showExitModalRef.current) {
       setShowExitModal(false);
       return true;
     }
 
     // 2. If Reset Password Modal is open, close modal
-    if (showResetModal) {
+    if (showResetModalRef.current) {
       setShowResetModal(false);
       return true;
     }
 
     // 3. If PDF viewer is open, exit reader mode
-    if (currentPage === 'viewer' || readingNote !== null) {
+    if (currentPageRef.current === 'viewer' || readingNoteRef.current !== null) {
       setReadingNote(null);
       if (window.history.length > 1) {
         window.history.back();
@@ -75,7 +166,7 @@ function App() {
       return true;
     }
 
-    // 4. Check child component back handler
+    // 4. Check child component back handler (e.g. Dashboard sub-navigation)
     if (childBackHandlerRef.current && childBackHandlerRef.current()) {
       return true;
     }
@@ -83,16 +174,19 @@ function App() {
     // 5. Native Browser & Android History Back
     const fullHash = window.location.hash;
     const baseHash = fullHash.split('?')[0];
-    const isRootLocation = baseHash === '' || baseHash === '#home' || ((baseHash === '#catalog' || baseHash === '#library') && !fullHash.includes('?'));
+    const isRootLocation =
+      baseHash === '' ||
+      baseHash === '#home' ||
+      ((baseHash === '#catalog' || baseHash === '#library') && !fullHash.includes('?'));
 
     if (window.history.length > 1 && !isRootLocation) {
       window.history.back();
       return true;
     }
 
-    // 6. Root location handling in App Mode vs Web Mode
+    // 6. Root location handling
     if (isRootLocation) {
-      if (isAppMode) {
+      if (isAppModeRef.current) {
         setShowExitModal(true);
       } else if (window.history.length > 1) {
         window.history.back();
@@ -100,7 +194,7 @@ function App() {
       return true;
     }
 
-    // 7. Fallback for deep-links without prior history stack
+    // 7. Fallback deep-link unwinding for #library
     if (fullHash.startsWith('#library')) {
       if (fullHash.includes('&subject=')) {
         const parentHash = fullHash.split('&subject=')[0];
@@ -114,11 +208,12 @@ function App() {
         window.history.pushState(null, '', '#library');
         window.dispatchEvent(new HashChangeEvent('hashchange'));
       } else {
-        if (isAppMode) setShowExitModal(true);
+        if (isAppModeRef.current) setShowExitModal(true);
       }
       return true;
     }
 
+    // 8. Fallback deep-link unwinding for #catalog
     if (fullHash.startsWith('#catalog')) {
       if (fullHash.includes('&cat=')) {
         const parentHash = fullHash.split('&cat=')[0];
@@ -136,37 +231,42 @@ function App() {
         window.history.pushState(null, '', '#catalog');
         window.dispatchEvent(new HashChangeEvent('hashchange'));
       } else {
-        if (isAppMode) setShowExitModal(true);
+        if (isAppModeRef.current) setShowExitModal(true);
       }
       return true;
     }
 
-    if (isAppMode) {
+    if (isAppModeRef.current) {
       setShowExitModal(true);
     }
     return true;
   };
 
-  // Keep backHandlerRef always in sync with latest React state & goBack function
+  // Keep backHandlerRef always in sync
   useEffect(() => {
     backHandlerRef.current = goBack;
   });
 
-  // Global Browser PopState Listener (intercepts Browser Back Button & Android System Gestures)
+  // ─── ONE popstate listener — routes through goBack ref ───────────────────
+  // NOTE: hashchange is separate and ONLY used for routing (not back nav).
+  // This eliminates the double-fire bug where both listeners fired on back.
   useEffect(() => {
     const handlePopState = () => {
-      if (backHandlerRef.current) {
-        backHandlerRef.current();
-      }
+      backHandlerRef.current();
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Hardware back button — registered ONCE, calls through ref (never stale)
+  // ─── hashchange → routing ONLY (no back nav overlap) ─────────────────────
+  useEffect(() => {
+    window.addEventListener('hashchange', handleHashRouting);
+    return () => window.removeEventListener('hashchange', handleHashRouting);
+  }, []); // handleHashRouting uses refs, no stale closure risk
+
+  // ─── Hardware back button (Capacitor / Android) ───────────────────────────
   useEffect(() => {
     let cancelled = false;
-
     const setup = async () => {
       try {
         const listener = await CapApp.addListener('backButton', () => {
@@ -176,85 +276,54 @@ function App() {
             setShowExitModal(true);
           }
         });
-
-        // Store cleanup
-        if (!cancelled) {
-          return listener;
-        } else {
-          listener.remove();
-        }
-      } catch (_e) {
-        // Not in Capacitor environment
-      }
+        if (!cancelled) return listener;
+        listener.remove();
+      } catch (_e) {}
       return null;
     };
-
     let listenerHandle: any = null;
     setup().then(h => { listenerHandle = h; });
-
     return () => {
       cancelled = true;
       if (listenerHandle && typeof listenerHandle.remove === 'function') {
         listenerHandle.remove();
       }
     };
-  }, []); // Empty deps — registered exactly ONCE
+  }, []);
 
-  // Periodic Single Active Device Session Check (Every 5 seconds)
+  // ─── Session check & initial mount ───────────────────────────────────────
   useEffect(() => {
-    if (!currentUser?.id) return;
-
-    let isMounted = true;
-
-    const checkDeviceSession = async () => {
-      if (!currentUser?.id) return;
-      const res = await dbService.verifyDeviceSession(currentUser.id);
-      if (isMounted && res.valid === false) {
-        alert("🔒 LOGOUT NOTICE: Your account was logged in on another device. Only 1 active device is permitted per account.");
-        await dbService.signOut();
-        setCurrentUser(null);
-        setReadingNote(null);
-        setCurrentPage('auth');
-        window.location.hash = '#login';
-      }
-    };
-
-    checkDeviceSession();
-    const interval = setInterval(checkDeviceSession, 5000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [currentUser?.id]);
-
-  // Check user session on mount & handle hash routing (e.g. #admin)
-  useEffect(() => {
-    // 0. Cache buster for App Mode to clear stale cached state from yesterday
+    // Cache buster
     const BUILD_VERSION = 'v2_2026_08_07';
     if (localStorage.getItem('bw_build_ver') !== BUILD_VERSION) {
       localStorage.setItem('bw_build_ver', BUILD_VERSION);
       localStorage.removeItem('bw_mock_bundles');
     }
 
-    // 1. Platform detection check (URL parameter/hash or native platform)
+    // Platform detection
     const searchParams = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
-    const isNativeCapacitor = !!(window as any).Capacitor && typeof (window as any).Capacitor.isNativePlatform === 'function' && (window as any).Capacitor.isNativePlatform();
+    const isNativeCapacitor =
+      !!(window as any).Capacitor &&
+      typeof (window as any).Capacitor.isNativePlatform === 'function' &&
+      (window as any).Capacitor.isNativePlatform();
     const hasAppParam = searchParams.get('platform') === 'app' || hash.includes('platform=app');
     const isApp = isNativeCapacitor || hasAppParam;
     setIsAppMode(isApp);
+    isAppModeRef.current = isApp;
 
-    // 2. Session check & profile re-hydration
+    // Session re-hydration
     const syncCurrentSession = async () => {
       const activeUser = dbService.getCurrentUser();
       if (activeUser) {
         setCurrentUser(activeUser);
+        currentUserRef.current = activeUser;
         const check = await dbService.verifyDeviceSession(activeUser.id);
         if (check.valid === false) {
-          alert("🔒 LOGOUT NOTICE: Your account was logged in on another device. Only 1 active device is allowed per account.");
+          alert('🔒 LOGOUT NOTICE: Your account was logged in on another device. Only 1 active device is allowed per account.');
           await dbService.signOut();
           setCurrentUser(null);
+          currentUserRef.current = null;
           setCurrentPage('auth');
           window.location.hash = '#login';
           return;
@@ -266,145 +335,49 @@ function App() {
     };
     syncCurrentSession();
 
-    // 3. Hash routing check for admin/student access & browser back/forward history
-    const handleHashRouting = () => {
-      const activeHash = window.location.hash.split('?')[0];
-      const activeUser = currentUser || dbService.getCurrentUser();
-
-      // If browser back/forward was clicked while PDF viewer was open
-      if (activeHash !== '#viewer' && readingNote !== null) {
-        setReadingNote(null);
-      }
-
-      // Strict protection for App Mode: redirect to login if not authenticated
-      if (isApp && !activeUser) {
-        if (activeHash !== '#login' && activeHash !== '#admin-login' && activeHash !== '#admin') {
-          window.location.hash = '#login';
-          return;
-        }
-      }
-
-      if (activeHash === '#reset-password' || window.location.href.includes('type=recovery') || window.location.hash.includes('access_token')) {
-        setShowResetModal(true);
-      }
-
-      if (activeHash === '#admin') {
-        if (activeUser?.role === 'admin') {
-          setCurrentPage('admin');
-        } else {
-          window.location.hash = '#admin-login';
-        }
-      } else if (activeHash === '#admin-login') {
-        if (activeUser?.role === 'admin') {
-          window.location.hash = '#admin';
-        } else {
-          setCurrentPage('admin-login');
-        }
-      } else if (activeHash === '#login') {
-        if (activeUser) {
-          setCurrentPage('dashboard');
-          window.location.hash = '#catalog';
-        } else {
-          setCurrentPage('auth');
-        }
-      } else if (activeHash === '#catalog') {
-        setCurrentPage('dashboard');
-      } else if (activeHash === '#library') {
-        if (activeUser) {
-          setCurrentPage('library');
-        } else {
-          setCurrentPage('auth');
-          window.location.hash = '#login';
-        }
-      } else if (activeHash === '#profile') {
-        if (activeUser) {
-          setCurrentPage('profile');
-        } else {
-          setCurrentPage('auth');
-          window.location.hash = '#login';
-        }
-      } else if (activeHash === '#policy-terms') {
-        setCurrentPage('policy-terms');
-      } else if (activeHash === '#policy-refund') {
-        setCurrentPage('policy-refund');
-      } else if (activeHash === '#policy-privacy') {
-        setCurrentPage('policy-privacy');
-      } else if (activeHash === '#policy-contact') {
-        setCurrentPage('policy-contact');
-      } else if (activeHash === '#home' || activeHash === '') {
-        if (isApp) {
-          setCurrentPage('dashboard');
-          window.location.hash = '#catalog';
-        } else {
-          setCurrentPage('landing');
-        }
-      }
-    };
-
-    // Global right-click blocker
-    const preventRightClick = (e: MouseEvent) => {
-      e.preventDefault();
-    };
-
-    // Global key intercepts
+    // Security: only block F12 / dev-tools shortcuts silently (no alert spam)
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent Copy / Cut / Source View shortcuts
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C' || e.key === 'x' || e.key === 'X' || e.key === 'u' || e.key === 'U')) {
-        e.preventDefault();
-        alert('Copying content is disabled.');
-      }
-
-      // Prevent Print
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
-        e.preventDefault();
-        alert('Printing content is disabled.');
-      }
-
-      // Prevent Inspect Console
-      if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'i' || e.key === 'I' || e.key === 'j' || e.key === 'J'))) {
+      // Silently block F12 and Ctrl+Shift+I/J (DevTools)
+      if (
+        e.key === 'F12' ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'i' || e.key === 'I' || e.key === 'j' || e.key === 'J'))
+      ) {
         e.preventDefault();
       }
 
-      // Detect screenshot shortcuts and blackout screen instantly
+      // Screenshot blackout
       const isScreenshotKey =
         e.key === 'PrintScreen' ||
-        (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S')) || // Win+Shift+S
-        (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) || // Mac capture
+        (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S')) ||
+        (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) ||
         e.key === 'Snapshot' ||
         e.key === 'MediaRecord';
 
       if (isScreenshotKey) {
         setBlackout(true);
         e.preventDefault();
-        alert('Screenshots are disabled for security reasons.');
-        setTimeout(() => {
-          setBlackout(false);
-        }, 3000);
+        setTimeout(() => setBlackout(false), 3000);
       }
     };
 
-    // Global select start block
-    const preventSelection = (e: Event) => {
+    // Right-click blocker
+    const preventRightClick = (e: MouseEvent) => {
       e.preventDefault();
     };
 
+    // Initial hash routing on mount
     handleHashRouting();
-    window.addEventListener('hashchange', handleHashRouting);
-    window.addEventListener('popstate', handleHashRouting);
-    window.addEventListener('contextmenu', preventRightClick);
+
     window.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('selectstart', preventSelection);
+    window.addEventListener('contextmenu', preventRightClick);
 
     return () => {
-      window.removeEventListener('hashchange', handleHashRouting);
-      window.removeEventListener('popstate', handleHashRouting);
-      window.removeEventListener('contextmenu', preventRightClick);
       window.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('selectstart', preventSelection);
+      window.removeEventListener('contextmenu', preventRightClick);
     };
   }, []);
 
-  // Periodic & Event-driven Single Device Concurrent Session Enforcement
+  // ─── Single Device Session Enforcement (ONE interval, not two) ────────────
   useEffect(() => {
     if (!currentUser) return;
 
@@ -412,7 +385,6 @@ function App() {
 
     const checkSingleDeviceSession = async () => {
       if (isTerminated) return;
-      // Skip network check if device is offline to keep UI blazing fast & 0ms responsive
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
       const { valid } = await dbService.verifyDeviceSession(currentUser.id);
@@ -420,6 +392,7 @@ function App() {
         isTerminated = true;
         await dbService.signOut();
         setCurrentUser(null);
+        currentUserRef.current = null;
         setCurrentPage('auth');
         window.location.hash = '#login';
         alert('⚠️ Session Terminated: Your account was logged in on another device. Only 1 active device is allowed at a time.');
@@ -427,71 +400,11 @@ function App() {
     };
 
     checkSingleDeviceSession();
-    const interval = setInterval(checkSingleDeviceSession, 12000);
+    const interval = setInterval(checkSingleDeviceSession, 15000);
     return () => clearInterval(interval);
   }, [currentUser]);
 
-  const [tabSlideDir, setTabSlideDir] = useState<'right' | 'left'>('right');
-
-  const getTabRank = (page: string) => {
-    if (page === 'dashboard' || page === 'landing') return 0;
-    if (page === 'library') return 1;
-    if (page === 'profile' || page === 'auth') return 2;
-    if (page === 'admin') return 3;
-    return 0;
-  };
-
-  // Custom navigate wrapper to sync hash and views synchronously with horizontal slide direction & history stack
-  const navigate = (page: string, isBackNav: boolean = false) => {
-    if (page === currentPage && !isBackNav) return;
-
-    if (!isBackNav) {
-      const stack = historyStackRef.current;
-      if (stack.length === 0 || stack[stack.length - 1] !== currentPage) {
-        stack.push(currentPage);
-      }
-      if (stack.length > 50) {
-        stack.shift();
-      }
-    }
-
-    const currentRank = getTabRank(currentPage);
-    const nextRank = getTabRank(page);
-    if (isBackNav || nextRank < currentRank) {
-      setTabSlideDir('left');
-    } else {
-      setTabSlideDir('right');
-    }
-    setPreviousPage(currentPage);
-    setCurrentPage(page);
-
-    const targetHash = page === 'landing' ? '#home'
-      : page === 'dashboard' ? '#catalog'
-      : page === 'auth' ? '#login'
-      : page === 'admin-login' ? '#admin-login'
-      : page === 'admin' ? '#admin'
-      : page === 'library' ? '#library'
-      : page === 'profile' ? '#profile'
-      : `#${page}`;
-
-    if (page === 'dashboard' && window.location.hash.startsWith('#catalog?')) {
-      // Preserve subject query parameters in location hash when navigating to subject portal
-    } else if (window.location.hash !== targetHash) {
-      window.history.pushState({ page }, '', targetHash);
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleLoginSuccess = (user: UserProfile) => {
-    setCurrentUser(user);
-    if (user.role === 'admin') {
-      window.location.hash = '#admin';
-    } else {
-      window.location.hash = '#catalog';
-    }
-  };
-
-  // Auto-sync active purchases for currentUser in background every 10 seconds & on tab focus
+  // ─── Auto-sync purchases ──────────────────────────────────────────────────
   useEffect(() => {
     if (!currentUser) return;
 
@@ -513,30 +426,87 @@ function App() {
     };
   }, [currentUser]);
 
+  const [tabSlideDir, setTabSlideDir] = useState<'right' | 'left'>('right');
+
+  const getTabRank = (page: string) => {
+    if (page === 'dashboard' || page === 'landing') return 0;
+    if (page === 'library') return 1;
+    if (page === 'profile' || page === 'auth') return 2;
+    if (page === 'admin') return 3;
+    return 0;
+  };
+
+  const navigate = (page: string, isBackNav: boolean = false) => {
+    if (page === currentPageRef.current && !isBackNav) return;
+
+    if (!isBackNav) {
+      const stack = historyStackRef.current;
+      if (stack.length === 0 || stack[stack.length - 1] !== currentPageRef.current) {
+        stack.push(currentPageRef.current);
+      }
+      if (stack.length > 50) stack.shift();
+    }
+
+    const currentRank = getTabRank(currentPageRef.current);
+    const nextRank = getTabRank(page);
+    if (isBackNav || nextRank < currentRank) {
+      setTabSlideDir('left');
+    } else {
+      setTabSlideDir('right');
+    }
+    setPreviousPage(currentPageRef.current);
+    setCurrentPage(page);
+
+    const targetHash =
+      page === 'landing' ? '#home'
+      : page === 'dashboard' ? '#catalog'
+      : page === 'auth' ? '#login'
+      : page === 'admin-login' ? '#admin-login'
+      : page === 'admin' ? '#admin'
+      : page === 'library' ? '#library'
+      : page === 'profile' ? '#profile'
+      : `#${page}`;
+
+    if (page === 'dashboard' && window.location.hash.startsWith('#catalog?')) {
+      // Preserve subject query params when navigating to subject portal
+    } else if (window.location.hash !== targetHash) {
+      window.history.pushState({ page }, '', targetHash);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleLoginSuccess = (user: UserProfile) => {
+    setCurrentUser(user);
+    currentUserRef.current = user;
+    if (user.role === 'admin') {
+      window.location.hash = '#admin';
+    } else {
+      window.location.hash = '#catalog';
+    }
+  };
+
   const handleLogout = async () => {
     await dbService.signOut();
     setCurrentUser(null);
+    currentUserRef.current = null;
     setCurrentPage('dashboard');
     window.location.hash = '#catalog';
   };
 
-  // Navigates to PDF viewer securely checking if the notes are purchased
   const handleReadNote = async (note: Note) => {
-    setPreviousPage(currentPage);
-    
-    // Check local device storage first for 0ms instant loading with ZERO server pings
+    setPreviousPage(currentPageRef.current);
+
     const isAccessGranted = await dbService.checkNoteAccess(note.id);
     const unlocked = isAccessGranted || note.price === 0;
 
     setReadingNote(note);
     setReadingNoteUnlocked(unlocked);
     setCurrentPage('viewer');
-    
+
     if (window.location.hash !== '#viewer') {
       window.history.pushState({ viewer: true }, '', '#viewer');
     }
 
-    // Fetch full note payload (with previewUrl) in background & auto-cache locally for permanent 0ms offline reading
     dbService.getNoteById(note.id).then(({ data: fullNote }) => {
       if (fullNote && fullNote.previewUrl) {
         setReadingNote(fullNote);
@@ -547,20 +517,17 @@ function App() {
     });
   };
 
-  // Unlock Note from inside Viewer
   const handleUnlockInViewer = async () => {
-    if (!readingNote || !currentUser) {
+    if (!readingNote || !currentUserRef.current) {
       window.location.hash = '#login';
       return;
     }
-    // Set readingNoteUnlocked to true (simulating successful Razorpay webhook trigger)
     const { success } = await dbService.purchaseNotes(readingNote.id);
     if (success) {
       setReadingNoteUnlocked(true);
     }
   };
 
-  // Dynamically toggle body class for app-mode specific styles & force Dark Theme in Android App
   useEffect(() => {
     if (isAppMode) {
       document.body.classList.add('app-mode');
@@ -570,14 +537,13 @@ function App() {
     }
   }, [isAppMode]);
 
-  // Helper for rendering policies pages easily
   const handlePolicyNav = (type: 'terms' | 'refund' | 'privacy' | 'contact') => {
     navigate(`policy-${type}`);
   };
 
   return (
     <>
-      {/* Offline Mode Banner for App Mode */}
+      {/* Offline Mode Banner */}
       {isAppMode && !isOnline && (
         <div style={{
           position: 'fixed',
@@ -626,32 +592,33 @@ function App() {
           </div>
         </div>
       )}
-      {/* Navigation Header (Hidden in App Mode or Viewer Mode) */}
+
+      {/* Navbar */}
       {!isAppMode && currentPage !== 'viewer' && (
-        <Navbar 
-          user={currentUser} 
-          onLogout={handleLogout} 
-          navigate={navigate} 
+        <Navbar
+          user={currentUser}
+          onLogout={handleLogout}
+          navigate={navigate}
           currentPage={currentPage}
           isAppMode={isAppMode}
         />
       )}
 
-      {/* Main Pages Content Router with Horizontal Tab Slide Animations */}
+      {/* Main Pages */}
       <main style={{ flexGrow: 1 }}>
-        <div 
-          key={currentPage} 
+        <div
+          key={currentPage}
           className={tabSlideDir === 'right' ? 'tab-transition-right' : 'tab-transition-left'}
         >
           {currentPage === 'landing' && (
-            <LandingPage 
-              navigate={navigate} 
-              setSelectedYear={setSelectedYear} 
+            <LandingPage
+              navigate={navigate}
+              setSelectedYear={setSelectedYear}
             />
           )}
-          
+
           {currentPage === 'dashboard' && (
-            <Dashboard 
+            <Dashboard
               user={currentUser}
               selectedYear={selectedYear}
               setSelectedYear={setSelectedYear}
@@ -662,14 +629,14 @@ function App() {
           )}
 
           {currentPage === 'auth' && (
-            <Auth 
-              onLoginSuccess={handleLoginSuccess} 
-              navigate={navigate} 
+            <Auth
+              onLoginSuccess={handleLoginSuccess}
+              navigate={navigate}
             />
           )}
 
           {currentPage === 'library' && (
-            <MyLibrary 
+            <MyLibrary
               user={currentUser}
               onReadNote={handleReadNote}
               navigate={navigate}
@@ -677,32 +644,32 @@ function App() {
           )}
 
           {currentPage === 'admin-login' && (
-            <AdminLogin 
-              onLoginSuccess={handleLoginSuccess} 
-              navigate={navigate} 
+            <AdminLogin
+              onLoginSuccess={handleLoginSuccess}
+              navigate={navigate}
             />
           )}
 
           {currentPage === 'admin' && (
-            <Admin 
-              user={currentUser} 
-              navigate={navigate} 
+            <Admin
+              user={currentUser}
+              navigate={navigate}
             />
           )}
 
           {currentPage === 'profile' && (
-            <Profile 
-              user={currentUser} 
-              onLogout={handleLogout} 
-              navigate={navigate} 
+            <Profile
+              user={currentUser}
+              onLogout={handleLogout}
+              navigate={navigate}
               onBack={() => goBack()}
               isAppMode={isAppMode}
             />
           )}
 
           {currentPage === 'viewer' && readingNote && (
-            <PDFViewer 
-              note={readingNote} 
+            <PDFViewer
+              note={readingNote}
               isUnlocked={readingNoteUnlocked}
               onBack={() => goBack()}
               onUnlock={handleUnlockInViewer}
@@ -710,13 +677,13 @@ function App() {
           )}
 
           {currentPage.startsWith('policy-') && (
-            <Policies 
-              policyType={currentPage.replace('policy-', '') as any} 
+            <Policies
+              policyType={currentPage.replace('policy-', '') as any}
               onBack={() => goBack()}
             />
           )}
 
-          <ResetPasswordModal 
+          <ResetPasswordModal
             isOpen={showResetModal}
             onClose={() => {
               setShowResetModal(false);
@@ -731,12 +698,11 @@ function App() {
         </div>
       </main>
 
-      {/* Footer Section (Hidden in App Mode, Profile Mode, or Viewer Mode) */}
+      {/* Footer */}
       {!isAppMode && currentPage !== 'viewer' && currentPage !== 'profile' && (
         <footer className="footer">
           <div className="container">
             <div className="footer-row">
-              {/* Branding Column */}
               <div className="footer-brand">
                 <div className="footer-logo">
                   <div className="logo-img-wrapper" style={{ width: '32px', height: '32px' }}>
@@ -752,19 +718,18 @@ function App() {
                 </p>
               </div>
 
-              {/* Quick Links Column */}
               <div className="footer-links-group">
                 <div className="footer-col">
                   <h4>Legal Info</h4>
                   <ul className="footer-links-list">
                     <li>
                       <button className="footer-link-item" onClick={() => handlePolicyNav('terms')}>
-                        Terms & Conditions
+                        Terms &amp; Conditions
                       </button>
                     </li>
                     <li>
                       <button className="footer-link-item" onClick={() => handlePolicyNav('refund')}>
-                        Refund & Cancellation
+                        Refund &amp; Cancellation
                       </button>
                     </li>
                     <li>
@@ -775,18 +740,20 @@ function App() {
                   </ul>
                 </div>
 
-                {/* Social Channels Column */}
                 <div className="footer-col">
                   <h4>Follow Channels</h4>
                   <div className="social-row">
-                    <a 
-                      href="https://youtube.com/@bitwiselearning25" 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
+                    <a
+                      href="https://youtube.com/@bitwiselearning25"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="social-icon-btn"
                       title="YouTube Channel"
                     >
-                      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17" /><path d="m10 15 5-3-5-3z" /></svg>
+                      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                        <path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17" />
+                        <path d="m10 15 5-3-5-3z" />
+                      </svg>
                     </a>
                   </div>
                 </div>
@@ -800,7 +767,7 @@ function App() {
         </footer>
       )}
 
-      {/* Bottom Navigation Tabs (App Mode Only, Hidden in Viewer Mode) */}
+      {/* Bottom Nav (App Mode Only) */}
       {isAppMode && currentUser && currentPage !== 'viewer' && (
         <div style={{
           position: 'fixed',
@@ -818,45 +785,27 @@ function App() {
           zIndex: 9998,
           boxShadow: '0 -8px 24px rgba(0,0,0,0.5)'
         }}>
-          {/* Catalog Tab */}
-          <button 
-            onClick={() => navigate('dashboard')} 
+          <button
+            onClick={() => navigate('dashboard')}
             style={{
-              background: 'none',
-              border: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
+              background: 'none', border: 'none', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: '4px',
               color: currentPage === 'dashboard' ? 'var(--color-yellow)' : 'var(--color-muted)',
-              fontSize: '11px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              flex: 1
+              fontSize: '11px', fontWeight: '600', cursor: 'pointer', flex: 1
             }}
           >
             <BookOpen size={20} />
             <span>Catalog</span>
           </button>
 
-          {/* Library Tab (Only if logged in) */}
           {currentUser && (
-            <button 
-              onClick={() => navigate('library')} 
+            <button
+              onClick={() => navigate('library')}
               style={{
-                background: 'none',
-                border: 'none',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
+                background: 'none', border: 'none', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: '4px',
                 color: currentPage === 'library' ? 'var(--color-yellow)' : 'var(--color-muted)',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                flex: 1
+                fontSize: '11px', fontWeight: '600', cursor: 'pointer', flex: 1
               }}
             >
               <Library size={20} />
@@ -864,44 +813,27 @@ function App() {
             </button>
           )}
 
-          {/* Profile OR Sign In Tab */}
           {currentUser ? (
-            <button 
-              onClick={() => navigate('profile')} 
+            <button
+              onClick={() => navigate('profile')}
               style={{
-                background: 'none',
-                border: 'none',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
+                background: 'none', border: 'none', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: '4px',
                 color: currentPage === 'profile' ? 'var(--color-yellow)' : 'var(--color-muted)',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                flex: 1
+                fontSize: '11px', fontWeight: '600', cursor: 'pointer', flex: 1
               }}
             >
               <User size={20} />
               <span>Profile</span>
             </button>
           ) : (
-            <button 
-              onClick={() => navigate('auth')} 
+            <button
+              onClick={() => navigate('auth')}
               style={{
-                background: 'none',
-                border: 'none',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
+                background: 'none', border: 'none', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: '4px',
                 color: currentPage === 'auth' ? 'var(--color-yellow)' : 'var(--color-muted)',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                flex: 1
+                fontSize: '11px', fontWeight: '600', cursor: 'pointer', flex: 1
               }}
             >
               <User size={20} />
@@ -909,23 +841,14 @@ function App() {
             </button>
           )}
 
-          {/* Admin Panel Tab (Only if admin) */}
           {currentUser?.role === 'admin' && (
-            <button 
-              onClick={() => navigate('admin')} 
+            <button
+              onClick={() => navigate('admin')}
               style={{
-                background: 'none',
-                border: 'none',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
+                background: 'none', border: 'none', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: '4px',
                 color: currentPage === 'admin' ? 'var(--color-yellow)' : 'var(--color-muted)',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                flex: 1
+                fontSize: '11px', fontWeight: '600', cursor: 'pointer', flex: 1
               }}
             >
               <ShieldCheck size={20} />
@@ -935,28 +858,22 @@ function App() {
         </div>
       )}
 
-      {/* Premium Exit App Confirmation Modal */}
+      {/* Exit App Confirmation Modal */}
       {showExitModal && (
-        <div 
+        <div
           style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             zIndex: 9999999,
             background: 'rgba(5, 10, 25, 0.85)',
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '20px',
             animation: 'fadeIn 0.2s ease-out'
           }}
           onClick={() => setShowExitModal(false)}
         >
-          <div 
+          <div
             style={{
               background: 'linear-gradient(145deg, rgba(16, 24, 52, 0.95), rgba(10, 16, 38, 0.98))',
               border: '1px solid rgba(255, 255, 255, 0.12)',
@@ -971,16 +888,11 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '50%',
+              width: '56px', height: '56px', borderRadius: '50%',
               background: 'rgba(245, 158, 11, 0.15)',
               border: '1px solid rgba(245, 158, 11, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 16px',
-              color: '#f59e0b'
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 16px', color: '#f59e0b'
             }}>
               <LogOut size={28} />
             </div>
@@ -998,12 +910,8 @@ function App() {
                 onClick={() => setShowExitModal(false)}
                 className="btn-secondary"
                 style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '12px',
-                  fontWeight: '700',
-                  fontSize: '14px',
-                  cursor: 'pointer'
+                  flex: 1, padding: '12px', borderRadius: '12px',
+                  fontWeight: '700', fontSize: '14px', cursor: 'pointer'
                 }}
               >
                 Stay in App
@@ -1017,15 +925,10 @@ function App() {
                   }
                 }}
                 style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '12px',
+                  flex: 1, padding: '12px', borderRadius: '12px',
                   background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                  color: '#fff',
-                  border: 'none',
-                  fontWeight: '700',
-                  fontSize: '14px',
-                  cursor: 'pointer',
+                  color: '#fff', border: 'none',
+                  fontWeight: '700', fontSize: '14px', cursor: 'pointer',
                   boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)'
                 }}
               >
