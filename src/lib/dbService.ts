@@ -430,7 +430,7 @@ export const INITIAL_BUNDLES: Bundle[] = [
   {
     id: 'bundle_sem4_combo',
     title: 'B.TECH SEMESTER 4 COMPLETE COMBO BUNDLE',
-    description: 'Complete Semester 4 combo including all subjects with syllabus-based, exam-oriented notes, important concepts, diagrams, solved examples, and AKTU-focused content.',
+    description: 'Complete Semester 4 combo including all core subjects with syllabus-based, exam-oriented notes, important concepts, diagrams, solved examples, and AKTU-focused content.',
     price: 299,
     originalPrice: 499,
     year: '2nd Year',
@@ -439,20 +439,14 @@ export const INITIAL_BUNDLES: Bundle[] = [
     subjects: [
       'Operating System',
       'Theory of Automata and Formal Languages',
-      'Object Oriented Programming with Java',
-      'Math IV',
-      'Technical Communication',
-      'Cyber Security',
-      'Python Programming',
-      'UHV',
-      'Energy Science and Engineering'
+      'Object Oriented Programming with Java'
     ],
     type: 'semester'
   },
   {
     id: 'bundle_sem3_combo',
     title: 'B.TECH SEMESTER 3 COMPLETE COMBO BUNDLE',
-    description: 'Complete Semester 3 combo including all subjects with syllabus-based notes and solved PYQs.',
+    description: 'Complete Semester 3 combo including all core subjects with syllabus-based notes and solved PYQs.',
     price: 299,
     originalPrice: 499,
     year: '2nd Year',
@@ -461,13 +455,7 @@ export const INITIAL_BUNDLES: Bundle[] = [
     subjects: [
       'Data Structure',
       'Computer Organization & Architecture',
-      'Discrete Structures & Theory of Logic',
-      'Math IV',
-      'Technical Communication',
-      'Cyber Security',
-      'Python Programming',
-      'UHV',
-      'Energy Science and Engineering'
+      'Discrete Structures & Theory of Logic'
     ],
     type: 'semester'
   }
