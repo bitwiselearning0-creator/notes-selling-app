@@ -28,7 +28,7 @@ function App() {
   const [readingNoteUnlocked, setReadingNoteUnlocked] = useState(false);
   const [isAppMode, setIsAppMode] = useState(false);
   const [blackout, setBlackout] = useState(false);
-  const [previousPage, setPreviousPage] = useState<string>('dashboard');
+  const [, setPreviousPage] = useState<string>('dashboard');
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   const [showExitModal, setShowExitModal] = useState(false);
