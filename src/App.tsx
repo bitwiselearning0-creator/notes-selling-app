@@ -531,7 +531,7 @@ function App() {
     setPreviousPage(currentPageRef.current);
 
     const isAccessGranted = await dbService.checkNoteAccess(note.id);
-    const unlocked = isAccessGranted || note.price === 0;
+    const unlocked = isAccessGranted;
 
     setReadingNote(note);
     setReadingNoteUnlocked(unlocked);
@@ -544,7 +544,7 @@ function App() {
     dbService.getNoteById(note.id).then(({ data: fullNote }) => {
       if (fullNote && fullNote.previewUrl) {
         setReadingNote(fullNote);
-        if (unlocked || note.price === 0) {
+        if (unlocked) {
           dbService.saveNoteForOffline(fullNote);
         }
       }

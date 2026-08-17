@@ -22,9 +22,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onNavigateToAuth,
   purchaseDetails
 }) => {
-  const isFree = note.price === 0;
   const isPyq = note.type === 'pyqs';
-  const isUnlocked = isPurchased || isFree;
+  const isUnlocked = isPurchased;
 
   // Accent colors based on type
   const accentColor = isPyq ? '#a78bfa' : '#60a5fa';
@@ -60,7 +59,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
 
         {isUnlocked ? (
           <span style={{ fontSize: '10px', fontWeight: '700', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '2px 8px', borderRadius: '100px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-            <Unlock size={10} /> {isFree ? 'FREE' : 'UNLOCKED'}
+            <Unlock size={10} /> UNLOCKED
           </span>
         ) : (
           <span className="note-access-text" style={{ fontSize: '10px', fontWeight: '600' }}>
@@ -121,14 +120,6 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 ₹{note.price}
               </div>
             </div>
-          )}
-
-          {isFree && !isPurchased && (
-            <span style={{ fontSize: '12px', fontWeight: '800', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '3px 8px', borderRadius: '6px' }}>
-              FREE
-            </span>
-          )}
-
           {isLoggedIn ? (
             isUnlocked ? (
               <button 
