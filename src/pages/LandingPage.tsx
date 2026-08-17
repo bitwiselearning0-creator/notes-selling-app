@@ -239,22 +239,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate, setSelectedY
         </div>
       </section>
 
-      {/* Youtube Videos Section */}
-      <section id="youtube-videos" className="section-padding container">
-        <div className="section-header">
-          <h2 className="section-title">Featured Lecture Playlists</h2>
-          <p className="section-subtitle">Learn from our high-quality, exam-focused concept video lectures synced directly from YouTube.</p>
-        </div>
-        {playlists.length > 0 ? (
+      {/* Youtube Videos Section — only shown when playlists exist */}
+      {playlists.length > 0 && (
+        <section id="youtube-videos" className="section-padding container">
+          <div className="section-header">
+            <h2 className="section-title">Featured Lecture Playlists</h2>
+            <p className="section-subtitle">Learn from our high-quality, exam-focused concept video lectures synced directly from YouTube.</p>
+          </div>
           <div className="video-grid">
             {playlists.slice(0, 4).map((p) => (
               <VideoCard key={p.id} playlist={p} />
             ))}
           </div>
-        ) : (
-          <div className="empty-state glass-card">No video playlists configured yet.</div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* Feature Highlights */}
       <section className="section-padding container" style={{ borderTop: '1px solid var(--glass-border)' }}>
