@@ -25,8 +25,8 @@ const getPredefinedSubjects = (year: string, sem: number | string): string[] => 
     const sem3 = ['Data Structure', 'Computer Organization & Architecture', 'Discrete Structures & Theory of Logic'];
     const sem4 = ['Operating System', 'Theory of Automata and Formal Languages', 'Object Oriented Programming with Java'];
     const common = ['Math IV', 'Technical Communication', 'Cyber Security', 'Python Programming', 'UHV', 'Energy Science and Engineering'];
-    if (sNum === 3) return sem3;
-    if (sNum === 4) return sem4;
+    if (sNum === 3) return [...sem3, ...common];
+    if (sNum === 4) return [...sem4, ...common];
     return [...sem3, ...sem4, ...common];
   }
   if (year === '3rd Year') {
@@ -48,8 +48,8 @@ const getPredefinedSubjects = (year: string, sem: number | string): string[] => 
       'Software Project Management (SPM)'
     ];
     const common = ['Constitution of India (COI)', 'Essence of Indian Traditional Knowledge (EITK)'];
-    if (sNum === 5) return sem5;
-    if (sNum === 6) return sem6;
+    if (sNum === 5) return [...sem5, ...common];
+    if (sNum === 6) return [...sem6, ...common];
     return [...sem5, ...sem6, ...common];
   }
   if (year === '4th Year') {
