@@ -335,87 +335,62 @@ function App() {
     };
     syncCurrentSession();
 
-    // ── Screenshot Protection ──────────────────────────────────────────────
-    const triggerBlackout = (durationMs = 4000) => {
+    // ── Keyboard Screenshot / Recording Key Blocker ────────────────────────
+    const triggerBlackout = (durationMs = 3000) => {
       setBlackout(true);
       setTimeout(() => setBlackout(false), durationMs);
     };
 
-    // KeyDown: catch screenshot combos BEFORE the OS acts on them
     const handleKeyDown = (e: KeyboardEvent) => {
-      // DevTools: F12, Ctrl/Cmd+Shift+I/J/C/K — block silently
+      // DevTools — block silently (F12, Ctrl/Cmd+Shift+I/J/C/K)
       if (
         e.key === 'F12' ||
         ((e.ctrlKey || e.metaKey) && e.shiftKey &&
           ['i', 'I', 'j', 'J', 'c', 'C', 'k', 'K'].includes(e.key))
       ) {
         e.preventDefault();
+        return;
       }
 
-      // Screenshot / recording keyboard shortcuts (all OS variants)
+      // Screenshot / screen-recording shortcuts — all OS variants
       const isScreenshotKey =
-        // All browsers — PrtSc key
-        e.key === 'PrintScreen' ||
-        e.key === 'Print' ||
-        e.key === 'Snapshot' ||
-        // Windows Snipping Tool: Win+Shift+S (metaKey = WinKey on Windows)
-        (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S')) ||
-        // Windows Game Bar: Win+G, Win+Alt+PrtSc
-        (e.metaKey && (e.key === 'g' || e.key === 'G')) ||
-        (e.metaKey && e.altKey && e.key === 'PrintScreen') ||
-        // Mac: Cmd+Shift+3, Cmd+Shift+4, Cmd+Shift+5, Cmd+Ctrl+Shift+3/4
-        (e.metaKey && e.shiftKey && ['3', '4', '5', '6'].includes(e.key)) ||
-        (e.metaKey && e.ctrlKey && e.shiftKey && ['3', '4'].includes(e.key)) ||
-        // Linux / other
-        e.key === 'MediaRecord' ||
-        // Ctrl+PrtSc (some browser combos)
-        (e.ctrlKey && e.key === 'PrintScreen');
+        // ── Windows / Linux ──────────────────────────────────────
+        e.key === 'PrintScreen' ||           // PrtSc
+        e.key === 'Print' ||                 // alt name for PrtSc
+        e.key === 'Snapshot' ||              // some keyboards
+        (e.ctrlKey && e.key === 'PrintScreen') ||            // Ctrl+PrtSc
+        (e.altKey  && e.key === 'PrintScreen') ||            // Alt+PrtSc
+        (e.metaKey && e.altKey && e.key === 'PrintScreen') || // Win+Alt+PrtSc (Game Bar)
+        (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S')) || // Win+Shift+S (Snipping Tool)
+        (e.metaKey && (e.key === 'g' || e.key === 'G')) ||  // Win+G (Xbox Game Bar)
+        // ── macOS ────────────────────────────────────────────────
+        (e.metaKey && e.shiftKey && e.key === '3') ||        // Cmd+Shift+3
+        (e.metaKey && e.shiftKey && e.key === '4') ||        // Cmd+Shift+4
+        (e.metaKey && e.shiftKey && e.key === '5') ||        // Cmd+Shift+5 (screen recorder)
+        (e.metaKey && e.shiftKey && e.key === '6') ||        // Cmd+Shift+6
+        (e.metaKey && e.ctrlKey && e.shiftKey && e.key === '3') || // Cmd+Ctrl+Shift+3
+        (e.metaKey && e.ctrlKey && e.shiftKey && e.key === '4') || // Cmd+Ctrl+Shift+4
+        // ── Recording tools ──────────────────────────────────────
+        e.key === 'MediaRecord';             // media record key
 
       if (isScreenshotKey) {
         e.preventDefault();
+        e.stopPropagation();
         triggerBlackout();
       }
     };
 
-    // KeyUp: catch PrintScreen — fires AFTER OS captures (best effort)
+    // keyup catches PrintScreen on Windows — OS captures on keydown but
+    // browser only sees it on keyup, so we blackout retroactively
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'PrintScreen' || e.key === 'Print' || e.key === 'Snapshot') {
+      if (
+        e.key === 'PrintScreen' ||
+        e.key === 'Print' ||
+        e.key === 'Snapshot'
+      ) {
         triggerBlackout();
       }
     };
-
-    // Visibility: blackout when tab/window goes to background
-    // Catches: Alt+Tab, Win+PrtSc, task switcher, app switcher, Snipping Tool
-    let visibilityTimer: ReturnType<typeof setTimeout> | null = null;
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        // Immediate blackout — if user alt-tabbed to take screenshot,
-        // page is already black when they come back / screencapture tool runs
-        setBlackout(true);
-        // Auto-remove blackout 5s after they return, to avoid being stuck black
-        if (visibilityTimer) clearTimeout(visibilityTimer);
-      } else {
-        // Page became visible again — keep black for 2s then restore
-        visibilityTimer = setTimeout(() => setBlackout(false), 2000);
-      }
-    };
-
-    // Window blur: catches browser window losing focus
-    const handleWindowBlur = () => {
-      setBlackout(true);
-    };
-    const handleWindowFocus = () => {
-      setTimeout(() => setBlackout(false), 1500);
-    };
-
-    // Block getDisplayMedia (screen sharing / OBS / recording in browser)
-    const nav = navigator as any;
-    const originalGetDisplayMedia = nav.mediaDevices?.getDisplayMedia?.bind(nav.mediaDevices);
-    if (nav.mediaDevices && nav.mediaDevices.getDisplayMedia) {
-      nav.mediaDevices.getDisplayMedia = () => {
-        return Promise.reject(new DOMException('Screen capture is disabled on this platform.', 'NotAllowedError'));
-      };
-    }
 
     // Right-click blocker
     const preventRightClick = (e: MouseEvent) => {
@@ -427,23 +402,12 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     window.addEventListener('keyup', handleKeyUp, { capture: true });
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleWindowBlur);
-    window.addEventListener('focus', handleWindowFocus);
     window.addEventListener('contextmenu', preventRightClick);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown, { capture: true } as any);
       window.removeEventListener('keyup', handleKeyUp, { capture: true } as any);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', handleWindowBlur);
-      window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('contextmenu', preventRightClick);
-      // Restore original getDisplayMedia
-      if (nav.mediaDevices && originalGetDisplayMedia) {
-        nav.mediaDevices.getDisplayMedia = originalGetDisplayMedia;
-      }
-      if (visibilityTimer) clearTimeout(visibilityTimer);
     };
   }, []);
 
