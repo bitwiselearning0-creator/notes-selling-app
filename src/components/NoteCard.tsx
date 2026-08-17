@@ -120,6 +120,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 ₹{note.price}
               </div>
             </div>
+          )}
           {isLoggedIn ? (
             isUnlocked ? (
               <button 
