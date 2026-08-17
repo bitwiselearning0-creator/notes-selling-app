@@ -335,30 +335,87 @@ function App() {
     };
     syncCurrentSession();
 
-    // Security: only block F12 / dev-tools shortcuts silently (no alert spam)
+    // ── Screenshot Protection ──────────────────────────────────────────────
+    const triggerBlackout = (durationMs = 4000) => {
+      setBlackout(true);
+      setTimeout(() => setBlackout(false), durationMs);
+    };
+
+    // KeyDown: catch screenshot combos BEFORE the OS acts on them
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Silently block F12 and Ctrl+Shift+I/J (DevTools)
+      // DevTools: F12, Ctrl/Cmd+Shift+I/J/C/K — block silently
       if (
         e.key === 'F12' ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'i' || e.key === 'I' || e.key === 'j' || e.key === 'J'))
+        ((e.ctrlKey || e.metaKey) && e.shiftKey &&
+          ['i', 'I', 'j', 'J', 'c', 'C', 'k', 'K'].includes(e.key))
       ) {
         e.preventDefault();
       }
 
-      // Screenshot blackout
+      // Screenshot / recording keyboard shortcuts (all OS variants)
       const isScreenshotKey =
+        // All browsers — PrtSc key
         e.key === 'PrintScreen' ||
-        (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S')) ||
-        (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) ||
+        e.key === 'Print' ||
         e.key === 'Snapshot' ||
-        e.key === 'MediaRecord';
+        // Windows Snipping Tool: Win+Shift+S (metaKey = WinKey on Windows)
+        (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S')) ||
+        // Windows Game Bar: Win+G, Win+Alt+PrtSc
+        (e.metaKey && (e.key === 'g' || e.key === 'G')) ||
+        (e.metaKey && e.altKey && e.key === 'PrintScreen') ||
+        // Mac: Cmd+Shift+3, Cmd+Shift+4, Cmd+Shift+5, Cmd+Ctrl+Shift+3/4
+        (e.metaKey && e.shiftKey && ['3', '4', '5', '6'].includes(e.key)) ||
+        (e.metaKey && e.ctrlKey && e.shiftKey && ['3', '4'].includes(e.key)) ||
+        // Linux / other
+        e.key === 'MediaRecord' ||
+        // Ctrl+PrtSc (some browser combos)
+        (e.ctrlKey && e.key === 'PrintScreen');
 
       if (isScreenshotKey) {
-        setBlackout(true);
         e.preventDefault();
-        setTimeout(() => setBlackout(false), 3000);
+        triggerBlackout();
       }
     };
+
+    // KeyUp: catch PrintScreen — fires AFTER OS captures (best effort)
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'PrintScreen' || e.key === 'Print' || e.key === 'Snapshot') {
+        triggerBlackout();
+      }
+    };
+
+    // Visibility: blackout when tab/window goes to background
+    // Catches: Alt+Tab, Win+PrtSc, task switcher, app switcher, Snipping Tool
+    let visibilityTimer: ReturnType<typeof setTimeout> | null = null;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Immediate blackout — if user alt-tabbed to take screenshot,
+        // page is already black when they come back / screencapture tool runs
+        setBlackout(true);
+        // Auto-remove blackout 5s after they return, to avoid being stuck black
+        if (visibilityTimer) clearTimeout(visibilityTimer);
+      } else {
+        // Page became visible again — keep black for 2s then restore
+        visibilityTimer = setTimeout(() => setBlackout(false), 2000);
+      }
+    };
+
+    // Window blur: catches browser window losing focus
+    const handleWindowBlur = () => {
+      setBlackout(true);
+    };
+    const handleWindowFocus = () => {
+      setTimeout(() => setBlackout(false), 1500);
+    };
+
+    // Block getDisplayMedia (screen sharing / OBS / recording in browser)
+    const nav = navigator as any;
+    const originalGetDisplayMedia = nav.mediaDevices?.getDisplayMedia?.bind(nav.mediaDevices);
+    if (nav.mediaDevices && nav.mediaDevices.getDisplayMedia) {
+      nav.mediaDevices.getDisplayMedia = () => {
+        return Promise.reject(new DOMException('Screen capture is disabled on this platform.', 'NotAllowedError'));
+      };
+    }
 
     // Right-click blocker
     const preventRightClick = (e: MouseEvent) => {
@@ -368,12 +425,25 @@ function App() {
     // Initial hash routing on mount
     handleHashRouting();
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    window.addEventListener('keyup', handleKeyUp, { capture: true });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
     window.addEventListener('contextmenu', preventRightClick);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, { capture: true } as any);
+      window.removeEventListener('keyup', handleKeyUp, { capture: true } as any);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('contextmenu', preventRightClick);
+      // Restore original getDisplayMedia
+      if (nav.mediaDevices && originalGetDisplayMedia) {
+        nav.mediaDevices.getDisplayMedia = originalGetDisplayMedia;
+      }
+      if (visibilityTimer) clearTimeout(visibilityTimer);
     };
   }, []);
 
