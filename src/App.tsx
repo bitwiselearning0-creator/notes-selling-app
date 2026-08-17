@@ -293,11 +293,15 @@ function App() {
 
   // ─── Session check & initial mount ───────────────────────────────────────
   useEffect(() => {
-    // Cache buster
-    const BUILD_VERSION = 'v2_2026_08_07';
+    // Cache buster: flush stale local storage caches from before strict access control fix
+    const BUILD_VERSION = 'v4_2026_08_17';
     if (localStorage.getItem('bw_build_ver') !== BUILD_VERSION) {
       localStorage.setItem('bw_build_ver', BUILD_VERSION);
       localStorage.removeItem('bw_mock_bundles');
+      localStorage.removeItem('bw_cached_bundles');
+      localStorage.removeItem('bw_cached_notes');
+      localStorage.removeItem('bw_mock_purchases_v2');
+      localStorage.removeItem('bw_cached_playlists');
     }
 
     // Platform detection
