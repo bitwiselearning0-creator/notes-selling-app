@@ -1283,7 +1283,9 @@ export const dbService = {
         const purchasedBundleIds: string[] = [];
 
         const notesToScan = getStoredData<Note[]>('bw_cached_notes', mockNotes);
-        const bundlesToScan = getStoredData<Bundle[]>('bw_cached_bundles', INITIAL_BUNDLES);
+        // Decode bundles so subjects/notesIds are extracted from encoded description
+        const bundlesToScan = getStoredData<Bundle[]>('bw_cached_bundles', INITIAL_BUNDLES).map(decodeBundleFromDb);
+        const decodedInitialBundles = INITIAL_BUNDLES.map(decodeBundleFromDb);
 
         rawPurchases.forEach(p => {
           const expDate = p.expiresAt ? new Date(p.expiresAt) : new Date(Date.now() + 180 * 86400000);
@@ -1292,7 +1294,8 @@ export const dbService = {
           const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
           const daysLeft = calculatedDays > 0 ? (calculatedDays > 180 ? 180 : calculatedDays) : 180;
 
-          const foundBundle = bundlesToScan.find(b => b.id === p.itemId) || INITIAL_BUNDLES.find(b => b.id === p.itemId);
+          // Use decoded bundle so subjects list is properly parsed from description
+          const foundBundle = bundlesToScan.find(b => b.id === p.itemId) || decodedInitialBundles.find(b => b.id === p.itemId);
           const foundNote = notesToScan.find(n => n.id === p.itemId) || mockNotes.find(n => n.id === p.itemId);
 
           const rawItemType = ((p.itemType as string) || '').toLowerCase();
@@ -1328,26 +1331,35 @@ export const dbService = {
               bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
 
               if (foundBundle) {
-                const bundleSubjectList = Array.isArray(foundBundle.subjects) && foundBundle.subjects.length > 0 ? foundBundle.subjects : [];
-                notesToScan.forEach(n => {
-                  const matchesSubject = bundleSubjectList.some(s => isSameSubject(n.subject, s));
-                  const matchesSem = n.year === foundBundle.year && (n.semester === foundBundle.semester || foundBundle.semester === 4 || foundBundle.semester === 3);
-                  if (matchesSubject || matchesSem) {
-                    if (!purchasedNoteIds.includes(n.id)) purchasedNoteIds.push(n.id);
-                    noteDetailsMap[n.id] = { expiresAt: p.expiresAt, daysLeft };
-                  }
-                });
-                if (foundBundle.notesIds) {
+                // ✅ STRICT: Only unlock notes explicitly included in this bundle.
+                // Either the note ID is in notesIds list, OR the note's subject
+                // is in the bundle's subjects list. NEVER unlock by year/semester alone.
+
+                // Step 1: Unlock by explicit notesIds list
+                if (foundBundle.notesIds && foundBundle.notesIds.length > 0) {
                   foundBundle.notesIds.forEach(nid => {
                     if (!purchasedNoteIds.includes(nid)) purchasedNoteIds.push(nid);
                     noteDetailsMap[nid] = { expiresAt: p.expiresAt, daysLeft };
                   });
                 }
+
+                // Step 2: Unlock by subjects list (match note subject to bundle subjects)
+                const bundleSubjectList = Array.isArray(foundBundle.subjects) && foundBundle.subjects.length > 0
+                  ? foundBundle.subjects
+                  : [];
+                if (bundleSubjectList.length > 0) {
+                  notesToScan.forEach(n => {
+                    const subjectMatches = bundleSubjectList.some(s => isSameSubject(n.subject, s));
+                    if (subjectMatches) {
+                      if (!purchasedNoteIds.includes(n.id)) purchasedNoteIds.push(n.id);
+                      noteDetailsMap[n.id] = { expiresAt: p.expiresAt, daysLeft };
+                    }
+                  });
+                }
               } else {
-                notesToScan.forEach(n => {
-                  if (!purchasedNoteIds.includes(n.id)) purchasedNoteIds.push(n.id);
-                  noteDetailsMap[n.id] = { expiresAt: p.expiresAt, daysLeft };
-                });
+                // Bundle not found in local cache — cannot safely unlock anything
+                // Do NOT fall back to unlocking all notes in the year
+                if (!purchasedBundleIds.includes(p.itemId)) purchasedBundleIds.push(p.itemId);
               }
             } else if (isSubjectBundle) {
               if (!purchasedBundleIds.includes(p.itemId)) purchasedBundleIds.push(p.itemId);
