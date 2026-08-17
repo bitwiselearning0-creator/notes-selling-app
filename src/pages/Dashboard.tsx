@@ -97,10 +97,15 @@ const getSubjectsForActiveFilter = (
     ];
   }
 
-  // Dynamically include any uploaded custom subject from notes that is not in predefined list
+  // Dynamically include any uploaded custom subject from notes that is NOT in predefined list
+  // IMPORTANT: only include subjects whose note actually belongs to the active year
   if (allNotes && allNotes.length > 0) {
     for (const n of allNotes) {
-      if (!n.subject) continue;
+      if (!n.subject || !n.year) continue;
+      // Strict year match — skip notes from other years
+      const nY = n.year.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const fY = year.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (nY !== fY && !nY.includes(fY) && !fY.includes(nY)) continue;
       const alreadyExists = predefined.some(p => isSameSubject(p.name, n.subject));
       if (!alreadyExists) {
         predefined.push({
@@ -413,7 +418,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setSelectedSubject(null);
   };
 
-  // Filter notes based on search, sem filter & subject filter
+  // Filter notes based on search, year, semester & subject filter
   const filteredNotes = notes.filter(n => {
     const matchesSearch = !searchQuery || 
                           n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -424,13 +429,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return matchesSearch && isSameSubject(n.subject, selectedSubject);
     }
 
+    // Strict year match — notes without a year are NOT shown in any tab
+    if (!n.year) return false;
+    const nY = n.year.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const fY = selectedYear.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const matchesYear = nY === fY || nY.includes(fY) || fY.includes(nY);
+    if (!matchesYear) return false;
+
+    // Semester filter — only apply if a semester tab is actively selected
     const matchesSem = selectedSemester === null || n.semester === selectedSemester;
-    const matchesYear = !selectedYear || !n.year || (() => {
-      const nY = n.year.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const fY = selectedYear.toLowerCase().replace(/[^a-z0-9]/g, '');
-      return nY === fY || nY.includes(fY) || fY.includes(nY);
-    })();
-    return matchesSearch && matchesSem && matchesYear;
+
+    return matchesSearch && matchesSem;
   });
 
   const studyNotes = filteredNotes.filter(isTrueStudyNote);
