@@ -641,6 +641,7 @@ export const cleanBundleDescription = (desc?: string): string => {
   if (!desc) return '';
   return desc
     .replace(/\s*<!--SUBJECTS:.*?-->/gs, '').replace(/<!--SUBJECTS:.*?-->/gs, '')
+    .replace(/\s*<!--SUBJECT:.*?-->/gs, '').replace(/<!--SUBJECT:.*?-->/gs, '')
     .replace(/\s*<!--SEMESTER:.*?-->/gs, '').replace(/<!--SEMESTER:.*?-->/gs, '')
     .replace(/\s*<!--TYPE:.*?-->/gs, '').replace(/<!--TYPE:.*?-->/gs, '')
     .trim();
@@ -649,8 +650,16 @@ export const cleanBundleDescription = (desc?: string): string => {
 export const encodeBundleDescription = (bundle: Partial<Bundle>): string => {
   const cleanDesc = cleanBundleDescription(bundle.description || '');
   let encoded = cleanDesc;
-  if (bundle.subjects && Array.isArray(bundle.subjects) && bundle.subjects.length > 0) {
-    encoded += `\n<!--SUBJECTS:${JSON.stringify(bundle.subjects)}-->`;
+
+  const subjectsList = Array.isArray(bundle.subjects) && bundle.subjects.length > 0 
+    ? bundle.subjects 
+    : (bundle.subject ? [bundle.subject] : []);
+
+  if (subjectsList.length > 0) {
+    encoded += `\n<!--SUBJECTS:${JSON.stringify(subjectsList)}-->`;
+  }
+  if (bundle.subject) {
+    encoded += `\n<!--SUBJECT:${bundle.subject}-->`;
   }
   if (bundle.semester) {
     encoded += `\n<!--SEMESTER:${bundle.semester}-->`;
@@ -755,16 +764,25 @@ export const deriveSemesterFromBundle = (b: Partial<Bundle>): number => {
 export const decodeBundleFromDb = (b: Bundle): Bundle => {
   if (!b) return b;
   let subjects = b.subjects;
+  let subject = b.subject;
   let rawDescription = b.description || '';
 
-  const match = rawDescription.match(/<!--SUBJECTS:(.*?)-->/s);
-  if (match) {
+  const matchSubjects = rawDescription.match(/<!--SUBJECTS:(.*?)-->/s);
+  if (matchSubjects) {
     try {
-      const parsed = JSON.parse(match[1]);
+      const parsed = JSON.parse(matchSubjects[1]);
       if (Array.isArray(parsed) && parsed.length > 0) {
         subjects = parsed;
       }
     } catch (e) {}
+  }
+
+  const matchSubject = rawDescription.match(/<!--SUBJECT:(.*?)-->/s);
+  if (matchSubject && matchSubject[1]) {
+    subject = matchSubject[1].trim();
+    if (!subjects || subjects.length === 0) {
+      subjects = [subject];
+    }
   }
 
   const semester = deriveSemesterFromBundle(b);
@@ -772,9 +790,13 @@ export const decodeBundleFromDb = (b: Bundle): Bundle => {
   const description = cleanBundleDescription(rawDescription);
 
   if (!subjects || subjects.length === 0) {
-    const init = INITIAL_BUNDLES.find(ib => ib.id === b.id);
-    if (init && init.subjects) {
-      subjects = init.subjects;
+    if (subject) {
+      subjects = [subject];
+    } else {
+      const init = INITIAL_BUNDLES.find(ib => ib.id === b.id);
+      if (init && init.subjects) {
+        subjects = init.subjects;
+      }
     }
   }
 
@@ -783,6 +805,7 @@ export const decodeBundleFromDb = (b: Bundle): Bundle => {
     type,
     semester,
     description,
+    subject: subject || (subjects && subjects.length > 0 ? subjects[0] : ''),
     subjects: subjects || []
   };
 };
