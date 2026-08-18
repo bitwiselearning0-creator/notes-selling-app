@@ -91,7 +91,17 @@ export const Policies: React.FC<PoliciesProps> = ({ policyType, onBack }) => {
         <section>
           <h3 style={{ fontSize: '18px', marginBottom: '8px' }}>3. Play Store Security Compliances</h3>
           <p style={{ color: 'var(--color-muted)' }}>
-            For Android app compliance, we implement standard sandbox isolation protocols. If a user deletes their account, all personal data is purged from our cloud databases within 30 business days.
+            For Android app compliance, we implement standard sandbox isolation protocols. User information is stored securely in SSL-encrypted cloud databases.
+          </p>
+        </section>
+
+        <section id="delete-account">
+          <h3 style={{ fontSize: '18px', marginBottom: '8px' }} className="yellow-accent">4. Account & Associated Data Deletion Request</h3>
+          <p style={{ color: 'var(--color-muted)', marginBottom: '8px' }}>
+            Users have the right to request full deletion of their Bitwise Learning account and all associated personal data (Name, Email, Phone, Purchases).
+          </p>
+          <p style={{ color: 'var(--color-muted)' }}>
+            To request account deletion, please send an email to <strong>bitwiselearning0@gmail.com</strong> with the subject line <em>"Account Deletion Request"</em> along with your registered email address. All user data will be permanently purged within 7 business days upon request verification.
           </p>
         </section>
       </div>
