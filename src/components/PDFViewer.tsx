@@ -197,9 +197,16 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
   useEffect(() => {
     if (!note.previewUrl) return;
 
-    if (note.previewUrl.startsWith('data:application/pdf;base64,') || note.previewUrl.includes(';base64,')) {
+    // In Capacitor app, relative paths like /uploads/xxx.pdf resolve to capacitor://localhost/uploads/...
+    // which doesn't exist. Convert to absolute VPS URL so PDF.js can fetch the actual file.
+    let url = note.previewUrl;
+    if (url.startsWith('/uploads/') || url.startsWith('/api/')) {
+      url = 'https://bitwiselearning.online' + url;
+    }
+
+    if (url.startsWith('data:application/pdf;base64,') || url.includes(';base64,')) {
       try {
-        const parts = note.previewUrl.split(';base64,');
+        const parts = url.split(';base64,');
         const contentType = parts[0].split(':')[1] || 'application/pdf';
         const raw = window.atob(parts[1]);
         const rawLength = raw.length;
@@ -218,10 +225,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, onBack, 
         };
       } catch (e) {
         console.error('Error converting base64 PDF to blob URL:', e);
-        setPdfUrl(note.previewUrl);
+        setPdfUrl(url);
       }
     } else {
-      setPdfUrl(note.previewUrl);
+      setPdfUrl(url);
     }
   }, [note.previewUrl]);
 
