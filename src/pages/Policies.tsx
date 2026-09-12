@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Receipt, Scale, Mail, Globe, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Receipt, Scale, Mail, ArrowLeft } from 'lucide-react';
 
 interface PoliciesProps {
   policyType: 'terms' | 'refund' | 'privacy' | 'contact';
@@ -61,7 +61,7 @@ export const Policies: React.FC<PoliciesProps> = ({ policyType, onBack }) => {
         <section>
           <h3 style={{ fontSize: '18px', marginBottom: '8px' }}>3. Technical Exceptions</h3>
           <p style={{ color: 'var(--color-muted)' }}>
-            If you did not receive access to unlocked notes due to a server error or a banking network mismatch despite a successful transaction, please contact our support desk at <strong>bitwiselearning0@gmail.com</strong> within 24 hours. Verified technical errors will be resolved immediately with manual unlocking.
+            If you did not receive access to unlocked notes due to a server error or a banking network mismatch despite a successful transaction, please contact our support desk at <strong>info@bitwiselearning.online</strong> within 24 hours. Verified technical errors will be resolved immediately with manual unlocking.
           </p>
         </section>
       </div>
@@ -101,7 +101,7 @@ export const Policies: React.FC<PoliciesProps> = ({ policyType, onBack }) => {
             Users have the right to request full deletion of their Bitwise Learning account and all associated personal data (Name, Email, Phone, Purchases).
           </p>
           <p style={{ color: 'var(--color-muted)' }}>
-            To request account deletion, please send an email to <strong>bitwiselearning0@gmail.com</strong> with the subject line <em>"Account Deletion Request"</em> along with your registered email address. All user data will be permanently purged within 7 business days upon request verification.
+            To request account deletion, please send an email to <strong>info@bitwiselearning.online</strong> with the subject line <em>"Account Deletion Request"</em> along with your registered email address. All user data will be permanently purged within 7 business days upon request verification.
           </p>
         </section>
       </div>
@@ -113,27 +113,15 @@ export const Policies: React.FC<PoliciesProps> = ({ policyType, onBack }) => {
       <h2 style={{ fontSize: '28px', marginBottom: '16px' }} className="yellow-accent">Contact Support Desk</h2>
       <p style={{ color: 'var(--color-muted)', marginBottom: '30px' }}>Have questions about notes, payments, or access issues? Reach out to us directly.</p>
       
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', textAlign: 'left' }}>
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', textAlign: 'left' }}>
+        <div className="glass-card" style={{ padding: '24px 32px', display: 'flex', gap: '16px', alignItems: 'center', width: '100%', maxWidth: '480px' }}>
           <div style={{ background: 'rgba(251,191,36,0.1)', padding: '12px', borderRadius: '12px', color: 'var(--color-yellow)' }}>
             <Mail size={24} />
           </div>
           <div>
             <h4 style={{ fontSize: '16px', marginBottom: '4px' }}>Email Support</h4>
-            <a href="mailto:bitwiselearning0@gmail.com" className="yellow-accent" style={{ fontWeight: '600', textDecoration: 'none' }}>
-              bitwiselearning0@gmail.com
-            </a>
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <div style={{ background: 'rgba(37,99,235,0.1)', padding: '12px', borderRadius: '12px', color: 'var(--color-blue-light)' }}>
-            <Globe size={24} />
-          </div>
-          <div>
-            <h4 style={{ fontSize: '16px', marginBottom: '4px' }}>GitHub Portal</h4>
-            <a href="https://github.com/bitwiselearning0-creator" target="_blank" rel="noopener noreferrer" className="blue-accent" style={{ fontWeight: '600', textDecoration: 'none' }}>
-              bitwiselearning0-creator
+            <a href="mailto:info@bitwiselearning.online" className="yellow-accent" style={{ fontWeight: '600', textDecoration: 'none' }}>
+              info@bitwiselearning.online
             </a>
           </div>
         </div>

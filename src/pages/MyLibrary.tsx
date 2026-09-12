@@ -130,7 +130,9 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
             price: 49,
             originalPrice: 99,
             description: `Individual study note (${formattedTitle}).`,
-            previewUrl: '',
+            previewUrl: `/api/notes/${id}/pdf`,
+            pdfUrl: `/api/notes/${id}/pdf`,
+            hasPdf: true,
             pagesCount: 45,
             topics: ['Unit Notes', 'Important Concepts'],
             type: 'notes'

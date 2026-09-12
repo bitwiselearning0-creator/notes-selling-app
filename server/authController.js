@@ -676,11 +676,50 @@ const mobileGoogleCallback = async (req, res) => {
   }
 };
 
+const getProfile = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const cleanId = String(userId || '').trim();
+    const result = await db.query(
+      'SELECT id, name, email, phone, role, auth_provider, created_at FROM profiles WHERE id = $1 OR LOWER(email) = LOWER($2) LIMIT 1',
+      [cleanId, cleanId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ data: null, error: 'User not found' });
+    }
+    return res.json({ data: result.rows[0], error: null });
+  } catch (err) {
+    console.error('getProfile Error:', err);
+    return res.status(500).json({ data: null, error: 'Failed to fetch user profile' });
+  }
+};
+
+const updatePhone = async (req, res) => {
+  try {
+    const { userId, phone } = req.body;
+    const cleanId = String(userId || '').trim();
+    const cleanPhone = String(phone || '').trim().replace(/\D/g, '');
+    const result = await db.query(
+      'UPDATE profiles SET phone = $1 WHERE id = $2 OR LOWER(email) = LOWER($3) RETURNING id, name, email, phone, role, created_at',
+      [cleanPhone, cleanId, cleanId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ data: null, error: 'User not found' });
+    }
+    return res.json({ data: result.rows[0], error: null });
+  } catch (err) {
+    console.error('updatePhone Error:', err);
+    return res.status(500).json({ data: null, error: 'Failed to update phone number' });
+  }
+};
+
 module.exports = {
   signUp,
   signIn,
   googleSignIn,
   mobileGoogleCallback,
+  getProfile,
+  updatePhone,
   sendPasswordResetOtp,
   verifyOtpAndUpdatePassword,
   registerDeviceSession,

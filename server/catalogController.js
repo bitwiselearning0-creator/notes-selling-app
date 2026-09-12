@@ -348,8 +348,51 @@ const deletePlaylist = async (req, res) => {
   }
 };
 
+const streamNotePdf = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const noteRes = await db.query('SELECT pdf_url, preview_url, price FROM notes WHERE id = $1', [id]);
+    if (noteRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
+    const note = noteRes.rows[0];
+    const pdfUrl = note.pdf_url || note.preview_url;
+
+    if (!pdfUrl) {
+      return res.status(404).json({ error: 'PDF file not available for this note' });
+    }
+
+    const filename = path.basename(pdfUrl);
+    const candidatePaths = [
+      path.join('/var/www/bitwise-learning/uploads', filename),
+      path.join('/var/www/bitwise-backend/storage/uploads', filename),
+      path.join('/var/www/bitwise-learning', pdfUrl)
+    ];
+
+    for (const cp of candidatePaths) {
+      if (fs.existsSync(cp)) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+        return fs.createReadStream(cp).pipe(res);
+      }
+    }
+
+    if (pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://')) {
+      return res.redirect(pdfUrl);
+    }
+
+    return res.status(404).json({ error: 'PDF file not found on server' });
+  } catch (err) {
+    console.error('Stream PDF Error:', err);
+    return res.status(500).json({ error: 'Failed to stream PDF' });
+  }
+};
+
 module.exports = {
   getNotes,
+  streamNotePdf,
   addNote,
   updateNote,
   deleteNote,

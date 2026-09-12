@@ -68,6 +68,7 @@ export interface Note {
   description: string;
   previewUrl: string;
   pdfUrl?: string;
+  hasPdf?: boolean;
   pagesCount: number;
   topics: string[];
   type?: 'notes' | 'pyqs';
@@ -133,298 +134,7 @@ export const SUBJECT_THUMBNAILS_MAP: Record<string, string> = {
   'computer organization & architecture': 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80'
 };
 
-export const INITIAL_NOTES: Note[] = [
-  // --- 2nd Year Sem 3 & 4 Subjects ---
-  {
-    id: 'note_ds_unit1',
-    title: 'DATA STRUCTURES UNIT 1 | ARRAYS & LINKED LISTS',
-    subject: 'Data Structure',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 3,
-    price: 19,
-    originalPrice: 49,
-    description: 'Complete Unit 1 notes for Data Structures covering Arrays, Operations, Address Calculation, Sparse Matrices, and Singly/Doubly Linked Lists as per AKTU syllabus.',
-    previewUrl: 'https://drive.google.com/file/d/1_DS_Sample_Preview/preview',
-    pagesCount: 65,
-    topics: ['Arrays & Operations', 'Address Calculation', 'Sparse Matrices', 'Singly Linked List', 'Doubly Linked List', 'Circular Linked List', 'AKTU Solved PYQs'],
-    type: 'notes',
-    downloadsCount: 142
-  },
-  {
-    id: 'note_ds_unit2',
-    title: 'DATA STRUCTURES UNIT 2 | STACKS & QUEUES',
-    subject: 'Data Structure',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 3,
-    price: 19,
-    originalPrice: 49,
-    description: 'Complete Unit 2 notes covering Stack Applications, Infix to Postfix, Recursion, Queues, Circular Queue & Priority Queue.',
-    previewUrl: 'https://drive.google.com/file/d/1_DS_Sample_Preview/preview',
-    pagesCount: 58,
-    topics: ['Stack ADT', 'Infix to Postfix/Prefix', 'Recursion & Tower of Hanoi', 'Queue ADT', 'Circular Queue', 'Priority Queue', 'AKTU Important Questions'],
-    type: 'notes',
-    downloadsCount: 128
-  },
-  {
-    id: 'note_ds_pyq',
-    title: 'DATA STRUCTURES AKTU SOLVED PREVIOUS YEAR PAPERS (2020-2025)',
-    subject: 'Data Structure',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 3,
-    price: 29,
-    originalPrice: 79,
-    description: 'Complete solved previous 5 years AKTU end semester examination question papers with step-by-step solutions.',
-    previewUrl: 'https://drive.google.com/file/d/1_DS_Sample_Preview/preview',
-    pagesCount: 95,
-    topics: ['AKTU 2024 Solved Paper', 'AKTU 2023 Solved Paper', 'AKTU 2022 Solved Paper', 'Repeated 10-Mark Questions', 'Expected Exam Questions'],
-    type: 'pyqs',
-    downloadsCount: 210
-  },
-  {
-    id: 'note_coa_unit1',
-    title: 'COMPUTER ORGANIZATION & ARCHITECTURE UNIT 1 | FUNCTIONAL UNITS & BUS ARCHITECTURE',
-    subject: 'Computer Organization & Architecture',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 3,
-    price: 19,
-    originalPrice: 49,
-    description: 'Complete Unit 1 notes for COA covering Von-Neumann Architecture, Bus Structure, Instruction Formats, Addressing Modes, and Computer Arithmetic.',
-    previewUrl: 'https://drive.google.com/file/d/1_Sample_Preview/preview',
-    pagesCount: 70,
-    topics: ['Von-Neumann Architecture', 'Bus Structure', 'Instruction Formats', 'Addressing Modes', 'Booth Algorithm', 'Floating Point Arithmetic'],
-    type: 'notes',
-    downloadsCount: 165
-  },
-  {
-    id: 'note_coa_pyq',
-    title: 'COA AKTU SOLVED PREVIOUS YEAR QUESTION PAPERS',
-    subject: 'Computer Organization & Architecture',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 3,
-    price: 29,
-    originalPrice: 79,
-    description: 'Solved previous year papers for Computer Organization & Architecture with detailed diagrams and derivations.',
-    previewUrl: 'https://drive.google.com/file/d/1_Sample_Preview/preview',
-    pagesCount: 88,
-    topics: ['AKTU 2024 Solved Paper', 'AKTU 2023 Solved Paper', 'Cache Mapping Numerical Solutions', 'Pipelining Numericals'],
-    type: 'pyqs',
-    downloadsCount: 180
-  },
-  {
-    id: 'note_dstl_unit1',
-    title: 'DISCRETE STRUCTURES & THEORY OF LOGIC UNIT 1 | SET THEORY & RELATIONS',
-    subject: 'Discrete Structures & Theory of Logic',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 3,
-    price: 19,
-    originalPrice: 49,
-    description: 'Complete Unit 1 notes covering Sets, Relations, Functions, Equivalence Relations, Partial Order Relations, and Hasse Diagrams.',
-    previewUrl: 'https://drive.google.com/file/d/1_Sample_Preview/preview',
-    pagesCount: 62,
-    topics: ['Sets & Operations', 'Relations & Types', 'Equivalence Relations', 'POSET & Hasse Diagrams', 'Functions & Pigeonhole Principle'],
-    type: 'notes',
-    downloadsCount: 155
-  },
-  {
-    id: 'note_dstl_pyq',
-    title: 'DSTL AKTU SOLVED PREVIOUS YEAR PAPERS',
-    subject: 'Discrete Structures & Theory of Logic',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 3,
-    price: 29,
-    originalPrice: 79,
-    description: 'Solved past year papers for DSTL with proofs, group theory problems, and recurrence relation solutions.',
-    previewUrl: 'https://drive.google.com/file/d/1_Sample_Preview/preview',
-    pagesCount: 90,
-    topics: ['AKTU 2024 Solved Paper', 'Group Theory Proofs', 'Boolean Algebra Simplifications', 'Recurrence Relation Numericals'],
-    type: 'pyqs',
-    downloadsCount: 175
-  },
-  {
-    id: 'note_os_unit1',
-    title: 'OPERATING SYSTEM UNIT 1 | INTRODUCTION & SYSTEM CALLS',
-    subject: 'Operating System',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 4,
-    price: 19,
-    originalPrice: 49,
-    description: 'Complete Unit 1 notes covering OS Services, System Calls, System Programs, Structure, Process Concept & PCB.',
-    previewUrl: 'https://drive.google.com/file/d/1_Sample_Preview/preview',
-    pagesCount: 60,
-    topics: ['OS Architecture', 'System Calls', 'Process Control Block (PCB)', 'Process State Transition', 'Threads & Multithreading'],
-    type: 'notes',
-    downloadsCount: 190
-  },
-  {
-    id: 'note_os_unit2',
-    title: 'OPERATING SYSTEM UNIT 2 | PROCESS SCHEDULING & SYNCHRONIZATION',
-    subject: 'Operating System',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 4,
-    price: 19,
-    originalPrice: 49,
-    description: 'Complete Unit 2 notes covering FCFS, SJF, Round Robin, Semaphores, Mutex, Critical Section Problem, and Deadlocks.',
-    previewUrl: 'https://drive.google.com/file/d/1_Sample_Preview/preview',
-    pagesCount: 75,
-    topics: ['CPU Scheduling Algorithms', 'Critical Section Problem', 'Semaphores & Mutex', 'Banker Algorithm', 'Deadlock Detection & Prevention'],
-    type: 'notes',
-    downloadsCount: 205
-  },
-  {
-    id: 'note_os_pyq',
-    title: 'OPERATING SYSTEM AKTU SOLVED PREVIOUS YEAR PAPERS',
-    subject: 'Operating System',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 4,
-    price: 29,
-    originalPrice: 79,
-    description: 'Solved AKTU exam papers with process scheduling numericals and deadlock problem solutions.',
-    previewUrl: 'https://drive.google.com/file/d/1_Sample_Preview/preview',
-    pagesCount: 92,
-    topics: ['AKTU 2024 Solved Paper', 'Page Replacement Numericals', 'Banker Algorithm Solutions', 'Disk Scheduling Numericals'],
-    type: 'pyqs',
-    downloadsCount: 240
-  },
-  {
-    id: 'note_tafl_unit1',
-    title: 'TAFL UNIT 1 COMPLETE NOTES | FINITE AUTOMATA & REGULAR LANGUAGES',
-    subject: 'Theory of Automata and Formal Languages',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 4,
-    price: 23,
-    originalPrice: 49,
-    description: 'Complete TAFL Unit 1 notes covering DFA, NFA, ε-NFA, NFA to DFA conversion, and Mealy/Moore Machines as per AKTU syllabus.',
-    previewUrl: 'https://zczomcghyktsaimwhwxp.supabase.co/storage/v1/object/public/notes-bucket/notes/notes_tafl_unit_1_complete_notes_bl_pdf_2cxlkb6i5_1785863585923.pdf',
-    pagesCount: 61,
-    topics: ['Finite Automata', 'DFA & NFA', 'NFA to DFA Conversion', 'Mealy and Moore Machine', 'Regular Expressions'],
-    type: 'notes',
-    downloadsCount: 310
-  },
-  {
-    id: 'note_tafl_unit2',
-    title: 'TAFL UNIT 2 COMPLETE NOTES | REGULAR EXPRESSIONS & PUMPING LEMMA',
-    subject: 'Theory of Automata and Formal Languages',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 4,
-    price: 23,
-    originalPrice: 49,
-    description: 'Complete TAFL Unit 2 notes covering Arden Theorem, Pumping Lemma for Regular Languages, and Closure Properties.',
-    previewUrl: 'https://zczomcghyktsaimwhwxp.supabase.co/storage/v1/object/public/notes-bucket/notes/notes_tafl_unit_2_bl_complete_notes_pdf_5kjrif7rc_1785863795401.pdf',
-    pagesCount: 58,
-    topics: ['Regular Expressions', 'Arden Theorem', 'Pumping Lemma', 'Closure Properties', 'Decision Properties'],
-    type: 'notes',
-    downloadsCount: 280
-  },
-  {
-    id: 'note_tafl_pyq',
-    title: 'TAFL AKTU SOLVED PREVIOUS YEAR QUESTION PAPERS',
-    subject: 'Theory of Automata and Formal Languages',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 4,
-    price: 29,
-    originalPrice: 79,
-    description: 'AKTU solved previous year question papers for TAFL with step-by-step automata designs and grammar simplifications.',
-    previewUrl: 'https://zczomcghyktsaimwhwxp.supabase.co/storage/v1/object/public/notes-bucket/notes/notes_tafl_unit_1_complete_notes_bl_pdf_2cxlkb6i5_1785863585923.pdf',
-    pagesCount: 85,
-    topics: ['AKTU 2024 Solved Paper', 'Automata Design Problems', 'CNF/GNF Conversions', 'Turing Machine Constructions'],
-    type: 'pyqs',
-    downloadsCount: 350
-  },
-  {
-    id: 'note_java_unit1',
-    title: 'JAVA PROGRAMMING UNIT 1 | OOPS CONCEPTS & BASICS',
-    subject: 'Object Oriented Programming with Java',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 4,
-    price: 19,
-    originalPrice: 49,
-    description: 'Complete Unit 1 notes for Java covering OOP Principles, JVM, JDK, Control Statements, Classes, Objects & Constructors.',
-    previewUrl: 'https://drive.google.com/file/d/1_Sample_Preview/preview',
-    pagesCount: 65,
-    topics: ['OOP Principles', 'JVM Architecture', 'Data Types & Control Flow', 'Classes & Objects', 'Constructors & Method Overloading'],
-    type: 'notes',
-    downloadsCount: 160
-  },
-  {
-    id: 'note_cyber_unit1',
-    title: 'CYBER SECURITY UNIT 1 | INTRODUCTION & CRYPTOGRAPHY',
-    subject: 'Cyber Security',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 3,
-    price: 19,
-    originalPrice: 49,
-    description: 'Complete Unit 1 notes covering Cyber Security Basics, Threats, Cryptography, DES, AES, RSA & Hashing.',
-    previewUrl: 'https://drive.google.com/file/d/1_Sample_Preview/preview',
-    pagesCount: 60,
-    topics: ['Cyber Threats', 'Symmetric & Asymmetric Encryption', 'RSA Algorithm', 'Digital Signatures', 'Hash Functions'],
-    type: 'notes',
-    downloadsCount: 195
-  },
-  {
-    id: 'note_python_unit1',
-    title: 'PYTHON PROGRAMMING UNIT 1 | BASICS & DATA TYPES',
-    subject: 'Python Programming',
-    branch: 'CSE/IT',
-    year: '2nd Year',
-    semester: 3,
-    price: 19,
-    originalPrice: 49,
-    description: 'Complete Unit 1 notes covering Python Syntax, Control Structures, Strings, Lists, Tuples & Dictionaries.',
-    previewUrl: 'https://drive.google.com/file/d/1_Sample_Preview/preview',
-    pagesCount: 55,
-    topics: ['Python Basics', 'Control Flow Statements', 'Lists & Tuples', 'Dictionaries & Sets', 'Functions & Modules'],
-    type: 'notes',
-    downloadsCount: 220
-  },
-  // --- 3rd Year Subjects ---
-  {
-    id: 'note_webtech_unit1',
-    title: 'WEB TECHNOLOGY UNIT 1 COMPLETE NOTES | INTRODUCTION & HTML/XML',
-    subject: 'Web Technology',
-    branch: 'CSE/IT',
-    year: '3rd Year',
-    semester: 5,
-    price: 19,
-    originalPrice: 49,
-    description: 'Complete Web Technology Unit 1 notes covering HTTP, HTML, CSS, XML, DTD, and Web Page Designing as per AKTU syllabus.',
-    previewUrl: 'https://zczomcghyktsaimwhwxp.supabase.co/storage/v1/object/public/notes-bucket/notes/notes_web_technology_unit_1_notes_pdf_lwumluuqa_1786349382025.pdf',
-    pagesCount: 80,
-    topics: ['HTML & CSS', 'Client-Server Architecture', 'XML & DTD', 'DOM & SAX Parsers', 'Web Page Designing'],
-    type: 'notes',
-    downloadsCount: 175
-  },
-  {
-    id: 'note_dbms_unit1',
-    title: 'DATABASE MANAGEMENT SYSTEM UNIT 1 | ER MODEL & RELATIONAL ALGEBRA',
-    subject: 'Database Management System',
-    branch: 'CSE/IT',
-    year: '3rd Year',
-    semester: 5,
-    price: 19,
-    originalPrice: 49,
-    description: 'Complete Unit 1 notes for DBMS covering Database Architecture, ER Diagram, Relational Algebra & Calculus.',
-    previewUrl: 'https://drive.google.com/file/d/1_Sample_Preview/preview',
-    pagesCount: 72,
-    topics: ['Database Architecture', 'ER Diagram & Mapping', 'Relational Algebra', 'Tuple Relational Calculus', 'SQL Queries'],
-    type: 'notes',
-    downloadsCount: 230
-  }
-];
+export const INITIAL_NOTES: Note[] = [];
 export const INITIAL_PLAYLISTS: Playlist[] = [];
 export const INITIAL_BUNDLES: Bundle[] = [
   {
@@ -523,9 +233,9 @@ export const isSameSubject = (subject1?: string, subject2?: string): boolean => 
   const isChemistry = (s: string) => s.includes('chemistry');
   const isElectronics = (s: string) => s.includes('electronics');
   const isElectrical = (s: string) => s.includes('electrical');
-  const isPPS = (s: string) => s.includes('pps') || s.includes('programming') || s.includes('problem solving');
+  const isPPS = (s: string) => (s.includes('pps') || s.includes('problem solving') || s === 'programming for problem solving') && !s.includes('java') && !s.includes('python') && !s.includes('object oriented') && !s.includes('c++') && !s.includes('web');
   const isEnvironment = (s: string) => s.includes('environment') || s.includes('ecology');
-  const isSoftSkills = (s: string) => s.includes('soft skill') || s.includes('communication');
+  const isSoftSkills = (s: string) => (s.includes('soft skill') || s.includes('soft skills')) && !s.includes('technical');
   const isMechanical = (s: string) => s.includes('mechanical') || s.includes('mechanics');
   const isCivil = (s: string) => s.includes('civil');
 
@@ -536,15 +246,15 @@ export const isSameSubject = (subject1?: string, subject2?: string): boolean => 
   const isDataStructure = (s: string) => (s.includes('data structure') || s.split(' ').includes('ds') || s === 'ds') && !s.includes('dstl') && !s.includes('analytics') && !s.includes('mining') && !s.includes('warehouse');
   const isTAFL = (s: string) => s.includes('automata') || s.includes('tafl') || s.includes('formal languages');
   const isOS = (s: string) => (s.includes('operating system') || s.split(' ').includes('os') || s === 'os') && !s.includes('oosd');
-  const isJava = (s: string) => s.includes('java');
-  const isOOSD = (s: string) => s.includes('oosd') || s.includes('c++') || (s.includes('object oriented') && !s.includes('java'));
+  const isJava = (s: string) => s.includes('java') && !s.includes('python');
+  const isPython = (s: string) => s.includes('python') && !s.includes('java');
+  const isOOSD = (s: string) => (s.includes('oosd') || s.includes('c++') || (s.includes('object oriented') && !s.includes('java'))) && !s.includes('python');
   const isMath = (s: string) => s.includes('math') || s.includes('mathematics');
   const isEnergy = (s: string) => s.includes('energy science') || s.includes('ese');
   const isUHV = (s: string) => s.includes('uhv') || s.includes('human values');
   const isCyber = (s: string) => s.includes('cyber') || s.includes('security');
-  const isPython = (s: string) => s.includes('python');
   const isWebTech = (s: string) => s.includes('web tech') || s.includes('webtech') || s.includes('html');
-  const isTechComm = (s: string) => s.includes('technical communication') || s.includes('soft skill');
+  const isTechComm = (s: string) => s.includes('technical communication') || (s.includes('technical') && s.includes('communication')) || s.split(' ').includes('tc') || s === 'tc';
   const isDataAnalytics = (s: string) => s.includes('data analytics');
   const isDataMining = (s: string) => s.includes('data mining') || s.includes('data warehouse') || s.includes('dwdm');
   const isDAA = (s: string) => s.includes('daa') || s.includes('analysis of algorithm') || s.includes('design and analysis');
@@ -560,6 +270,11 @@ export const isSameSubject = (subject1?: string, subject2?: string): boolean => 
   const isML = (s: string) => s.includes('machine learning') || s.split(' ').includes('ml');
   const isDL = (s: string) => s.includes('deep learning') || s.split(' ').includes('dl');
   const isIoT = (s: string) => s.includes('iot') || s.includes('internet of things');
+
+  // Specific Language & Programming Check Priority
+  if (isJava(s1) || isJava(s2)) return isJava(s1) && isJava(s2);
+  if (isPython(s1) || isPython(s2)) return isPython(s1) && isPython(s2);
+  if (isOOSD(s1) || isOOSD(s2)) return isOOSD(s1) && isOOSD(s2);
 
   if (isPhysics(s1) || isPhysics(s2)) return isPhysics(s1) && isPhysics(s2);
   if (isChemistry(s1) || isChemistry(s2)) return isChemistry(s1) && isChemistry(s2);
@@ -577,13 +292,10 @@ export const isSameSubject = (subject1?: string, subject2?: string): boolean => 
   if (isDataStructure(s1) || isDataStructure(s2)) return isDataStructure(s1) && isDataStructure(s2);
   if (isTAFL(s1) || isTAFL(s2)) return isTAFL(s1) && isTAFL(s2);
   if (isOS(s1) || isOS(s2)) return isOS(s1) && isOS(s2);
-  if (isJava(s1) || isJava(s2)) return isJava(s1) && isJava(s2);
-  if (isOOSD(s1) || isOOSD(s2)) return isOOSD(s1) && isOOSD(s2);
   if (isMath(s1) || isMath(s2)) return isMath(s1) && isMath(s2);
   if (isEnergy(s1) || isEnergy(s2)) return isEnergy(s1) && isEnergy(s2);
   if (isUHV(s1) || isUHV(s2)) return isUHV(s1) && isUHV(s2);
   if (isCyber(s1) || isCyber(s2)) return isCyber(s1) && isCyber(s2);
-  if (isPython(s1) || isPython(s2)) return isPython(s1) && isPython(s2);
   if (isWebTech(s1) || isWebTech(s2)) return isWebTech(s1) && isWebTech(s2);
   if (isTechComm(s1) || isTechComm(s2)) return isTechComm(s1) && isTechComm(s2);
   if (isDataAnalytics(s1) || isDataAnalytics(s2)) return isDataAnalytics(s1) && isDataAnalytics(s2);
@@ -611,30 +323,28 @@ export const isSameSubject = (subject1?: string, subject2?: string): boolean => 
 };
 
 export const isNotePdfAvailable = (note?: Partial<Note> | null): boolean => {
-  if (!note || !note.previewUrl) return false;
-  const url = note.previewUrl.trim();
-  if (!url) return false;
-  if (
-    url.includes('Sample_Preview') ||
-    url.includes('placeholder') ||
-    url.includes('dummy') ||
-    url.includes('example.com') ||
-    url === '#' ||
-    url === 'about:blank'
-  ) {
-    return false;
-  }
-
-  // Strict Subject Protection: Prevent TAFL notes PDF URL from showing for Data Structures, COA, OS, Java, etc.
-  const noteSubject = (note.subject || '').toLowerCase();
-  const noteTitle = (note.title || '').toLowerCase();
-  if (!noteSubject.includes('automata') && !noteSubject.includes('tafl') && !noteTitle.includes('tafl')) {
-    if (url.includes('tafl') || url.includes('notes_tafl_')) {
+  if (!note) return false;
+  if (note.hasPdf !== undefined) return Boolean(note.hasPdf);
+  if ((note as any).has_pdf !== undefined) return Boolean((note as any).has_pdf);
+  const url = (note.previewUrl || note.pdfUrl || '').trim();
+  if (url) {
+    if (
+      url.includes('Sample_Preview') ||
+      url.includes('placeholder') ||
+      url.includes('dummy') ||
+      url.includes('example.com') ||
+      url === '#' ||
+      url === 'about:blank'
+    ) {
       return false;
     }
+    return true;
   }
-
-  return true;
+  // If note has a real catalog ID and is not a synthesized placeholder, backend stream is available
+  if (note.id && !note.id.startsWith('bundle_sub_')) {
+    return true;
+  }
+  return false;
 };
 
 export const cleanBundleDescription = (desc?: string): string => {
@@ -823,7 +533,7 @@ let mockUsers = getStoredData<UserProfile[]>('bw_mock_users', []);
 let mockPurchasesV2 = getStoredData<Purchase[]>('bw_mock_purchases_v2', []);
 let mockBundles = getStoredData<Bundle[]>('bw_mock_bundles', INITIAL_BUNDLES);
 let currentUser = getStoredData<UserProfile | null>('bw_mock_current_user', null);
-export let mockNotes = getStoredData<Note[]>('bw_mock_notes', INITIAL_NOTES);
+export let mockNotes = getStoredData<Note[]>('bw_mock_notes', []).filter(n => n && n.id && isNotePdfAvailable(n));
 let mockPlaylists: Playlist[] = [];
 
 export const fetchWithTimeout = async <T>(promise: Promise<T>, timeoutMs = 1000): Promise<T> => {
@@ -843,6 +553,9 @@ export const dbService = {
       if (res.data) {
         currentUser = res.data;
         setStoredData('bw_mock_current_user', currentUser);
+        if (res.token && typeof localStorage !== 'undefined') {
+          localStorage.setItem('bw_auth_token', res.token);
+        }
         if (res.activeSessionId && typeof localStorage !== 'undefined') {
           localStorage.setItem('bw_active_session_id', res.activeSessionId);
         }
@@ -860,6 +573,9 @@ export const dbService = {
       if (res.data) {
         currentUser = res.data;
         setStoredData('bw_mock_current_user', currentUser);
+        if (res.token && typeof localStorage !== 'undefined') {
+          localStorage.setItem('bw_auth_token', res.token);
+        }
         if (res.activeSessionId && typeof localStorage !== 'undefined') {
           localStorage.setItem('bw_active_session_id', res.activeSessionId);
         }
@@ -877,6 +593,9 @@ export const dbService = {
       if (res.data) {
         currentUser = res.data;
         setStoredData('bw_mock_current_user', currentUser);
+        if (res.token && typeof localStorage !== 'undefined') {
+          localStorage.setItem('bw_auth_token', res.token);
+        }
         if (res.activeSessionId && typeof localStorage !== 'undefined') {
           localStorage.setItem('bw_active_session_id', res.activeSessionId);
         }
@@ -903,6 +622,9 @@ export const dbService = {
       if (res.data) {
         currentUser = res.data;
         setStoredData('bw_mock_current_user', currentUser);
+        if (res.token && typeof localStorage !== 'undefined') {
+          localStorage.setItem('bw_auth_token', res.token);
+        }
         if (res.activeSessionId && typeof localStorage !== 'undefined') {
           localStorage.setItem('bw_active_session_id', res.activeSessionId);
         }
@@ -928,6 +650,7 @@ export const dbService = {
       localStorage.removeItem('bw_mock_current_user');
       localStorage.removeItem('bw_active_session_id');
       localStorage.removeItem('bw_current_device_session');
+      localStorage.removeItem('bw_auth_token');
     }
   },
 
@@ -947,6 +670,49 @@ export const dbService = {
   setCurrentUser: (user: UserProfile | null): void => {
     currentUser = user;
     setStoredData('bw_mock_current_user', currentUser);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bw_user_updated', { detail: user }));
+    }
+  },
+
+  refreshCurrentUserProfile: async (): Promise<UserProfile | null> => {
+    let user = currentUser || getStoredData<UserProfile | null>('bw_mock_current_user', null);
+    if (!user) return null;
+
+    try {
+      const res = await vpsApi.getProfile(user.id || user.email);
+      if (res && res.data) {
+        const updated = { ...user, ...res.data };
+        currentUser = updated;
+        setStoredData('bw_mock_current_user', updated);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('bw_user_updated', { detail: updated }));
+        }
+        return updated;
+      }
+    } catch (e) {}
+    return user;
+  },
+
+  updateUserPhone: async (phone: string): Promise<{ success: boolean; error: string | null }> => {
+    let user = currentUser || getStoredData<UserProfile | null>('bw_mock_current_user', null);
+    if (!user) return { success: false, error: 'User not logged in' };
+
+    try {
+      const res = await vpsApi.updatePhone(user.id || user.email, phone);
+      if (res && res.data) {
+        const updated = { ...user, ...res.data };
+        currentUser = updated;
+        setStoredData('bw_mock_current_user', updated);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('bw_user_updated', { detail: updated }));
+        }
+        return { success: true, error: null };
+      }
+      return { success: false, error: res?.error || 'Failed to update phone number' };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
   },
 
   registerDeviceSession: async (userId: string): Promise<{ activeSessionId: string | null; error: string | null }> => {
@@ -1024,11 +790,29 @@ export const dbService = {
 
     const deletedNoteIds = new Set(getStoredData<string[]>('bw_deleted_notes', []));
 
+    const isValidPdfNote = (n: any): boolean => {
+      if (!n || !n.id) return false;
+      const url = (n.preview_url || n.previewUrl || n.pdf_url || n.pdfUrl || '').trim();
+      if (!url) return false;
+      if (
+        url.includes('Sample_Preview') ||
+        url.includes('placeholder') ||
+        url.includes('dummy') ||
+        url.includes('example.com') ||
+        url === '#' ||
+        url === 'about:blank' ||
+        url.includes('drive.google.com/file/d/1_')
+      ) {
+        return false;
+      }
+      return true;
+    };
+
     try {
       const res = await vpsApi.getNotes();
       if (res.data && Array.isArray(res.data)) {
         const mapped: Note[] = res.data
-          .filter((n: any) => !deletedNoteIds.has(n.id))
+          .filter((n: any) => !deletedNoteIds.has(n.id) && isValidPdfNote(n))
           .map((n: any) => ({
             id: n.id,
             title: n.title,
@@ -1039,8 +823,9 @@ export const dbService = {
             price: Number(n.price || 49),
             originalPrice: Number(n.original_price || n.originalPrice || 199),
             description: n.description || '',
-            previewUrl: n.preview_url || n.previewUrl || n.pdf_url || n.pdfUrl || '',
-            pdfUrl: n.pdf_url || n.pdfUrl || n.preview_url || n.previewUrl || '',
+            previewUrl: n.preview_url || n.previewUrl || (n.id ? `/api/notes/${n.id}/pdf` : ''),
+            pdfUrl: n.pdf_url || n.pdfUrl || (n.id ? `/api/notes/${n.id}/pdf` : ''),
+            hasPdf: n.has_pdf !== undefined ? Boolean(n.has_pdf) : (n.hasPdf !== undefined ? Boolean(n.hasPdf) : (Boolean(n.pdf_url || n.preview_url))),
             pagesCount: Number(n.pages_count || n.pagesCount || 100),
             topics: safeParseTopics(n.topics),
             type: n.type || 'notes',
@@ -1056,8 +841,8 @@ export const dbService = {
     } catch (e) {}
 
     const cached = getStoredData<Note[]>('bw_cached_notes', []);
-    const cleanInitial = INITIAL_NOTES.filter(n => !deletedNoteIds.has(n.id));
-    const fallbackNotes = cached.length > 0 ? cached.filter(n => !deletedNoteIds.has(n.id)) : cleanInitial;
+    const cleanInitial = INITIAL_NOTES.filter(n => !deletedNoteIds.has(n.id) && isValidPdfNote(n));
+    const fallbackNotes = cached.length > 0 ? cached.filter(n => !deletedNoteIds.has(n.id) && isValidPdfNote(n)) : cleanInitial;
 
     const filtered = year ? fallbackNotes.filter(n => matchesYear(n.year, year)) : fallbackNotes;
     return { data: filtered, error: null };
@@ -1096,16 +881,34 @@ export const dbService = {
     try {
       const res = await vpsApi.addNote(note);
       if (res.data) {
-        mockNotes.unshift(res.data);
+        const addedNote: Note = {
+          ...res.data,
+          hasPdf: true,
+          previewUrl: res.data.preview_url || res.data.previewUrl || (res.data.id ? `/api/notes/${res.data.id}/pdf` : ''),
+          pdfUrl: res.data.pdf_url || res.data.pdfUrl || (res.data.id ? `/api/notes/${res.data.id}/pdf` : ''),
+          pagesCount: Number(res.data.pages_count || res.data.pagesCount || 100),
+          topics: safeParseTopics(res.data.topics)
+        };
+        mockNotes.unshift(addedNote);
         setStoredData('bw_mock_notes', mockNotes);
-        return { data: res.data, error: null };
+
+        const cachedNotes = getStoredData<Note[]>('bw_cached_notes', []);
+        cachedNotes.unshift(addedNote);
+        setStoredData('bw_cached_notes', cachedNotes);
+
+        return { data: addedNote, error: null };
       }
     } catch (e) {}
 
     const prefix = note.type === 'pyqs' ? 'pyq_' : 'note_';
-    const newNote = { ...note, id: prefix + Math.random().toString(36).substr(2, 9) } as Note;
+    const newNote = { ...note, id: prefix + Math.random().toString(36).substr(2, 9), hasPdf: true } as Note;
     mockNotes.unshift(newNote);
     setStoredData('bw_mock_notes', mockNotes);
+
+    const cachedNotes = getStoredData<Note[]>('bw_cached_notes', []);
+    cachedNotes.unshift(newNote);
+    setStoredData('bw_cached_notes', cachedNotes);
+
     return { data: newNote, error: null };
   },
 
@@ -1436,9 +1239,35 @@ export const dbService = {
     setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
 
     try {
-      if (user.id) await vpsApi.grantPurchase(user.id, notesId, 'note', 99, paymentDetails?.paymentId);
-      if (user.email && user.email !== user.id) await vpsApi.grantPurchase(user.email, notesId, 'note', 99, paymentDetails?.paymentId);
-    } catch (e) {}
+      let grantRes: any;
+      if (paymentDetails?.paymentId && paymentDetails.paymentId.startsWith('pay_')) {
+        grantRes = await vpsApi.verifyRazorpayPayment({
+          razorpayOrderId: paymentDetails.orderId,
+          razorpayPaymentId: paymentDetails.paymentId,
+          razorpaySignature: paymentDetails.signature,
+          userId: user.id || user.email,
+          itemId: notesId,
+          itemType: 'note',
+          amount: 99
+        });
+      } else {
+        if (user.id) grantRes = await vpsApi.grantPurchase(user.id, notesId, 'note', 99, paymentDetails?.paymentId);
+        if (user.email && user.email !== user.id) grantRes = await vpsApi.grantPurchase(user.email, notesId, 'note', 99, paymentDetails?.paymentId);
+      }
+      
+      if (grantRes?.user?.phone) {
+        user.phone = grantRes.user.phone;
+        currentUser = user;
+        setStoredData('bw_mock_current_user', user);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('bw_user_updated', { detail: user }));
+        }
+      } else {
+        await dbService.refreshCurrentUserProfile();
+      }
+    } catch (e) {
+      console.warn('Purchase sync warning:', e);
+    }
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('bw_purchases_updated'));
@@ -1474,9 +1303,35 @@ export const dbService = {
     setStoredData('bw_mock_purchases_v2', mockPurchasesV2);
 
     try {
-      if (user.id) await vpsApi.grantPurchase(user.id, bundleId, 'bundle', 299, paymentDetails?.paymentId);
-      if (user.email && user.email !== user.id) await vpsApi.grantPurchase(user.email, bundleId, 'bundle', 299, paymentDetails?.paymentId);
-    } catch (e) {}
+      let grantRes: any;
+      if (paymentDetails?.paymentId && paymentDetails.paymentId.startsWith('pay_')) {
+        grantRes = await vpsApi.verifyRazorpayPayment({
+          razorpayOrderId: paymentDetails.orderId,
+          razorpayPaymentId: paymentDetails.paymentId,
+          razorpaySignature: paymentDetails.signature,
+          userId: user.id || user.email,
+          itemId: bundleId,
+          itemType: 'bundle',
+          amount: 299
+        });
+      } else {
+        if (user.id) grantRes = await vpsApi.grantPurchase(user.id, bundleId, 'bundle', 299, paymentDetails?.paymentId);
+        if (user.email && user.email !== user.id) grantRes = await vpsApi.grantPurchase(user.email, bundleId, 'bundle', 299, paymentDetails?.paymentId);
+      }
+
+      if (grantRes?.user?.phone) {
+        user.phone = grantRes.user.phone;
+        currentUser = user;
+        setStoredData('bw_mock_current_user', user);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('bw_user_updated', { detail: user }));
+        }
+      } else {
+        await dbService.refreshCurrentUserProfile();
+      }
+    } catch (e) {
+      console.warn('Purchase sync warning:', e);
+    }
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('bw_purchases_updated'));

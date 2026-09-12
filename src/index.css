@@ -98,6 +98,23 @@ html, body, *, ::-webkit-scrollbar {
   background: transparent !important;
 }
 
+/* Fast Responsive DRM Screenshot Blur Guard (<100ms) */
+body.pdf-screen-blurred .pdf-viewer-root canvas,
+body.pdf-screen-blurred .pdf-viewer-root .pdf-viewer-scroll-container {
+  filter: blur(50px) brightness(0.25) !important;
+  opacity: 0.2 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  transition: filter 0.08s ease, opacity 0.08s ease !important;
+}
+
+@media print {
+  body, html, .pdf-viewer-root, canvas {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
+
 .container {
   width: 100%;
   max-width: 1200px;
@@ -3958,6 +3975,60 @@ body.app-mode[data-theme="light"] .welcome-dashboard-card:hover {
 
 [data-theme="light"] .unlocked-bundle-desc {
   color: #475569 !important;
+}
+
+/* ─── Print Media Blackout (Anti-Piracy) ─────────────────────────────────── */
+@media print {
+  canvas,
+  .pdf-viewer-root,
+  .pdf-viewer-root * {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  body::after {
+    content: "⚠ Printing study notes is disabled for copyright protection. — Bitwise Learning";
+    font-size: 22px;
+    font-weight: 700;
+    color: #ef4444;
+    display: block;
+    text-align: center;
+    margin-top: 120px;
+    padding: 40px;
+  }
+}
+
+/* ─── Notes Viewer High-Visibility Glowing Scrollbar ─────────────────────── */
+.pdf-viewer-scroll-container {
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--color-yellow) rgba(10, 19, 41, 0.7) !important;
+}
+
+.pdf-viewer-scroll-container::-webkit-scrollbar {
+  display: block !important;
+  width: 9px !important;
+  height: 9px !important;
+  background: rgba(6, 9, 19, 0.85) !important;
+}
+
+.pdf-viewer-scroll-container::-webkit-scrollbar-track {
+  display: block !important;
+  background: rgba(10, 19, 41, 0.6) !important;
+  border-radius: 8px !important;
+  margin: 70px 0 60px 0 !important;
+}
+
+.pdf-viewer-scroll-container::-webkit-scrollbar-thumb {
+  display: block !important;
+  background: linear-gradient(180deg, #f59e0b, #d97706) !important;
+  border-radius: 8px !important;
+  border: 2px solid rgba(6, 9, 19, 0.9) !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5) !important;
+}
+
+.pdf-viewer-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #fbbf24 !important;
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.8) !important;
 }
 
 

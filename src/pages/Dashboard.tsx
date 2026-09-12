@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight, Sparkles, Clock, FileText, Video } from 'lucide-react';
+import { Search, CheckCircle2, ShieldCheck, User, BookOpen, ArrowLeft, ArrowRight, Sparkles, Clock, FileText, Video, Info } from 'lucide-react';
 import { dbService, decodeBundleFromDb, isSameSubject, deriveBundleType } from '../lib/dbService';
 import type { Note, UserProfile, Bundle, Playlist } from '../lib/dbService';
 import { openRazorpayCheckout } from '../lib/razorpay';
@@ -32,9 +32,9 @@ const getSubjectsForActiveFilter = (
   sem: number | null,
   allNotes: Note[] = []
 ): SubjectItem[] => {
-  let predefined: SubjectItem[] = [];
+  let allYearSubjects: SubjectItem[] = [];
   if (year === '1st Year') {
-    predefined = [
+    allYearSubjects = [
       { name: 'Engineering Physics', semester: 'Common' },
       { name: 'Engineering Chemistry', semester: 'Common' },
       { name: 'Engineering Mathematics-I', semester: 'Common' },
@@ -44,17 +44,13 @@ const getSubjectsForActiveFilter = (
       { name: 'Soft Skills', semester: 'Common' }
     ];
   } else if (year === '2nd Year') {
-    const sem3: SubjectItem[] = [
+    allYearSubjects = [
       { name: 'Data Structure', semester: 3 },
       { name: 'Computer Organization & Architecture', semester: 3 },
-      { name: 'Discrete Structures & Theory of Logic', semester: 3 }
-    ];
-    const sem4: SubjectItem[] = [
+      { name: 'Discrete Structures & Theory of Logic', semester: 3 },
       { name: 'Operating System', semester: 4 },
       { name: 'Theory of Automata and Formal Languages', semester: 4 },
-      { name: 'Object Oriented Programming with Java', semester: 4 }
-    ];
-    const common: SubjectItem[] = [
+      { name: 'Object Oriented Programming with Java', semester: 4 },
       { name: 'Math IV', semester: 'Common' },
       { name: 'Technical Communication', semester: 'Common' },
       { name: 'Cyber Security', semester: 'Common' },
@@ -62,42 +58,32 @@ const getSubjectsForActiveFilter = (
       { name: 'UHV', semester: 'Common' },
       { name: 'Energy Science and Engineering', semester: 'Common' }
     ];
-    if (sem === 3) predefined = [...sem3, ...common];
-    else if (sem === 4) predefined = [...sem4, ...common];
-    else predefined = [...sem3, ...sem4, ...common];
   } else if (year === '3rd Year') {
-    const sem5: SubjectItem[] = [
+    allYearSubjects = [
       { name: 'Database Management System', semester: 5 },
       { name: 'Web Technology', semester: 5 },
       { name: 'Design and Analysis of Algorithm (DAA)', semester: 5 },
       { name: 'Data Analytics', semester: 5 },
       { name: 'Object Oriented System Design with C++ (OOSD)', semester: 5 },
       { name: 'Image Processing', semester: 5 },
-      { name: 'Data Warehouse & Data Mining', semester: 5 }
-    ];
-    const sem6: SubjectItem[] = [
+      { name: 'Data Warehouse & Data Mining', semester: 5 },
       { name: 'Software Engineering', semester: 6 },
       { name: 'Compiler Design', semester: 6 },
       { name: 'Computer Networks', semester: 6 },
       { name: 'Blockchain Architecture Design', semester: 6 },
       { name: 'Big Data', semester: 6 },
-      { name: 'Software Project Management (SPM)', semester: 6 }
-    ];
-    const common: SubjectItem[] = [
+      { name: 'Software Project Management (SPM)', semester: 6 },
       { name: 'Constitution of India (COI)', semester: 'Common' },
       { name: 'Essence of Indian Traditional Knowledge (EITK)', semester: 'Common' }
     ];
-    if (sem === 5) predefined = [...sem5, ...common];
-    else if (sem === 6) predefined = [...sem6, ...common];
-    else predefined = [...sem5, ...sem6, ...common];
   } else if (year === '4th Year') {
-    predefined = [
-      { name: 'Semester 7 subjects', semester: 'Coming Soon', isComingSoon: true },
-      { name: 'Semester 8 subjects', semester: 'Coming Soon', isComingSoon: true }
+    allYearSubjects = [
+      { name: 'Semester 7 subjects', semester: 7, isComingSoon: true },
+      { name: 'Semester 8 subjects', semester: 8, isComingSoon: true }
     ];
   }
 
-  // Dynamically include any uploaded custom subject from notes that is NOT in predefined list
+  // Dynamically include any uploaded custom subject from notes that is NOT in allYearSubjects list
   // IMPORTANT: only include subjects whose note actually belongs to the active year
   if (allNotes && allNotes.length > 0) {
     for (const n of allNotes) {
@@ -106,9 +92,10 @@ const getSubjectsForActiveFilter = (
       const nY = n.year.toLowerCase().replace(/[^a-z0-9]/g, '');
       const fY = year.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (nY !== fY && !nY.includes(fY) && !fY.includes(nY)) continue;
-      const alreadyExists = predefined.some(p => isSameSubject(p.name, n.subject));
+      
+      const alreadyExists = allYearSubjects.some(p => isSameSubject(p.name, n.subject));
       if (!alreadyExists) {
-        predefined.push({
+        allYearSubjects.push({
           name: n.subject,
           semester: n.semester || 'Common'
         });
@@ -116,7 +103,12 @@ const getSubjectsForActiveFilter = (
     }
   }
 
-  return predefined;
+  // When a specific semester filter is selected, strictly return matching semester + Common subjects
+  if (sem !== null) {
+    return allYearSubjects.filter(s => s.semester === sem || s.semester === 'Common');
+  }
+
+  return allYearSubjects;
 };
 
 interface DashboardProps {
@@ -375,23 +367,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         return false;
       });
     }
-
-    const handlePopState = () => {
-      if (selectedCategory !== null) {
-        handleBackCategory();
-      } else if (selectedSubject !== null) {
-        handleBackSubject();
-      } else if (searchQuery.trim() !== '') {
-        setSearchQuery('');
-      } else if (selectedSemester !== null) {
-        setSelectedSemester(null);
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
   }, [selectedCategory, selectedSubject, searchQuery, selectedSemester, onRegisterBackHandler]);
 
   // Determine semesters in active year
@@ -679,6 +654,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   }}>
                     {selectedSubject}
                   </h3>
+                  <span style={{ fontSize: '11px', color: '#fbbf24', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
+                    <Info size={12} style={{ flexShrink: 0, color: '#f59e0b' }} />
+                    <span>Notes are only accessible on website</span>
+                  </span>
                 </div>
               </div>
 
@@ -803,6 +782,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 >
                   All Subjects
                 </button>
+              </div>
+
+              {/* Website-Only Accessibility Notice Banner */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 14px',
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.22)',
+                borderRadius: '12px',
+                color: '#fbbf24',
+                fontSize: '12px',
+                fontWeight: '600',
+                marginBottom: '16px',
+                textAlign: 'left'
+              }}>
+                <Info size={15} style={{ flexShrink: 0, color: '#f59e0b' }} />
+                <span>Notice: Study notes and PYQs are only accessible for reading directly on the website.</span>
               </div>
 
               {/* Golden Subject All-In-One Combo Banner (Positioned Right Above 2 Square Cards ONLY if created by Admin) */}
@@ -1318,6 +1316,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                 return (
                   <div className="bundles-container" style={{ marginTop: '30px' }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 16px',
+                      background: 'rgba(245, 158, 11, 0.08)',
+                      border: '1px solid rgba(245, 158, 11, 0.22)',
+                      borderRadius: '12px',
+                      color: '#fbbf24',
+                      fontSize: '12.5px',
+                      fontWeight: '600',
+                      marginBottom: '20px',
+                      textAlign: 'left'
+                    }}>
+                      <Info size={16} style={{ flexShrink: 0, color: '#f59e0b' }} />
+                      <span>Note: Notes and study materials are only accessible on the website.</span>
+                    </div>
+
                     <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '4px' }} className="yellow-accent">
                       Semester Combo Packs (6 Months Validity)
                     </h3>

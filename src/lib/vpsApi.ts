@@ -27,7 +27,25 @@ export interface ApiPurchase {
 
 const safeFetchJson = async (url: string, options?: RequestInit) => {
   try {
-    const res = await fetch(url, options);
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('bw_auth_token') : null;
+    let user: any = null;
+    try {
+      const rawUser = typeof localStorage !== 'undefined' ? localStorage.getItem('bw_mock_current_user') : null;
+      if (rawUser) user = JSON.parse(rawUser);
+    } catch (e) {}
+
+    const sessionId = typeof localStorage !== 'undefined' ? localStorage.getItem('bw_active_session_id') : null;
+
+    const headers: Record<string, string> = {
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...(user?.id ? { 'x-user-id': String(user.id) } : {}),
+      ...(user?.email ? { 'x-user-email': String(user.email) } : {}),
+      ...(user?.role ? { 'x-user-role': String(user.role) } : {}),
+      ...(sessionId ? { 'x-session-id': String(sessionId) } : {}),
+      ...((options?.headers as Record<string, string>) || {})
+    };
+
+    const res = await fetch(url, { ...options, headers });
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
       const text = await res.text();
@@ -232,6 +250,18 @@ export const vpsApi = {
 
   getAllProfiles: async () => {
     return safeFetchJson(`${API_BASE_URL}/profiles/all`);
+  },
+
+  getProfile: async (userId: string) => {
+    return safeFetchJson(`${API_BASE_URL}/auth/profile/${encodeURIComponent(userId)}`);
+  },
+
+  updatePhone: async (userId: string, phone: string) => {
+    return safeFetchJson(`${API_BASE_URL}/auth/update-phone`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, phone })
+    });
   },
 
   // Razorpay Gateway Integration

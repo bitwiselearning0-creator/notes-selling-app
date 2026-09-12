@@ -13,6 +13,7 @@ import { Profile } from './pages/Profile';
 import { ResetPasswordModal } from './components/ResetPasswordModal';
 import { dbService } from './lib/dbService';
 import type { UserProfile, Note } from './lib/dbService';
+import { openRazorpayCheckout } from './lib/razorpay';
 import { BookOpen, Library, ShieldCheck, User, LogOut } from 'lucide-react';
 import { App as CapApp } from '@capacitor/app';
 
@@ -247,22 +248,28 @@ function App() {
     backHandlerRef.current = goBack;
   });
 
-  // ─── ONE popstate listener — routes through goBack ref ───────────────────
-  // NOTE: hashchange is separate and ONLY used for routing (not back nav).
-  // This eliminates the double-fire bug where both listeners fired on back.
+  // ─── Popstate & Hash Routing (clean state synchronization) ────────────────
   useEffect(() => {
     const handlePopState = () => {
-      backHandlerRef.current();
+      if (showExitModalRef.current) {
+        setShowExitModal(false);
+      }
+      if (showResetModalRef.current) {
+        setShowResetModal(false);
+      }
+      if (readingNoteRef.current !== null) {
+        setReadingNote(null);
+      }
+      handleHashRouting();
     };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
 
-  // ─── hashchange → routing ONLY (no back nav overlap) ─────────────────────
-  useEffect(() => {
+    window.addEventListener('popstate', handlePopState);
     window.addEventListener('hashchange', handleHashRouting);
-    return () => window.removeEventListener('hashchange', handleHashRouting);
-  }, []); // handleHashRouting uses refs, no stale closure risk
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handleHashRouting);
+    };
+  }, []);
 
   // ─── Hardware back button (Capacitor / Android) ───────────────────────────
   useEffect(() => {
@@ -556,14 +563,34 @@ function App() {
   };
 
   const handleUnlockInViewer = async () => {
-    if (!readingNote || !currentUserRef.current) {
+    if (!readingNote) return;
+    if (!currentUserRef.current) {
       window.location.hash = '#login';
       return;
     }
-    const { success } = await dbService.purchaseNotes(readingNote.id);
-    if (success) {
-      setReadingNoteUnlocked(true);
-    }
+
+    await openRazorpayCheckout({
+      title: readingNote.title,
+      price: readingNote.price || 99,
+      type: 'notes',
+      user: currentUserRef.current,
+      onSuccess: async (response) => {
+        const paymentDetails = {
+          paymentId: response.razorpay_payment_id || '',
+          orderId: response.razorpay_order_id || '',
+          signature: response.razorpay_signature || ''
+        };
+        const { success } = await dbService.purchaseNotes(readingNote.id, paymentDetails);
+        if (success) {
+          setReadingNoteUnlocked(true);
+        }
+      },
+      onFailure: (err) => {
+        if (typeof err === 'string' && err.length > 0) {
+          alert(err);
+        }
+      }
+    });
   };
 
   useEffect(() => {
@@ -709,6 +736,8 @@ function App() {
             <PDFViewer
               note={readingNote}
               isUnlocked={readingNoteUnlocked}
+              user={currentUser}
+              isAppMode={isAppMode}
               onBack={() => goBack()}
               onUnlock={handleUnlockInViewer}
             />
