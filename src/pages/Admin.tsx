@@ -106,6 +106,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
   const [licenseSearchQuery, setLicenseSearchQuery] = useState('');
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
+  const [sessionPage, setSessionPage] = useState(1);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -2289,7 +2290,16 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                 });
 
                 return (
-                  <div className="admin-list-card glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div 
+                    className="admin-list-card glass-card" 
+                    style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      alignSelf: 'start',
+                      minHeight: '520px',
+                      position: 'relative'
+                    }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
                       <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }} className="blue-accent">
                         <Users size={20} /> Active Licenses Registry ({filteredPurchases.length} / {purchases.length} Keys)
@@ -2319,11 +2329,13 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                     {/* Candidate Search Bar */}
                     <div style={{ marginBottom: '16px', position: 'relative' }}>
-                      <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)' }} />
+                      <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)', pointerEvents: 'none' }} />
                       <input
                         type="text"
                         value={licenseSearchQuery}
                         maxLength={100}
+                        autoComplete="off"
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                         onChange={(e) => setLicenseSearchQuery(sanitizeSearchQuery(e.target.value))}
                         placeholder="Search candidate by email ID, student name, or item name..."
                         style={{
@@ -2363,24 +2375,24 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                     </div>
                     
                     {purchases.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-muted)' }}>
+                      <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-muted)', minHeight: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                         <AlertCircle size={32} style={{ margin: '0 auto 12px' }} />
                         <p style={{ fontSize: '14px' }}>No active unlocked notes licenses registered yet.</p>
                       </div>
                     ) : filteredPurchases.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-muted)' }}>
+                      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-muted)', minHeight: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                         <Search size={28} style={{ margin: '0 auto 10px', opacity: 0.6 }} />
                         <p style={{ fontSize: '14px', margin: 0 }}>No licenses found matching "{licenseSearchQuery}"</p>
                       </div>
                     ) : (
-                      <div className="admin-table-wrapper" style={{ flexGrow: 1 }}>
+                      <div className="admin-table-wrapper" style={{ flexGrow: 1, maxHeight: '540px', overflowY: 'auto', overflowX: 'auto', minHeight: '260px' }}>
                         <table className="admin-table">
-                          <thead>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'rgba(10, 15, 30, 0.98)' }}>
                             <tr>
-                              <th>Student Email</th>
-                              <th>Unlocked Item Name</th>
-                              <th>Expiry Date</th>
-                              <th style={{ textAlign: 'right' }}>Access Control</th>
+                              <th style={{ background: 'rgba(14, 23, 46, 0.98)' }}>Student Email</th>
+                              <th style={{ background: 'rgba(14, 23, 46, 0.98)' }}>Unlocked Item Name</th>
+                              <th style={{ background: 'rgba(14, 23, 46, 0.98)' }}>Expiry Date</th>
+                              <th style={{ textAlign: 'right', background: 'rgba(14, 23, 46, 0.98)' }}>Access Control</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2484,7 +2496,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
           {/* ACTIVE DEVICE SESSIONS TAB */}
           {/* ============================================================== */}
           {activeTab === 'sessions' && (
-            <div className="glass-card" style={{ padding: '24px' }}>
+            <div className="glass-card" style={{ padding: '24px', minHeight: '520px', position: 'relative' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                   <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }} className="blue-accent">
@@ -2495,7 +2507,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                   </p>
                 </div>
                 <button 
-                  className="btn-secondary"
+                  className="btn-secondary" 
                   onClick={fetchActiveSessions}
                   disabled={loadingSessions}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '6px 14px' }}
@@ -2507,20 +2519,64 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
               {/* Search filter */}
               <div className="form-group" style={{ marginBottom: '20px' }}>
                 <div style={{ position: 'relative' }}>
-                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)' }} />
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)', pointerEvents: 'none' }} />
                   <input 
                     type="text" 
                     placeholder="Search active sessions by student name, email, phone or session ID..."
                     value={sessionSearchQuery}
-                    onChange={(e) => setSessionSearchQuery(e.target.value)}
-                    style={{ paddingLeft: '38px', background: 'rgba(10, 17, 40, 0.6)' }}
+                    autoComplete="off"
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                    onChange={(e) => {
+                      setSessionSearchQuery(e.target.value);
+                      setSessionPage(1);
+                    }}
+                    style={{ 
+                      paddingLeft: '38px', 
+                      background: 'rgba(10, 17, 40, 0.6)',
+                      scrollMarginTop: '120px'
+                    }}
                   />
+                  {sessionSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSessionSearchQuery('');
+                        setSessionPage(1);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'rgba(255,255,255,0.1)',
+                        border: 'none',
+                        color: 'var(--color-white)',
+                        borderRadius: '6px',
+                        padding: '2px 8px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: '700'
+                      }}
+                    >
+                      ✕ Clear
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* Sessions List Table */}
               {(() => {
-                const filteredSessions = activeSessions.filter(s => {
+                // Deduplicate by user_id/user_email so no duplicate student rows appear
+                const seen = new Set<string>();
+                const dedupedSessions = activeSessions.filter(s => {
+                  const key = (s.user_id || s.user_email || s.session_id || '').toLowerCase();
+                  if (!key) return true;
+                  if (seen.has(key)) return false;
+                  seen.add(key);
+                  return true;
+                });
+
+                const filteredSessions = dedupedSessions.filter(s => {
                   if (!sessionSearchQuery) return true;
                   const q = sessionSearchQuery.toLowerCase();
                   return (
@@ -2533,7 +2589,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                 if (loadingSessions) {
                   return (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-muted)' }}>
+                    <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--color-muted)', minHeight: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                       <RefreshCw size={24} className="spin" style={{ marginBottom: '10px' }} />
                       <p>Fetching active device sessions from server...</p>
                     </div>
@@ -2542,7 +2598,7 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
 
                 if (filteredSessions.length === 0) {
                   return (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-muted)', border: '1px dashed var(--glass-border)', borderRadius: '12px' }}>
+                    <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--color-muted)', border: '1px dashed var(--glass-border)', borderRadius: '12px', minHeight: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                       <Smartphone size={32} style={{ opacity: 0.5, marginBottom: '10px' }} />
                       <p style={{ margin: 0, fontWeight: '600' }}>No Active Sessions Found</p>
                       <span style={{ fontSize: '12px', opacity: 0.8 }}>No student devices are currently active or matching your filter.</span>
@@ -2550,107 +2606,146 @@ export const Admin: React.FC<AdminProps> = ({ user, navigate }) => {
                   );
                 }
 
+                const SESSIONS_PER_PAGE = 35;
+                const totalPages = Math.ceil(filteredSessions.length / SESSIONS_PER_PAGE) || 1;
+                const currentPageClamped = Math.min(Math.max(sessionPage, 1), totalPages);
+                const pagedSessions = filteredSessions.slice((currentPageClamped - 1) * SESSIONS_PER_PAGE, currentPageClamped * SESSIONS_PER_PAGE);
+
                 return (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--color-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          <th style={{ padding: '10px 12px' }}>Student Profile</th>
-                          <th style={{ padding: '10px 12px' }}>Active Device Session ID</th>
-                          <th style={{ padding: '10px 12px' }}>Last Activity / Login</th>
-                          <th style={{ padding: '10px 12px' }}>Session Status</th>
-                          <th style={{ padding: '10px 12px', textAlign: 'right' }}>Terminate Access</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredSessions.map(s => {
-                          const updated = s.updated_at ? new Date(s.updated_at) : null;
-                          const formattedTime = updated ? updated.toLocaleString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          }) : 'Just now';
+                  <div>
+                    <div className="admin-table-wrapper" style={{ maxHeight: '540px', overflowY: 'auto', overflowX: 'auto', minHeight: '260px' }}>
+                      <table className="admin-table">
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'rgba(10, 15, 30, 0.98)' }}>
+                          <tr>
+                            <th style={{ background: 'rgba(14, 23, 46, 0.98)', padding: '10px 12px' }}>Student Profile</th>
+                            <th style={{ background: 'rgba(14, 23, 46, 0.98)', padding: '10px 12px' }}>Active Device Session ID</th>
+                            <th style={{ background: 'rgba(14, 23, 46, 0.98)', padding: '10px 12px' }}>Last Activity / Login</th>
+                            <th style={{ background: 'rgba(14, 23, 46, 0.98)', padding: '10px 12px' }}>Session Status</th>
+                            <th style={{ background: 'rgba(14, 23, 46, 0.98)', padding: '10px 12px', textAlign: 'right' }}>Terminate Access</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pagedSessions.map(s => {
+                            const updated = s.updated_at ? new Date(s.updated_at) : null;
+                            const formattedTime = updated ? updated.toLocaleString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            }) : 'Just now';
 
-                          return (
-                            <tr key={s.user_id + s.session_id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                              <td style={{ padding: '12px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                  <span style={{ fontWeight: '700', color: 'var(--color-white)', fontSize: '13px' }}>
-                                    {s.user_name || 'Student'}
-                                  </span>
-                                  <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: '500' }}>
-                                    {s.user_email || s.user_id}
-                                  </span>
-                                  {s.user_phone && s.user_phone !== 'N/A' && (
-                                    <span style={{ fontSize: '10px', color: '#94a3b8' }}>
-                                      📞 {s.user_phone}
+                            return (
+                              <tr key={s.user_id + '_' + s.session_id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                <td style={{ padding: '12px' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{ fontWeight: '700', color: 'var(--color-white)', fontSize: '13px' }}>
+                                      {s.user_name || 'Student'}
                                     </span>
-                                  )}
-                                </div>
-                              </td>
+                                    <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: '500' }}>
+                                      {s.user_email || s.user_id}
+                                    </span>
+                                    {s.user_phone && s.user_phone !== 'N/A' && (
+                                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                                        📞 {s.user_phone}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
 
-                              <td style={{ padding: '12px' }}>
-                                <span style={{
-                                  fontFamily: 'monospace',
-                                  fontSize: '11px',
-                                  color: '#fef08a',
-                                  background: 'rgba(245, 158, 11, 0.12)',
-                                  border: '1px solid rgba(245, 158, 11, 0.3)',
-                                  padding: '3px 8px',
-                                  borderRadius: '6px',
-                                  display: 'inline-block'
-                                }}>
-                                  {s.session_id}
-                                </span>
-                              </td>
-
-                              <td style={{ padding: '12px', fontSize: '12px', color: 'var(--color-white)' }}>
-                                {formattedTime}
-                              </td>
-
-                              <td style={{ padding: '12px' }}>
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                  background: s.is_active ? 'rgba(52, 211, 153, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                  border: s.is_active ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)',
-                                  color: s.is_active ? '#34d399' : '#fef08a',
-                                  fontSize: '10px',
-                                  fontWeight: '800',
-                                  padding: '2px 8px',
-                                  borderRadius: '20px'
-                                }}>
-                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: s.is_active ? '#34d399' : '#f59e0b', boxShadow: s.is_active ? '0 0 6px #34d399' : 'none' }}></span>
-                                  {s.is_active ? 'ACTIVE DEVICE' : 'REGISTERED ACCOUNT'}
-                                </span>
-                              </td>
-
-                              <td style={{ padding: '12px', textAlign: 'right' }}>
-                                <button 
-                                  className="btn-secondary" 
-                                  style={{
-                                    padding: '6px 12px',
+                                <td style={{ padding: '12px' }}>
+                                  <span style={{
+                                    fontFamily: 'monospace',
                                     fontSize: '11px',
-                                    fontWeight: '700',
-                                    background: 'rgba(239, 68, 68, 0.15)',
-                                    borderColor: 'rgba(239, 68, 68, 0.4)',
-                                    color: '#f87171',
+                                    color: '#fef08a',
+                                    background: 'rgba(245, 158, 11, 0.12)',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    padding: '3px 8px',
+                                    borderRadius: '6px',
+                                    display: 'inline-block'
+                                  }}>
+                                    {s.session_id}
+                                  </span>
+                                </td>
+
+                                <td style={{ padding: '12px', fontSize: '12px', color: 'var(--color-white)' }}>
+                                  {formattedTime}
+                                </td>
+
+                                <td style={{ padding: '12px' }}>
+                                  <span style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: '4px'
-                                  }}
-                                  onClick={() => handleTerminateSession(s.user_id, s.user_email || s.user_name)}
-                                >
-                                  <LogOut size={12} /> Terminate Session
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                                    gap: '5px',
+                                    background: s.is_active ? 'rgba(52, 211, 153, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                    border: s.is_active ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)',
+                                    color: s.is_active ? '#34d399' : '#fef08a',
+                                    fontSize: '10px',
+                                    fontWeight: '800',
+                                    padding: '2px 8px',
+                                    borderRadius: '20px'
+                                  }}>
+                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: s.is_active ? '#34d399' : '#f59e0b', boxShadow: s.is_active ? '0 0 6px #34d399' : 'none' }}></span>
+                                    {s.is_active ? 'ACTIVE DEVICE' : 'REGISTERED ACCOUNT'}
+                                  </span>
+                                </td>
+
+                                <td style={{ padding: '12px', textAlign: 'right' }}>
+                                  <button 
+                                    className="btn-secondary" 
+                                    style={{
+                                      padding: '6px 12px',
+                                      fontSize: '11px',
+                                      fontWeight: '700',
+                                      background: 'rgba(239, 68, 68, 0.15)',
+                                      borderColor: 'rgba(239, 68, 68, 0.4)',
+                                      color: '#f87171',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}
+                                    onClick={() => handleTerminateSession(s.user_id, s.user_email || s.user_name)}
+                                  >
+                                    <LogOut size={12} /> Terminate Session
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--color-muted)' }}>
+                          Showing {(currentPageClamped - 1) * SESSIONS_PER_PAGE + 1}–{Math.min(currentPageClamped * SESSIONS_PER_PAGE, filteredSessions.length)} of {filteredSessions.length} active sessions
+                        </span>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={currentPageClamped <= 1}
+                            onClick={() => setSessionPage(p => Math.max(p - 1, 1))}
+                            style={{ padding: '4px 12px', fontSize: '12px' }}
+                          >
+                            Previous
+                          </button>
+                          <span style={{ fontSize: '12px', fontWeight: '700', padding: '0 6px' }}>
+                            {currentPageClamped} / {totalPages}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={currentPageClamped >= totalPages}
+                            onClick={() => setSessionPage(p => Math.min(p + 1, totalPages))}
+                            style={{ padding: '4px 12px', fontSize: '12px' }}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}

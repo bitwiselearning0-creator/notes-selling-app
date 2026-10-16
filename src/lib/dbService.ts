@@ -738,9 +738,29 @@ export const dbService = {
       if (res && res.valid === false) {
         return { valid: false, error: res.error || 'Your account was logged in on another device.' };
       }
+      if (res && res.token && typeof localStorage !== 'undefined') {
+        localStorage.setItem('bw_auth_token', res.token);
+      }
       return { valid: true, error: null };
     } catch (err: any) {
       return { valid: true, error: null };
+    }
+  },
+
+  refreshSession: async (): Promise<{ success: boolean; token?: string; error: string | null }> => {
+    try {
+      const user = dbService.getCurrentUser();
+      const sessionId = typeof localStorage !== 'undefined' ? localStorage.getItem('bw_active_session_id') : null;
+      if (!user || !sessionId) return { success: false, error: 'No active session' };
+
+      const res = await vpsApi.refreshSession(user.id || user.email, sessionId);
+      if (res && res.token && typeof localStorage !== 'undefined') {
+        localStorage.setItem('bw_auth_token', res.token);
+        return { success: true, token: res.token, error: null };
+      }
+      return { success: false, error: res?.error || 'Failed to refresh session' };
+    } catch (e: any) {
+      return { success: false, error: e.message };
     }
   },
 

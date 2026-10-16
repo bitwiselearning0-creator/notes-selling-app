@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bitwise Learning | AKTU B.Tech Engineering Notes & Solved PYQs</title>
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <link rel="apple-touch-icon" href="assets/logo.png" />
+  
+  <!-- Google Fonts: Inter, Plus Jakarta Sans, Instrument Serif, Space Grotesk, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Confetti Celebration -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            serif: ['"Instrument Serif"', 'serif'],
+            display: ['"Space Grotesk"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            bw: {
+              cyan: '#38BDF8',
+              blue: '#305EFF',
+              deepBlue: '#0C1E3D',
+              midnight: '#020617',
+              dark: '#0B1120',
+              surface: '#0F172A',
+              cardBorder: 'rgba(255, 255, 255, 0.08)',
+              accent: '#38BDF8',
+              gold: '#F59E0B',
+              emerald: '#10B981',
+              purple: '#A855F7',
+              glow: 'rgba(56, 189, 248, 0.25)'
+            }
+          },
+          animation: {
+            'float-slow': 'floating 6s ease-in-out infinite',
+            'float-delayed': 'floating 7s ease-in-out 2s infinite',
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'marquee-left': 'marqueeLeft 30s linear infinite',
+            'marquee-right': 'marqueeRight 30s linear infinite',
+            'spin-slow': 'spin 18s linear infinite',
+          },
+          keyframes: {
+            floating: {
+              '0%, 100%': { transform: 'translateY(0px) rotate(0deg)' },
+              '50%': { transform: 'translateY(-12px) rotate(1.2deg)' },
+            },
+            marqueeLeft: {
+              '0%': { transform: 'translateX(0%)' },
+              '100%': { transform: 'translateX(-50%)' },
+            },
+            marqueeRight: {
+              '0%': { transform: 'translateX(-50%)' },
+              '100%': { transform: 'translateX(0%)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --primary: #38BDF8;
+      --primary-glow: rgba(56, 189, 248, 0.35);
+      --bg: #020617;
+      --text: #F8FAFC;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      cursor: default;
+    }
+
+    /* Custom Trailing Cursor */
+    .custom-cursor {
+      pointer-events: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.9) 0%, rgba(48, 94, 255, 0.4) 70%, transparent 100%);
+      transform: translate(-50%, -50%);
+      transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), height 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s;
+      z-index: 9999;
+      mix-blend-mode: screen;
+    }
+
+    .cursor-trail {
+      pointer-events: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 44px;
+      height: 44px;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: transform 0.12s ease-out, border-color 0.2s;
+      z-index: 9998;
+    }
+
+    .cursor-hover {
+      width: 60px !important;
+      height: 60px !important;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.6) 0%, rgba(48, 94, 255, 0.2) 70%, transparent 100%) !important;
+    }
+
+    /* Ambient Background Mesh */
+    .ambient-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(140px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.5;
+    }
+
+    /* Grid matrix */
+    .matrix-grid {
+      background-size: 40px 40px;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    }
+
+    /* Bento Spotlight Card (Razorpay 3D Gyroscope & Mouse Glow) */
+    .spotlight-card {
+      position: relative;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      overflow: hidden;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s, border-color 0.25s;
+      transform-style: preserve-3d;
+    }
+
+    .spotlight-card::before {
+      content: '';
+      position: absolute;
+      top: var(--mouse-y, -250px);
+      left: var(--mouse-x, -250px);
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle closest-side, rgba(56, 189, 248, 0.22), transparent);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 1;
+    }
+
+    .spotlight-card:hover::before {
+      opacity: 1;
+    }
+
+    .spotlight-card:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(56, 189, 248, 0.15);
+    }
+
+    /* Glass pill */
+    .glass-pill {
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+    }
+
+    /* Hero Massive Title */
+    .hero-big-title {
+      font-size: clamp(3.2rem, 10.5vw, 9.5rem);
+      line-height: 0.88;
+      letter-spacing: -0.04em;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .hero-gradient-text {
+      background: linear-gradient(180deg, #FFFFFF 20%, #7DD3FC 65%, #0284C7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-outline-text {
+      color: transparent;
+      -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.25);
+      transition: -webkit-text-stroke 0.3s, text-shadow 0.3s;
+    }
+
+    .hero-outline-text:hover {
+      -webkit-text-stroke: 1.5px #38BDF8;
+      text-shadow: 0 0 35px rgba(56, 189, 248, 0.7);
+    }
+
+    /* Kinetic Typography Scroll Highlight */
+    .kinetic-word {
+      opacity: 0.2;
+      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.35s, transform 0.35s;
+      display: inline-block;
+      cursor: default;
+    }
+
+    .kinetic-word.active,
+    .kinetic-word:hover {
+      opacity: 1;
+      color: #ffffff;
+      text-shadow: 0 0 20px rgba(56, 189, 248, 0.8);
+      transform: translateY(-2px);
+    }
+
+    /* Razorpay Button Shimmer */
+    .rzp-btn-primary {
+      position: relative;
+      background: linear-gradient(135deg, #0284C7 0%, #0369A1 50%, #305EFF 100%);
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+
+    .rzp-btn-primary::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(
+        60deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+      );
+      transform: rotate(30deg) translateX(-100%);
+      transition: transform 0.7s ease;
+    }
+
+    .rzp-btn-primary:hover::after {
+      transform: rotate(30deg) translateX(100%);
+    }
+
+    .rzp-btn-primary:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 0 40px rgba(56, 189, 248, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+    }
+
+    /* Page View Transitions */
+    .spa-page {
+      display: none;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .spa-page.active-page {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Floating Stadium / Pill Mask (Razorpay Culture Cutout Feature) */
+    .stadium-pill-frame {
+      border-radius: 140px;
+      transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s;
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+
+    #ambientCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+  </style>
+</head>
+
+<body class="matrix-grid antialiased selection:bg-bw-cyan selection:text-black">
+
+  <!-- Interactive Custom Cursor -->
+  <div class="custom-cursor hidden md:block" id="customCursor"></div>
+  <div class="cursor-trail hidden md:block" id="cursorTrail"></div>
+
+  <!-- Ambient Glowing Background Orbs -->
+  <div class="ambient-glow w-[550px] h-[550px] bg-bw-cyan/15 -top-40 left-1/4 animate-pulse-slow"></div>
+  <div class="ambient-glow w-[650px] h-[650px] bg-bw-blue/15 top-1/3 -right-40 animate-float-slow"></div>
+  <div class="ambient-glow w-[500px] h-[500px] bg-indigo-600/15 bottom-1/4 -left-20 animate-float-delayed"></div>
+
+  <script>
+    function playSound() {}
+  </script>
+
+  <!-- ========================================================================= -->
+  <!-- 1. TOP NAVIGATION BAR (Clean Single-Line React SPA Switcher) -->
+  <!-- ========================================================================= -->
+  <header class="fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 pt-4 pb-2 transition-all duration-300" id="mainHeader">
+    <div class="max-w-7xl mx-auto">
+      <nav class="glass-pill px-5 py-2.5 rounded-2xl flex items-center justify-between gap-4 border border-white/10 backdrop-blur-xl bg-bw-dark/90 shadow-2xl transition-all hover:border-bw-cyan/30">
+        
+        <!-- Brand Logo & Title (Single Clean Line) -->
+        <button onclick="navigateTo('landing')" class="flex items-center gap-3 group text-left shrink-0">
+          <div class="w-9 h-9 rounded-full p-0.5 bg-white/95 border-2 border-bw-cyan shadow-md shadow-bw-cyan/20 group-hover:scale-105 transition-all overflow-hidden flex items-center justify-center shrink-0">
+            <img 
+              src="public/logo.jpg" 
+              alt="Bitwise Learning Logo" 
+              class="w-full h-full object-cover rounded-full" 
+              onerror="this.onerror=null; this.src='assets/logo.png';" 
+            />
+          </div>
+          <div class="flex items-center gap-1.5 whitespace-nowrap">
+            <span class="font-display font-extrabold text-base sm:text-lg tracking-tight text-white group-hover:text-bw-cyan transition-colors">BITWISE</span>
+            <span class="font-display font-extrabold text-base sm:text-lg tracking-tight text-bw-cyan">LEARNING</span>
+          </div>
+        </button>
+
+        <!-- React SPA Navigation Links (Single Clean Row) -->
+        <div class="hidden lg:flex items-center gap-1 bg-white/[0.03] p-1 rounded-full border border-white/5">
+          <button class="nav-tab-btn active px-3.5 py-1.5 rounded-full text-xs font-bold transition-all bg-bw-cyan text-black shadow-md shadow-bw-cyan/20 flex items-center gap-1.5 whitespace-nowrap" data-page="landing" onclick="navigateTo('landing')">
+            <i data-lucide="home" class="w-3.5 h-3.5"></i>
+            <span>Home</span>
+          </button>
+          
+          <button class="nav-tab-btn px-3.5 py-1.5 rounded-full text-xs font-semibold text-gray-300 hover:text-white transition-all hover:bg-white/10 flex items-center gap-1.5 whitespace-nowrap" data-page="dashboard" onclick="navigateTo('dashboard')">
+            <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+            <span>Study Notes</span>
+          </button>
+
+          <button class="nav-tab-btn px-3.5 py-1.5 rounded-full text-xs font-semibold text-gray-300 hover:text-white transition-all hover:bg-white/10 flex items-center gap-1.5 whitespace-nowrap" data-page="library" onclick="navigateTo('library')">
+            <i data-lucide="library" class="w-3.5 h-3.5"></i>
+            <span>My Library</span>
+            <span class="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">2 Free</span>
+          </button>
+
+          <button class="nav-tab-btn px-3.5 py-1.5 rounded-full text-xs font-semibold text-gray-300 hover:text-white transition-all hover:bg-white/10 flex items-center gap-1.5 whitespace-nowrap" data-page="lectures" onclick="navigateTo('lectures')">
+            <i data-lucide="video" class="w-3.5 h-3.5"></i>
+            <span>YouTube Lectures</span>
+          </button>
+
+          <button class="nav-tab-btn px-3.5 py-1.5 rounded-full text-xs font-semibold text-gray-300 hover:text-white transition-all hover:bg-white/10 flex items-center gap-1.5 whitespace-nowrap" data-page="profile" onclick="navigateTo('profile')">
+            <i data-lucide="user" class="w-3.5 h-3.5"></i>
+            <span>My Account</span>
+          </button>
+        </div>
+
+        <!-- Right Action Button -->
+        <div class="flex items-center shrink-0">
+          <button onclick="navigateTo('dashboard')" class="rzp-btn-primary px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider text-white flex items-center gap-2 group cursor-pointer whitespace-nowrap shadow-lg shadow-bw-cyan/20">
+            <span>Explore Notes</span>
+            <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
+          </button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 2. PAGE 1: HOME / LANDING PAGE (`#landing`) -->
+  <!-- ========================================================================= -->
+  <main id="page-landing" class="spa-page active-page min-h-screen">
+    
+    <!-- Hero Section -->
+    <section class="relative min-h-[90vh] pt-36 pb-20 flex flex-col justify-center items-center px-4 overflow-hidden">
+      <!-- Dynamic Ambient Canvas Mesh -->
+      <canvas id="ambientCanvas" class="absolute inset-0 w-full h-full pointer-events-none z-0"></canvas>
+
+      <!-- Floating Glass Badge -->
+      <div class="relative z-10 mb-6 group cursor-pointer animate-float-slow" onclick="navigateTo('dashboard', '2nd Year')" onmouseenter="playSound('hover')">
+        <div class="glass-pill px-5 py-2.5 rounded-full flex items-center gap-3 border border-bw-cyan/40 bg-bw-cyan/10 backdrop-blur-md shadow-lg shadow-bw-cyan/20 hover:scale-105 hover:border-bw-cyan transition-all">
+          <span class="relative flex h-3 w-3">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-bw-cyan opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 bg-bw-cyan"></span>
+          </span>
+          <div class="text-xs font-semibold tracking-wide text-gray-200">
+            <span class="text-amber-400 font-bold">AKTU 2026 Curriculum</span> • <span class="text-transparent bg-clip-text bg-gradient-to-r from-bw-cyan to-white font-extrabold">Solved 5-Year PYQs & Unit 1-5 Handwritten Notes</span>
+          </div>
+          <div class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center group-hover:translate-x-1 group-hover:bg-bw-cyan group-hover:text-black transition-all">
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-white group-hover:text-black"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero Headline -->
+      <div class="relative z-10 text-center max-w-6xl mx-auto select-none">
+        <h1 class="hero-big-title font-display tracking-tighter leading-none mb-2">
+          <span class="block hero-gradient-text drop-shadow-2xl">CRACK AKTU B.TECH</span>
+          <span class="block hero-outline-text hover:text-white transition-all cursor-pointer" title="Hover to illuminate">SCORE 9+ SGPA</span>
+        </h1>
+        
+        <p class="max-w-2xl mx-auto text-base sm:text-xl text-gray-300 font-light mt-6 leading-relaxed font-sans">
+          India's #1 learning portal engineered specifically for <strong class="text-white font-semibold">Dr. A.P.J. Abdul Kalam Technical University (AKTU)</strong> students. 
+          Hand-annotated notes, unit-wise solved PYQ papers, and 1-hour YouTube one-shots.
+        </p>
+
+        <!-- CTAs -->
+        <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <button onclick="navigateTo('dashboard')" class="rzp-btn-primary px-8 py-4 rounded-xl font-bold text-sm uppercase tracking-wider text-white flex items-center gap-3 shadow-xl hover:scale-105 transition-all">
+            <i data-lucide="book-open" class="w-4 h-4 text-bw-cyan"></i>
+            <span>Explore AKTU Study Notes</span>
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+          
+          <button onclick="navigateTo('lectures')" class="px-7 py-4 rounded-xl font-semibold text-sm text-gray-300 bg-white/[0.05] border border-white/10 hover:bg-white/10 hover:text-white hover:border-white/20 backdrop-blur-md flex items-center gap-2 transition-all">
+            <i data-lucide="play-circle" class="w-4 h-4 text-bw-cyan"></i>
+            <span>Watch One-Shot Lectures</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Real Platform Stats -->
+      <div class="relative z-10 mt-16 max-w-5xl w-full grid grid-cols-2 md:grid-cols-4 gap-4 px-4">
+        <div class="spotlight-card p-5 rounded-2xl flex flex-col items-center justify-center text-center group cursor-pointer" onmouseenter="playSound('hover')">
+          <div class="text-3xl sm:text-4xl font-black font-display text-white group-hover:text-bw-cyan transition-colors counter" data-target="15000">0</div>
+          <span class="text-xs text-bw-cyan font-bold uppercase tracking-wider mt-1">AKTU Engineers</span>
+          <span class="text-[11px] text-gray-400 mt-0.5">Active Learners</span>
+        </div>
+
+        <div class="spotlight-card p-5 rounded-2xl flex flex-col items-center justify-center text-center group cursor-pointer" onmouseenter="playSound('hover')">
+          <div class="text-3xl sm:text-4xl font-black font-display text-white group-hover:text-bw-cyan transition-colors">
+            <span class="counter" data-target="1080">0</span>K+
+          </div>
+          <span class="text-xs text-bw-cyan font-bold uppercase tracking-wider mt-1">YouTube Views</span>
+          <span class="text-[11px] text-gray-400 mt-0.5">High-Yield Concepts</span>
+        </div>
+
+        <div class="spotlight-card p-5 rounded-2xl flex flex-col items-center justify-center text-center group cursor-pointer" onmouseenter="playSound('hover')">
+          <div class="text-3xl sm:text-4xl font-black font-display text-white group-hover:text-bw-cyan transition-colors">
+            <span class="counter" data-target="99">0</span>.4%
+          </div>
+          <span class="text-xs text-bw-cyan font-bold uppercase tracking-wider mt-1">Pass & Distinction</span>
+          <span class="text-[11px] text-gray-400 mt-0.5">Average 8.8+ SGPA</span>
+        </div>
+
+        <div class="spotlight-card p-5 rounded-2xl flex flex-col items-center justify-center text-center group cursor-pointer" onmouseenter="playSound('hover')">
+          <div class="text-3xl sm:text-4xl font-black font-display text-white group-hover:text-bw-cyan transition-colors">
+            <span class="counter" data-target="100">0</span>%
+          </div>
+          <span class="text-xs text-bw-cyan font-bold uppercase tracking-wider mt-1">AKTU PYQ Coverage</span>
+          <span class="text-[11px] text-gray-400 mt-0.5">2021-2025 Papers</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- ⭐ NEW: RAZORPAY SIGNATURE FLOATING STADIUM CUTOUT + GIANT TYPOGRAPHY SHOWCASE -->
+    <!-- (Exact replica of the feature requested from the user's screenshot) -->
+    <!-- ========================================================================= -->
+    <section id="stadiumShowcaseSection" class="relative py-32 px-4 overflow-hidden select-none bg-gradient-to-b from-bw-dark via-[#070e22] to-black border-t border-b border-white/5 flex flex-col items-center justify-center">
+      
+      <!-- Background Aurora Glow Orbs -->
+      <div class="ambient-glow w-[500px] h-[500px] bg-bw-blue/20 top-1/4 -left-20 animate-pulse-slow"></div>
+      <div class="ambient-glow w-[550px] h-[550px] bg-emerald-500/15 bottom-1/4 -right-20 animate-float-delayed"></div>
+
+      <!-- Giant Kinetic Layered Background Typography -->
+      <div class="relative z-10 max-w-7xl mx-auto text-center font-display font-black tracking-tight leading-[0.88] select-none text-white pointer-events-none">
+        
+        <!-- Line 1: HOW YOUR ( → ) -->
+        <div class="text-[clamp(3.5rem,10.5vw,9.5rem)] uppercase flex items-center justify-center gap-3 sm:gap-6 flex-wrap">
+          <span class="drop-shadow-lg">HOW YOUR</span>
+          
+          <!-- Directional Arrow Badge (Dual Pastel Circles + Electric Blue Arrow as in screenshot) -->
+          <div class="inline-flex items-center justify-center relative w-28 sm:w-40 h-12 sm:h-18 rounded-full bg-gradient-to-r from-emerald-300/30 to-bw-cyan/30 border border-bw-cyan/40 backdrop-blur-md px-3 group hover:scale-110 transition-transform cursor-pointer pointer-events-auto shadow-xl shadow-bw-cyan/10" onmouseenter="playSound('hover')">
+            <div class="absolute -left-2 w-10 sm:w-14 h-10 sm:h-14 rounded-full bg-emerald-400/40 blur-sm"></div>
+            <div class="absolute -right-2 w-10 sm:w-14 h-10 sm:h-14 rounded-full bg-bw-cyan/40 blur-sm"></div>
+            <i data-lucide="arrow-right" class="w-8 sm:w-12 h-8 sm:h-12 text-bw-blue relative z-10 stroke-[3] group-hover:translate-x-2 transition-transform"></i>
+          </div>
+        </div>
+
+        <!-- Line 2: GRADES ) -->
+        <div class="text-[clamp(3.5rem,10.5vw,9.5rem)] uppercase text-transparent bg-clip-text bg-gradient-to-r from-gray-100 via-gray-300 to-gray-500">
+          <span>GRADES )</span>
+        </div>
+
+        <!-- Line 3: / ACE WITH BITWISE / -->
+        <div class="text-[clamp(3.5rem,10.5vw,9.5rem)] uppercase flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
+          <span class="text-bw-blue">/</span>
+          <span class="text-white drop-shadow-2xl">ACE WITH BITWISE</span>
+          <span class="text-bw-blue">/</span>
+        </div>
+
+        <!-- Line 4: ✤ EVERY SEMESTER -->
+        <div class="text-[clamp(3.5rem,10.5vw,9.5rem)] uppercase flex items-center justify-center gap-4 sm:gap-6 flex-wrap">
+          <!-- 4-petal geometric star icon (exact match to green star in screenshot) -->
+          <div class="w-12 sm:w-20 h-12 sm:h-20 rounded-2xl bg-emerald-400/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 animate-spin-slow shadow-lg shadow-emerald-400/20">
+            <svg class="w-8 sm:w-14 h-8 sm:h-14 fill-current" viewBox="0 0 24 24">
+              <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/>
+            </svg>
+          </div>
+          <span>EVERY SEMESTER</span>
+        </div>
+
+      </div>
+
+      <!-- Floating 3D Stadium / Pill Mask Window (Exact Cutout Mask from screenshot) -->
+      <div id="stadiumPillMask" class="stadium-pill-frame absolute z-20 w-[290px] sm:w-[480px] lg:w-[600px] h-[190px] sm:h-[300px] lg:h-[360px] bg-gradient-to-tr from-bw-deepBlue/90 via-bw-dark/80 to-[#1e293b]/90 border-2 border-white/40 backdrop-blur-xl shadow-2xl shadow-black/90 overflow-hidden cursor-pointer group hover:border-bw-cyan/80 transition-all" onclick="navigateTo('dashboard', '2nd Year')" onmouseenter="playSound('hover')">
+        
+        <!-- High-res illustration of students collaborating with laptops & notes -->
+        <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80" alt="Students studying together" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-85">
+        
+        <!-- Inner glowing gradient overlay -->
+        <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-6 sm:p-8">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-300">AKTU Peer Study Circles</span>
+          </div>
+          <h4 class="text-white font-display font-extrabold text-base sm:text-xl mt-1">15,000+ Engineers Learning Together</h4>
+          <p class="text-xs text-gray-300 font-light mt-0.5">Click to explore curated handwritten notes and unit packs</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Kinetic Typography Manifesto -->
+    <section class="py-24 px-4 relative z-10 border-t border-b border-white/5 bg-bw-dark/60 backdrop-blur-xl">
+      <div class="max-w-5xl mx-auto text-center">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-bw-cyan/10 border border-bw-cyan/30 text-bw-cyan text-xs font-bold uppercase tracking-wider mb-8">
+          <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
+          <span>The AKTU Exam Blueprint</span>
+        </div>
+        <h2 class="text-3xl sm:text-5xl lg:text-6xl font-display font-medium leading-tight text-gray-500 tracking-tight" id="kineticHeading">
+          <span class="kinetic-word">AKTU</span>
+          <span class="kinetic-word">evaluators</span>
+          <span class="kinetic-word">look</span>
+          <span class="kinetic-word">for</span>
+          <span class="kinetic-word font-serif italic text-4xl sm:text-6xl text-bw-cyan font-normal">diagrams,</span>
+          <span class="kinetic-word font-bold text-white">step-by-step</span>
+          <span class="kinetic-word font-bold text-white">derivations,</span>
+          <span class="kinetic-word">and</span>
+          <span class="kinetic-word">precise</span>
+          <span class="kinetic-word">keywords.</span>
+          <br class="hidden sm:block"/>
+          <span class="kinetic-word font-bold text-white">Bitwise</span>
+          <span class="kinetic-word font-bold text-bw-cyan">Learning</span>
+          <span class="kinetic-word">formats</span>
+          <span class="kinetic-word">every</span>
+          <span class="kinetic-word">single</span>
+          <span class="kinetic-word">note</span>
+          <span class="kinetic-word">to</span>
+          <span class="kinetic-word">fetch</span>
+          <span class="kinetic-word font-bold text-emerald-400">maximum</span>
+          <span class="kinetic-word font-bold text-emerald-400">marks</span>
+          <span class="kinetic-word">with</span>
+          <span class="kinetic-word font-serif italic text-4xl sm:text-6xl text-bw-cyan font-normal">zero fluff.</span>
+        </h2>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- WHY BITWISE LEARNING (Value Pillars & Direct Action Cards) -->
+    <!-- ========================================================================= -->
+    <section class="py-24 px-4 sm:px-8 max-w-7xl mx-auto relative z-10">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
+        <div>
+          <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-bw-cyan/10 border border-bw-cyan/30 text-bw-cyan text-xs font-bold uppercase tracking-wider mb-3">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+            <span>The AKTU Advantage</span>
+          </div>
+          <h3 class="text-3xl sm:text-5xl font-display font-black text-white tracking-tight">
+            Why Bitwise Learning?
+          </h3>
+          <p class="text-gray-400 text-xs sm:text-sm mt-2 max-w-xl">
+            Engineered specifically to solve the exam bottlenecks that cost AKTU engineering students their SGPA.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button onclick="navigateTo('dashboard')" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white transition-all flex items-center gap-2 hover:border-bw-cyan/40">
+            <span>Browse Full Catalog</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-bw-cyan"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Card 1: Evaluator-First Note Structure -->
+        <div class="spotlight-card p-8 rounded-3xl flex flex-col justify-between group border border-white/10 hover:border-bw-cyan/50 transition-all">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-bw-cyan/15 border border-bw-cyan/30 flex items-center justify-center text-bw-cyan mb-6 group-hover:scale-110 transition-transform">
+              <i data-lucide="file-check-2" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[11px] font-mono uppercase tracking-wider text-bw-cyan font-bold">01 • Exam Focused</span>
+            <h4 class="text-xl font-display font-bold text-white mt-1 group-hover:text-bw-cyan transition-colors">
+              Evaluator-First Note Format
+            </h4>
+            <p class="text-xs text-gray-400 mt-3 leading-relaxed">
+              Standard 600-page textbooks contain overwhelming theory. Bitwise notes are hand-annotated with exact keyword bullet points, circuit schematics, and numbered derivations designed for full step-marking.
+            </p>
+          </div>
+
+          <div class="mt-8 pt-4 border-t border-white/5 flex items-center justify-between">
+            <span class="text-[11px] text-gray-500 font-mono">100% Zero-Fluff</span>
+            <button onclick="navigateTo('dashboard', '2nd Year')" class="text-xs font-bold text-bw-cyan hover:underline flex items-center gap-1">
+              <span>View Notes</span>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Card 2: 5-Year Solved PYQ Banks -->
+        <div class="spotlight-card p-8 rounded-3xl flex flex-col justify-between group border border-white/10 hover:border-purple-400/50 transition-all">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-6 group-hover:scale-110 transition-transform">
+              <i data-lucide="award" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[11px] font-mono uppercase tracking-wider text-purple-400 font-bold">02 • PYQ Blueprints</span>
+            <h4 class="text-xl font-display font-bold text-white mt-1 group-hover:text-purple-300 transition-colors">
+              Solved 5-Year Question Banks
+            </h4>
+            <p class="text-xs text-gray-400 mt-3 leading-relaxed">
+              Over 75% of AKTU exam patterns repeat across previous papers. Access solved university papers for Section A (2 marks), Section B (10 marks), and Section C numerical case studies with clean model answers.
+            </p>
+          </div>
+
+          <div class="mt-8 pt-4 border-t border-white/5 flex items-center justify-between">
+            <span class="text-[11px] text-gray-500 font-mono">2021 - 2025 Papers</span>
+            <button onclick="navigateTo('dashboard')" class="text-xs font-bold text-purple-400 hover:underline flex items-center gap-1">
+              <span>Explore PYQs</span>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Card 3: Free Synced Video Revision -->
+        <div class="spotlight-card p-8 rounded-3xl flex flex-col justify-between group border border-white/10 hover:border-rose-400/50 transition-all">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-6 group-hover:scale-110 transition-transform">
+              <i data-lucide="play-circle" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[11px] font-mono uppercase tracking-wider text-rose-400 font-bold">03 • Visual Revision</span>
+            <h4 class="text-xl font-display font-bold text-white mt-1 group-hover:text-rose-300 transition-colors">
+              Synced YouTube Masterclasses
+            </h4>
+            <p class="text-xs text-gray-400 mt-3 leading-relaxed">
+              Never get stuck on difficult algorithms or proofs. Every unit has a synced 1-hour YouTube one-shot lecture with 1.08M+ views, breaking down core engineering concepts in crisp Hindi and English.
+            </p>
+          </div>
+
+          <div class="mt-8 pt-4 border-t border-white/5 flex items-center justify-between">
+            <span class="text-[11px] text-gray-500 font-mono">1.08M+ Community</span>
+            <button onclick="navigateTo('lectures')" class="text-xs font-bold text-rose-400 hover:underline flex items-center gap-1">
+              <span>Watch Lectures</span>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- INTERACTIVE NOTES ANATOMY & EXAM SCORING BLUEPRINT -->
+    <!-- ========================================================================= -->
+    <section class="py-20 px-4 sm:px-8 max-w-7xl mx-auto relative z-10">
+      <div class="glass-pill p-8 sm:p-12 rounded-3xl border border-white/10 bg-gradient-to-tr from-bw-surface/90 via-bw-dark to-[#090f20] shadow-2xl">
+        
+        <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-12">
+          <div>
+            <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-bw-cyan/15 text-bw-cyan border border-bw-cyan/30 text-xs font-bold uppercase tracking-wider mb-3">
+              <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+              <span>Engineering Note Anatomy</span>
+            </div>
+            <h3 class="text-3xl sm:text-4xl font-display font-black text-white tracking-tight">
+              Anatomy of a 10-Mark AKTU Answer
+            </h3>
+            <p class="text-gray-400 text-xs sm:text-sm mt-2 max-w-2xl">
+              See why Bitwise handwritten notes consistently score full step-marking compared to generic dense textbooks.
+            </p>
+          </div>
+
+          <!-- Subject Anatomy Switcher -->
+          <div class="flex flex-wrap items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10">
+            <button class="anatomy-tab-btn active px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all bg-bw-cyan text-black shadow-md shadow-bw-cyan/20" onclick="switchAnatomy('dsa')">
+              DSA (BCS301)
+            </button>
+            <button class="anatomy-tab-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-400 hover:text-white transition-all" onclick="switchAnatomy('os')">
+              Operating Systems (BCS401)
+            </button>
+            <button class="anatomy-tab-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-400 hover:text-white transition-all" onclick="switchAnatomy('cd')">
+              Compiler Design (BCS601)
+            </button>
+          </div>
+        </div>
+
+        <!-- Interactive Split Anatomy Showcase -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+          
+          <!-- Left: Live Simulated Note Canvas with Evaluator Callouts -->
+          <div class="lg:col-span-7 rounded-2xl bg-black/60 border border-white/10 p-6 sm:p-8 relative overflow-hidden flex flex-col justify-between font-mono text-xs">
+            <div class="flex items-center justify-between pb-4 border-b border-white/10">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-rose-500/80"></span>
+                <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
+                <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+                <span class="text-gray-400 text-[11px] ml-2" id="anatomyNoteCode">AKTU BCS301 • Unit 1</span>
+              </div>
+              <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                Full 10/10 Marks Format
+              </span>
+            </div>
+
+            <div class="my-6 space-y-4" id="anatomyNoteContent">
+              <!-- Default Content: DSA -->
+              <div class="p-3.5 rounded-xl bg-bw-cyan/10 border border-bw-cyan/30 text-bw-cyan mb-2">
+                <span class="text-[10px] uppercase font-bold tracking-wider">[1] KEYWORD BOX:</span>
+                <div class="text-white mt-1">Asymptotic Notations: O(g(n)) = {f(n): ∃ c>0, n₀>0 s.t. 0 ≤ f(n) ≤ c·g(n) ∀ n ≥ n₀}</div>
+              </div>
+              <div class="p-3.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 mb-2">
+                <span class="text-[10px] uppercase font-bold tracking-wider text-amber-400">[2] 2D ARRAY ROW-MAJOR MAPPING:</span>
+                <div class="text-white font-mono mt-1 text-[11px]">Address(A[i][j]) = Base + W · [(i - LB₁) · N₂ + (j - LB₂)]</div>
+              </div>
+              <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+                <span class="text-[10px] uppercase font-bold tracking-wider">[3] EXAMINER STEP MARK:</span>
+                <div class="text-white mt-1">✓ Derivation drawn with index matrix • ✓ Big-O bounds explicitly plotted</div>
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-gray-400">
+              <span class="flex items-center gap-1 text-bw-cyan font-bold">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i> Evaluator Step Marking Verified
+              </span>
+              <span>Time to write in exam: ~12 mins</span>
+            </div>
+          </div>
+
+          <!-- Right: Key Evaluator Principles Breakdown -->
+          <div class="lg:col-span-5 flex flex-col justify-between space-y-4">
+            
+            <div class="p-5 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-bw-cyan/40 transition-all">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-xl bg-bw-cyan/20 text-bw-cyan flex items-center justify-center font-bold text-xs">
+                  01
+                </div>
+                <h5 class="text-sm font-display font-bold text-white">Keyword Box for Section A & B</h5>
+              </div>
+              <p class="text-xs text-gray-400 leading-relaxed">
+                AKTU professors evaluate hundreds of answer copies per day. Highlighting key definitions and time complexity formulas right at the top secures early step marks.
+              </p>
+            </div>
+
+            <div class="p-5 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-emerald-400/40 transition-all">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                  02
+                </div>
+                <h5 class="text-sm font-display font-bold text-white">Hand-Drawn Architecture Schematics</h5>
+              </div>
+              <p class="text-xs text-gray-400 leading-relaxed">
+                In AKTU 10-mark questions, diagrams carry 4 to 5 marks alone. Our notes provide clean, minimal diagrams that are quick to reproduce neatly on standard exam sheets.
+              </p>
+            </div>
+
+            <div class="p-5 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-purple-400/40 transition-all">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-xs">
+                  03
+                </div>
+                <h5 class="text-sm font-display font-bold text-white">Derivations & Edge Cases</h5>
+              </div>
+              <p class="text-xs text-gray-400 leading-relaxed">
+                Every mathematical proof is divided into clear, numbered steps with intermediate equations, so evaluators can trace your logic easily without cutting marks.
+              </p>
+            </div>
+
+            <button onclick="navigateTo('dashboard', '2nd Year')" class="w-full py-3 rounded-xl bg-bw-cyan text-black font-bold text-xs flex items-center justify-center gap-2 hover:bg-white transition-all shadow-lg shadow-bw-cyan/20">
+              <i data-lucide="book-open" class="w-4 h-4"></i>
+              <span>Explore Verified AKTU Notes</span>
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Quick Year Navigation Cards -->
+    <section class="py-20 px-4 sm:px-8 max-w-7xl mx-auto relative z-10">
+      <div class="text-center max-w-2xl mx-auto mb-12">
+        <h3 class="text-2xl sm:text-4xl font-display font-black text-white">Select Your AKTU Engineering Year</h3>
+        <p class="text-gray-400 text-xs sm:text-sm mt-1">Jump directly into your semester syllabus and study bundles</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="spotlight-card p-6 rounded-3xl flex flex-col justify-between group cursor-pointer" onclick="navigateTo('dashboard', '1st Year')" onmouseenter="playSound('hover')">
+          <div>
+            <span class="text-[11px] font-mono font-bold uppercase px-2.5 py-1 rounded-md bg-blue-500/20 text-blue-300">Year 1 • Sem 1 & 2</span>
+            <h4 class="text-xl font-display font-bold text-white mt-3 group-hover:text-bw-cyan transition-colors">1st Year Foundation</h4>
+            <p class="text-xs text-gray-400 mt-2">Engineering Physics, Chemistry, Math-I, PPS (C Language), Electronics & Soft Skills.</p>
+          </div>
+          <button class="mt-6 w-full py-2.5 rounded-xl bg-white/5 group-hover:bg-bw-cyan group-hover:text-black font-bold text-xs text-white transition-all flex items-center justify-center gap-1.5">
+            <span>Explore 1st Year</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <div class="spotlight-card p-6 rounded-3xl flex flex-col justify-between group cursor-pointer border-bw-cyan/30" onclick="navigateTo('dashboard', '2nd Year')" onmouseenter="playSound('hover')">
+          <div>
+            <span class="text-[11px] font-mono font-bold uppercase px-2.5 py-1 rounded-md bg-bw-cyan/20 text-bw-cyan">Year 2 • Sem 3 & 4</span>
+            <h4 class="text-xl font-display font-bold text-white mt-3 group-hover:text-bw-cyan transition-colors">2nd Year (Core CSE/IT)</h4>
+            <p class="text-xs text-gray-400 mt-2">Data Structures (DSA), Operating Systems (OS), COA, TAFL, Java OOPs & Discrete Math.</p>
+          </div>
+          <button class="mt-6 w-full py-2.5 rounded-xl bg-bw-cyan text-black font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-bw-cyan/20">
+            <span>Explore 2nd Year</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <div class="spotlight-card p-6 rounded-3xl flex flex-col justify-between group cursor-pointer" onclick="navigateTo('dashboard', '3rd Year')" onmouseenter="playSound('hover')">
+          <div>
+            <span class="text-[11px] font-mono font-bold uppercase px-2.5 py-1 rounded-md bg-purple-500/20 text-purple-300">Year 3 • Sem 5 & 6</span>
+            <h4 class="text-xl font-display font-bold text-white mt-3 group-hover:text-bw-cyan transition-colors">3rd Year (Advanced)</h4>
+            <p class="text-xs text-gray-400 mt-2">DBMS, Web Tech, DAA, Compiler Design (CD), Computer Networks (CN) & Blockchain.</p>
+          </div>
+          <button class="mt-6 w-full py-2.5 rounded-xl bg-white/5 group-hover:bg-bw-cyan group-hover:text-black font-bold text-xs text-white transition-all flex items-center justify-center gap-1.5">
+            <span>Explore 3rd Year</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <div class="spotlight-card p-6 rounded-3xl flex flex-col justify-between group cursor-pointer" onclick="navigateTo('dashboard', '4th Year')" onmouseenter="playSound('hover')">
+          <div>
+            <span class="text-[11px] font-mono font-bold uppercase px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300">Year 4 • Sem 7 & 8</span>
+            <h4 class="text-xl font-display font-bold text-white mt-3 group-hover:text-bw-cyan transition-colors">4th Year & Placements</h4>
+            <p class="text-xs text-gray-400 mt-2">Cloud Computing, Machine Learning, Distributed Systems & Campus Placement Master Pack.</p>
+          </div>
+          <button class="mt-6 w-full py-2.5 rounded-xl bg-white/5 group-hover:bg-bw-cyan group-hover:text-black font-bold text-xs text-white transition-all flex items-center justify-center gap-1.5">
+            <span>Explore 4th Year</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- THE BITWISE LEARNING METHOD (3-Step Roadmap & Quick Jump Subject Hub) -->
+    <!-- ========================================================================= -->
+    <section class="py-20 px-4 sm:px-8 max-w-7xl mx-auto relative z-10">
+      <div class="glass-pill p-8 sm:p-12 rounded-3xl border border-white/10 bg-gradient-to-b from-bw-surface/90 to-black/80 shadow-2xl relative overflow-hidden">
+        
+        <div class="text-center max-w-3xl mx-auto mb-14">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold uppercase tracking-wider mb-3">
+            <i data-lucide="workflow" class="w-3.5 h-3.5"></i>
+            <span>Learning Methodology</span>
+          </div>
+          <h3 class="text-3xl sm:text-4xl font-display font-black text-white tracking-tight">
+            The 3-Step Bitwise Method
+          </h3>
+          <p class="text-gray-400 text-xs sm:text-sm mt-2">
+            The exact preparation framework engineered to help AKTU engineering students master full semesters without burning out.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+          <!-- Step 1 -->
+          <div class="p-6 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-bw-cyan/40 transition-all flex flex-col justify-between group">
+            <div>
+              <div class="flex items-center justify-between mb-4">
+                <span class="w-9 h-9 rounded-xl bg-bw-cyan/20 text-bw-cyan font-mono font-bold text-sm flex items-center justify-center">01</span>
+                <span class="text-[10px] font-mono px-2.5 py-1 rounded bg-white/5 text-gray-400 border border-white/5">Step 1 • 60 Mins</span>
+              </div>
+              <h4 class="text-lg font-display font-bold text-white group-hover:text-bw-cyan transition-colors">
+                Watch 1-Hour One-Shot
+              </h4>
+              <p class="text-xs text-gray-400 mt-2.5 leading-relaxed">
+                Stream the free YouTube revision lecture for your subject to establish crystal-clear core conceptual clarity and breakdown difficult proofs.
+              </p>
+            </div>
+            <button onclick="navigateTo('lectures')" class="mt-6 text-xs font-semibold text-bw-cyan hover:underline flex items-center gap-1">
+              <span>Explore Video Lectures</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="p-6 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-emerald-400/40 transition-all flex flex-col justify-between group">
+            <div>
+              <div class="flex items-center justify-between mb-4">
+                <span class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 font-mono font-bold text-sm flex items-center justify-center">02</span>
+                <span class="text-[10px] font-mono px-2.5 py-1 rounded bg-white/5 text-gray-400 border border-white/5">Step 2 • Evaluator Format</span>
+              </div>
+              <h4 class="text-lg font-display font-bold text-white group-hover:text-emerald-400 transition-colors">
+                Study High-Yield Notes
+              </h4>
+              <p class="text-xs text-gray-400 mt-2.5 leading-relaxed">
+                Review Unit 1 to 5 handwritten study notes. Memorize exact definitions, flowcharts, and numbered derivations structured for full step-marking.
+              </p>
+            </div>
+            <button onclick="navigateTo('dashboard', '2nd Year')" class="mt-6 text-xs font-semibold text-emerald-400 hover:underline flex items-center gap-1">
+              <span>Explore Study Notes</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="p-6 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-purple-400/40 transition-all flex flex-col justify-between group">
+            <div>
+              <div class="flex items-center justify-between mb-4">
+                <span class="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-300 font-mono font-bold text-sm flex items-center justify-center">03</span>
+                <span class="text-[10px] font-mono px-2.5 py-1 rounded bg-white/5 text-gray-400 border border-white/5">Step 3 • Solved PYQs</span>
+              </div>
+              <h4 class="text-lg font-display font-bold text-white group-hover:text-purple-300 transition-colors">
+                Practice 5-Year Papers
+              </h4>
+              <p class="text-xs text-gray-400 mt-2.5 leading-relaxed">
+                Solve previous examination papers under exam timing. Check solutions against our model answer keys to eliminate mistakes before actual exams.
+              </p>
+            </div>
+            <button onclick="navigateTo('dashboard')" class="mt-6 text-xs font-semibold text-purple-300 hover:underline flex items-center gap-1">
+              <span>View Solved PYQs</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Direct Quick Jump Subject Links -->
+        <div class="mt-12 pt-8 border-t border-white/10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div class="flex items-center gap-2 text-xs text-gray-400 font-mono">
+            <i data-lucide="compass" class="w-4 h-4 text-bw-cyan"></i>
+            <span>Quick Subject Jumps:</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="navigateTo('dashboard', '2nd Year'); setTimeout(() => openSubject('Data Structure'), 100);" class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-bw-cyan hover:text-black border border-white/10 text-xs font-mono text-gray-300 hover:border-bw-cyan transition-all flex items-center gap-1.5">
+              <span>DSA</span>
+              <span class="text-[10px] opacity-70">BCS301</span>
+            </button>
+            <button onclick="navigateTo('dashboard', '2nd Year'); setTimeout(() => openSubject('Operating System'), 100);" class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-bw-cyan hover:text-black border border-white/10 text-xs font-mono text-gray-300 hover:border-bw-cyan transition-all flex items-center gap-1.5">
+              <span>OS</span>
+              <span class="text-[10px] opacity-70">BCS401</span>
+            </button>
+            <button onclick="navigateTo('dashboard', '3rd Year'); setTimeout(() => openSubject('Database Management System'), 100);" class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-bw-cyan hover:text-black border border-white/10 text-xs font-mono text-gray-300 hover:border-bw-cyan transition-all flex items-center gap-1.5">
+              <span>DBMS</span>
+              <span class="text-[10px] opacity-70">BCS501</span>
+            </button>
+            <button onclick="navigateTo('dashboard', '3rd Year'); setTimeout(() => openSubject('Compiler Design'), 100);" class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-bw-cyan hover:text-black border border-white/10 text-xs font-mono text-gray-300 hover:border-bw-cyan transition-all flex items-center gap-1.5">
+              <span>Compiler</span>
+              <span class="text-[10px] opacity-70">BCS601</span>
+            </button>
+            <button onclick="navigateTo('dashboard', '2nd Year'); setTimeout(() => openSubject('Cyber Security'), 100);" class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-bw-cyan hover:text-black border border-white/10 text-xs font-mono text-gray-300 hover:border-bw-cyan transition-all flex items-center gap-1.5">
+              <span>Cyber Security</span>
+              <span class="text-[10px] opacity-70">BCC301</span>
+            </button>
+            <button onclick="navigateTo('dashboard', '1st Year'); setTimeout(() => openSubject('Engineering Mathematics-I'), 100);" class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-bw-cyan hover:text-black border border-white/10 text-xs font-mono text-gray-300 hover:border-bw-cyan transition-all flex items-center gap-1.5">
+              <span>Math-I</span>
+              <span class="text-[10px] opacity-70">BAS103</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- INTERACTIVE SGPA PLANNER & AKTU AFFILIATED COLLEGES SHOWCASE -->
+    <!-- ========================================================================= -->
+    <section class="py-20 px-4 sm:px-8 max-w-7xl mx-auto relative z-10">
+      
+      <!-- SGPA Calculator & Target Matrix -->
+      <div class="glass-pill p-8 sm:p-12 rounded-3xl border border-white/10 bg-gradient-to-b from-bw-surface/95 to-black/90 shadow-2xl mb-16">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+          
+          <div class="lg:col-span-5">
+            <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-bold uppercase tracking-wider mb-3">
+              <i data-lucide="target" class="w-3.5 h-3.5"></i>
+              <span>Semester SGPA Planner</span>
+            </div>
+            <h3 class="text-3xl sm:text-4xl font-display font-black text-white tracking-tight">
+              Set Your Target SGPA
+            </h3>
+            <p class="text-gray-400 text-xs sm:text-sm mt-2 leading-relaxed">
+              Choose your semester target to view recommended preparation time, high-yield unit focus order, and PYQ paper coverage.
+            </p>
+
+            <div class="mt-8 flex flex-wrap gap-2">
+              <button class="sgpa-btn active px-4 py-2 rounded-xl text-xs font-bold transition-all bg-amber-400 text-black shadow-lg shadow-amber-400/20" onclick="setTargetSGPA('9.5')">
+                9.5+ Distinction
+              </button>
+              <button class="sgpa-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-white/5 text-gray-300 hover:text-white border border-white/10" onclick="setTargetSGPA('8.8')">
+                8.8+ First Class
+              </button>
+              <button class="sgpa-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-white/5 text-gray-300 hover:text-white border border-white/10" onclick="setTargetSGPA('8.0')">
+                8.0+ Solid Pass
+              </button>
+            </div>
+          </div>
+
+          <div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-4" id="sgpaMetricsContainer">
+            <div class="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
+              <div class="text-[10px] font-mono uppercase text-gray-400">Recommended Time</div>
+              <div class="text-2xl sm:text-3xl font-black font-display text-white mt-2" id="sgpaTime">45 Mins</div>
+              <p class="text-xs text-gray-400 mt-1">Daily focused note revision</p>
+            </div>
+
+            <div class="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
+              <div class="text-[10px] font-mono uppercase text-gray-400">Unit Priority</div>
+              <div class="text-2xl sm:text-3xl font-black font-display text-bw-cyan mt-2" id="sgpaUnits">All 5 Units</div>
+              <p class="text-xs text-gray-400 mt-1">Full 100% syllabus mastery</p>
+            </div>
+
+            <div class="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
+              <div class="text-[10px] font-mono uppercase text-gray-400">PYQ Coverage</div>
+              <div class="text-2xl sm:text-3xl font-black font-display text-emerald-400 mt-2" id="sgpaPyqs">5 Years</div>
+              <p class="text-xs text-gray-400 mt-1">2021 - 2025 solved papers</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- AKTU Affiliated Colleges Student Success Grid -->
+      <div class="text-center max-w-2xl mx-auto mb-12">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-bw-cyan/10 border border-bw-cyan/30 text-bw-cyan text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="users" class="w-3.5 h-3.5"></i>
+          <span>Peer Study Community</span>
+        </div>
+        <h3 class="text-2xl sm:text-4xl font-display font-black text-white">
+          Trusted by Students Across Top AKTU Colleges
+        </h3>
+        <p class="text-gray-400 text-xs sm:text-sm mt-1">Verified reviews from engineering campuses affiliated with AKTU Lucknow</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Testimonial 1 -->
+        <div class="spotlight-card p-6 rounded-3xl flex flex-col justify-between group border border-white/10">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-[10px] font-mono px-2.5 py-1 rounded-md bg-bw-cyan/15 text-bw-cyan border border-bw-cyan/30">
+                AEC Agra (AKTU)
+              </span>
+              <span class="text-xs text-emerald-400 font-bold font-mono">9.4 SGPA</span>
+            </div>
+            <p class="text-xs text-gray-300 leading-relaxed font-sans">
+              "The TAFL and Data Structures notes are formatted exactly the way our internal and university evaluators expect. The step marking breakdown helped me jump from 7.4 to 9.4 SGPA."
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-bw-cyan/20 text-bw-cyan font-bold font-mono text-xs flex items-center justify-center">
+              RV
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">Rohan Verma</div>
+              <div class="text-[10px] text-gray-400 font-mono">CSE • 3rd Year</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Testimonial 2 -->
+        <div class="spotlight-card p-6 rounded-3xl flex flex-col justify-between group border border-white/10">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-[10px] font-mono px-2.5 py-1 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                AKGEC Ghaziabad (AKTU)
+              </span>
+              <span class="text-xs text-emerald-400 font-bold font-mono">9.2 SGPA</span>
+            </div>
+            <p class="text-xs text-gray-300 leading-relaxed font-sans">
+              "Solving the last 5 years' AKTU question papers with Bitwise model answers cleared up all ambiguities in Compiler Design and DBMS. Highly recommend for end-semester exams."
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-purple-500/20 text-purple-300 font-bold font-mono text-xs flex items-center justify-center">
+              PS
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">Priya Sharma</div>
+              <div class="text-[10px] text-gray-400 font-mono">IT • 3rd Year</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Testimonial 3 -->
+        <div class="spotlight-card p-6 rounded-3xl flex flex-col justify-between group border border-white/10">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-[10px] font-mono px-2.5 py-1 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                KIET Ghaziabad (AKTU)
+              </span>
+              <span class="text-xs text-emerald-400 font-bold font-mono">9.6 SGPA</span>
+            </div>
+            <p class="text-xs text-gray-300 leading-relaxed font-sans">
+              "The 1-hour YouTube one-shots give you the complete mental map, and the notes give you the exact handwriting proof to write on exam day. Cleared all concepts in 3 days."
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 font-bold font-mono text-xs flex items-center justify-center">
+              AK
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">Aayush Kumar</div>
+              <div class="text-[10px] text-gray-400 font-mono">CSE • 2nd Year</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Infinite Subject Ticker -->
+    <section class="py-6 overflow-hidden bg-black/40 border-t border-b border-white/5 select-none">
+      <div class="flex whitespace-nowrap animate-marquee-left">
+        <div class="flex items-center gap-8 mx-4">
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> AKTU Data Structures (BCS301)</span>
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> Operating Systems (BCS401)</span>
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> Compiler Design (BCS601)</span>
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> Database Management DBMS (BCS501)</span>
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> Cyber Security (BCC301/401)</span>
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> Computer Organization COA (BCS302)</span>
+        </div>
+        <div class="flex items-center gap-8 mx-4">
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> AKTU Data Structures (BCS301)</span>
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> Operating Systems (BCS401)</span>
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> Compiler Design (BCS601)</span>
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> Database Management DBMS (BCS501)</span>
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> Cyber Security (BCC301/401)</span>
+          <span class="text-xs text-gray-300 font-mono flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bw-cyan"></span> Computer Organization COA (BCS302)</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 3. PAGE 2: STUDY NOTES CATALOG / DASHBOARD (`#dashboard`) -->
+  <!-- ========================================================================= -->
+  <main id="page-dashboard" class="spa-page min-h-screen pt-32 pb-24 px-4 sm:px-8 max-w-7xl mx-auto">
+    
+    <!-- Catalog Header -->
+    <div class="text-center max-w-3xl mx-auto mb-8">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-bw-cyan/20 text-bw-cyan text-xs font-bold uppercase tracking-wider mb-3">
+        <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+        <span>AKTU Syllabus Catalog</span>
+      </div>
+      <h2 class="text-3xl sm:text-5xl font-display font-black text-white tracking-tight">
+        AKTU Study Notes & Solved PYQs
+      </h2>
+      <p class="text-gray-400 mt-2 text-xs sm:text-sm">
+        Select your Year, filter by Semester, choose any Subject to unlock Unit 1-5 notes or Solved PYQs.
+      </p>
+    </div>
+
+    <!-- Main Catalog Card -->
+    <div class="glass-pill p-5 sm:p-8 rounded-3xl border border-white/10 bg-bw-surface/90 shadow-2xl">
+      
+      <!-- Top Year Filter Tabs (Level 1) -->
+      <div class="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-white/10">
+        <div class="flex flex-wrap items-center gap-2" id="yearTabsContainer">
+          <button class="year-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition-all bg-white/10 text-gray-300 hover:text-white" data-year="1st Year" onclick="setYear('1st Year')">
+            1st Year
+          </button>
+          <button class="year-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition-all bg-bw-cyan text-black shadow-lg shadow-bw-cyan/30" data-year="2nd Year" onclick="setYear('2nd Year')">
+            2nd Year (Core CSE/IT)
+          </button>
+          <button class="year-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition-all bg-white/10 text-gray-300 hover:text-white" data-year="3rd Year" onclick="setYear('3rd Year')">
+            3rd Year (Advanced CSE/IT)
+          </button>
+          <button class="year-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition-all bg-white/10 text-gray-300 hover:text-white" data-year="4th Year" onclick="setYear('4th Year')">
+            4th Year & Placements
+          </button>
+        </div>
+
+        <!-- Realtime Search Input -->
+        <div class="relative w-full sm:w-72">
+          <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+          <input 
+            type="text" 
+            id="catalogSearch" 
+            placeholder="Search Subject, Code, or Topic..." 
+            class="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-bw-cyan focus:ring-1 focus:ring-bw-cyan transition-all"
+            oninput="handleSearch(this.value)"
+          />
+        </div>
+      </div>
+
+      <!-- Semester Tabs (Level 2) -->
+      <div class="flex items-center gap-2 pt-5 pb-6 overflow-x-auto no-scrollbar" id="semesterTabsContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Breadcrumb Bar (Inside Subject) -->
+      <div id="breadcrumbBar" class="hidden items-center justify-between gap-4 py-3 px-4 rounded-xl bg-white/[0.03] border border-white/10 mb-6">
+        <div class="flex items-center gap-2 text-xs font-medium text-gray-400">
+          <button onclick="backToSubjects()" class="hover:text-bw-cyan flex items-center gap-1">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> All Subjects
+          </button>
+          <span>/</span>
+          <span class="text-gray-300" id="breadYear">2nd Year</span>
+          <span>/</span>
+          <span class="text-bw-cyan font-bold" id="breadSubject">Data Structure</span>
+        </div>
+        <button onclick="backToSubjects()" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1.5">
+          <i data-lucide="grid" class="w-3.5 h-3.5"></i> Back to Subjects
+        </button>
+      </div>
+
+      <!-- VIEW A: SUBJECTS GRID -->
+      <div id="subjectsView">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="subjectsGrid">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- VIEW B: SUBJECT DETAIL PORTAL -->
+      <div id="subjectPortalView" class="hidden">
+        
+        <!-- Subject Hero Bundle Banner -->
+        <div class="spotlight-card p-6 sm:p-8 rounded-3xl border-bw-cyan/30 bg-gradient-to-r from-bw-deepBlue/90 to-bw-dark mb-8 relative overflow-hidden">
+          <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-[11px] font-mono font-bold uppercase px-3 py-1 rounded-full bg-bw-cyan/20 text-bw-cyan border border-bw-cyan/30" id="portalSubjectCode">
+                  AKTU BCS301
+                </span>
+                <span class="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+                  <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Complete Syllabus Verified
+                </span>
+              </div>
+              <h3 class="text-2xl sm:text-3xl font-display font-black text-white" id="portalSubjectTitle">
+                Data Structure
+              </h3>
+              <p class="text-gray-300 text-xs sm:text-sm mt-1 max-w-xl" id="portalSubjectDesc">
+                Includes complete Unit 1 to 5 handwritten study notes + Solved last 5 years AKTU question papers.
+              </p>
+            </div>
+
+            <!-- Combo Bundle Buy Action -->
+            <div class="glass-pill p-4 rounded-2xl border border-bw-cyan/40 bg-black/40 flex items-center gap-4 shrink-0">
+              <div>
+                <div class="text-[10px] uppercase font-bold text-gray-400">Full Subject Combo Pack</div>
+                <div class="flex items-baseline gap-1.5 mt-0.5">
+                  <span class="text-xs text-gray-500 line-through">₹499</span>
+                  <span class="text-2xl font-black font-display text-white">₹199</span>
+                  <span class="text-[10px] text-emerald-400 font-bold">60% OFF</span>
+                </div>
+              </div>
+              <button class="rzp-btn-primary px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-wider text-white shadow-xl flex items-center gap-2" onclick="simulateCheckout(currentSubject + ' (All Units + PYQs Combo)', 199)">
+                <i data-lucide="lock-open" class="w-3.5 h-3.5 text-bw-cyan"></i>
+                <span>Buy Complete Pack</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-Category Switcher: Study Notes vs Solved PYQs -->
+        <div class="flex items-center gap-3 mb-6">
+          <button class="category-tab-btn active px-5 py-2.5 rounded-xl text-xs font-bold transition-all bg-bw-blue text-white shadow-lg shadow-bw-blue/30 flex items-center gap-2" data-cat="notes" onclick="setCategory('notes')">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            <span>Unit-Wise Study Notes (Unit 1 to 5)</span>
+          </button>
+          <button class="category-tab-btn px-5 py-2.5 rounded-xl text-xs font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 transition-all flex items-center gap-2" data-cat="pyqs" onclick="setCategory('pyqs')">
+            <i data-lucide="award" class="w-4 h-4 text-purple-400"></i>
+            <span>Solved AKTU PYQs (2021-2025)</span>
+          </button>
+        </div>
+
+        <!-- Items Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="portalItemsGrid">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <!-- Synced Free Video Lecture -->
+        <div class="mt-12 pt-8 border-t border-white/10">
+          <div class="flex items-center justify-between mb-4">
+            <h4 class="text-lg font-display font-bold text-white flex items-center gap-2">
+              <i data-lucide="video" class="w-5 h-5 text-rose-400"></i>
+              <span>Synced Free YouTube Revision for <span class="text-bw-cyan" id="syncedSubjectName">Data Structure</span></span>
+            </h4>
+            <button onclick="navigateTo('lectures')" class="text-xs text-bw-cyan hover:underline flex items-center gap-1">
+              <span>View All Lectures</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <div class="p-6 rounded-2xl bg-black/40 border border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+                <i data-lucide="play-circle" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <div class="font-bold text-white text-sm" id="syncedVideoTitle">Complete AKTU One-Shot Revision Lecture</div>
+                <div class="text-xs text-gray-400 mt-0.5">Stream all 5 units in 1 single masterclass with derivations and numericals.</div>
+              </div>
+            </div>
+            <a href="https://www.youtube.com/@bitwiselearning" target="_blank" class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-2 transition-all">
+              <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i> Watch Free on YouTube
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 4. PAGE 3: MY STUDY LIBRARY (`#library`) -->
+  <!-- ========================================================================= -->
+  <main id="page-library" class="spa-page min-h-screen pt-32 pb-24 px-4 sm:px-8 max-w-7xl mx-auto">
+    
+    <div class="flex flex-col md:flex-row items-start md:items-end justify-between gap-4 mb-8">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="library" class="w-3.5 h-3.5"></i>
+          <span>Student Vault</span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-display font-black text-white tracking-tight">
+          My Unlocked AKTU Notes
+        </h2>
+        <p class="text-gray-400 text-xs sm:text-sm mt-1">Read your notes online or download offline copies for exams.</p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button onclick="navigateTo('dashboard')" class="rzp-btn-primary px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+          <i data-lucide="plus" class="w-4 h-4"></i> Unlock More Subjects
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Unlocked Notes Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+      
+      <!-- Unlocked Note 1 -->
+      <div class="spotlight-card p-6 rounded-3xl flex flex-col justify-between group border-emerald-500/30">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+              <i data-lucide="unlock" class="w-3 h-3"></i> UNLOCKED • 6 MONTHS ACCESS
+            </span>
+            <span class="text-xs text-gray-400">28 Pages PDF</span>
+          </div>
+          <h4 class="text-lg font-display font-bold text-white group-hover:text-bw-cyan transition-colors">
+            Data Structure (Unit 1: Arrays & Recursion)
+          </h4>
+          <p class="text-xs text-gray-400 mt-2">AKTU BCS301 • Includes complete pseudocode, Big-O notations and solved derivations.</p>
+          
+          <div class="mt-4 p-3 rounded-xl bg-black/40 border border-white/5">
+            <div class="flex justify-between text-[11px] text-gray-400 mb-1">
+              <span>Reading Progress</span>
+              <span class="text-emerald-400 font-bold">100% Ready</span>
+            </div>
+            <div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div class="w-full h-full bg-emerald-400"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-3">
+          <button onclick="openReaderModal('Data Structure - Unit 1', 'Sample interactive reader page loaded with high-yield annotations and diagrams.')" class="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-emerald-500/20">
+            <i data-lucide="book-open" class="w-4 h-4"></i> Read PDF Now
+          </button>
+        </div>
+      </div>
+
+      <!-- Unlocked Note 2 -->
+      <div class="spotlight-card p-6 rounded-3xl flex flex-col justify-between group border-emerald-500/30">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+              <i data-lucide="unlock" class="w-3 h-3"></i> UNLOCKED • 6 MONTHS ACCESS
+            </span>
+            <span class="text-xs text-gray-400">32 Pages PDF</span>
+          </div>
+          <h4 class="text-lg font-display font-bold text-white group-hover:text-bw-cyan transition-colors">
+            Operating System (Unit 3: Deadlocks & Synchronization)
+          </h4>
+          <p class="text-xs text-gray-400 mt-2">AKTU BCS401 • Banker's Algorithm, Semaphores and Producer-Consumer problem solutions.</p>
+          
+          <div class="mt-4 p-3 rounded-xl bg-black/40 border border-white/5">
+            <div class="flex justify-between text-[11px] text-gray-400 mb-1">
+              <span>Reading Progress</span>
+              <span class="text-emerald-400 font-bold">100% Ready</span>
+            </div>
+            <div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div class="w-full h-full bg-emerald-400"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-3">
+          <button onclick="openReaderModal('Operating System - Unit 3', 'Banker Algorithm step-by-step table and semaphore code proofs loaded.')" class="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-emerald-500/20">
+            <i data-lucide="book-open" class="w-4 h-4"></i> Read PDF Now
+          </button>
+        </div>
+      </div>
+
+      <!-- Add New Subject Promo Card -->
+      <div class="glass-pill p-6 rounded-3xl border-dashed border-2 border-white/10 flex flex-col items-center justify-center text-center group cursor-pointer hover:border-bw-cyan/50 transition-all" onclick="navigateTo('dashboard')">
+        <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-gray-400 group-hover:text-bw-cyan group-hover:scale-110 transition-all mb-3">
+          <i data-lucide="plus-circle" class="w-6 h-6"></i>
+        </div>
+        <h4 class="text-base font-display font-bold text-white">Unlock Next Subject</h4>
+        <p class="text-xs text-gray-400 mt-1 max-w-xs">Explore DBMS, Compiler Design, or Math-IV study bundles.</p>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 5. PAGE 4: YOUTUBE VIDEO LECTURES ARCHIVE (`#lectures`) -->
+  <!-- ========================================================================= -->
+  <main id="page-lectures" class="spa-page min-h-screen pt-32 pb-24 px-4 sm:px-8 max-w-7xl mx-auto">
+    
+    <div class="flex flex-col md:flex-row items-start md:items-end justify-between gap-4 mb-10">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="youtube" class="w-3.5 h-3.5"></i>
+          <span>Official Channel Playlists</span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-display font-black text-white tracking-tight">
+          AKTU Video Lectures & One-Shot Series
+        </h2>
+        <p class="text-gray-400 text-xs sm:text-sm mt-1">High-yield concept masterclasses with 1,080,000+ views on YouTube.</p>
+      </div>
+
+      <a href="https://www.youtube.com/@bitwiselearning" target="_blank" class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-2 transition-all">
+        <i data-lucide="youtube" class="w-4 h-4"></i> Subscribe on YouTube
+      </a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <div class="spotlight-card p-5 rounded-3xl group">
+        <div class="relative rounded-2xl overflow-hidden mb-4 aspect-video bg-black/50">
+          <img src="https://i.ytimg.com/vi/W4yGnqEgqEU/mqdefault.jpg" alt="Cyber Security" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+          <div class="absolute bottom-3 left-3 flex items-center gap-2 text-xs font-semibold text-white bg-black/60 px-2.5 py-1 rounded-md backdrop-blur-md">
+            <i data-lucide="play" class="w-3 h-3 text-bw-cyan fill-current"></i> One-Shot Series
+          </div>
+        </div>
+        <h4 class="text-base font-display font-bold text-white group-hover:text-bw-cyan transition-colors">
+          Cyber Security One Shot Series (BCC301/401)
+        </h4>
+        <p class="text-xs text-gray-400 mt-1">Complete unit-wise coverage with RSA cryptography numericals & solved exam questions.</p>
+        <a href="https://www.youtube.com/watch?v=W4yGnqEgqEU&list=PLkIvxvvDMKq3XKVS8Y8gBUeGOtepz6hgJ" target="_blank" class="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-bw-cyan hover:underline">
+          <span>Watch on YouTube</span> <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+        </a>
+      </div>
+
+      <div class="spotlight-card p-5 rounded-3xl group">
+        <div class="relative rounded-2xl overflow-hidden mb-4 aspect-video bg-black/50">
+          <img src="https://i.ytimg.com/vi/WcQ30a89iFU/mqdefault.jpg" alt="Topic Trend Analysis" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+          <div class="absolute bottom-3 left-3 flex items-center gap-2 text-xs font-semibold text-white bg-black/60 px-2.5 py-1 rounded-md backdrop-blur-md">
+            <i data-lucide="play" class="w-3 h-3 text-bw-cyan fill-current"></i> Most Expected Questions
+          </div>
+        </div>
+        <h4 class="text-base font-display font-bold text-white group-hover:text-bw-cyan transition-colors">
+          AKTU Topic-Wise Trend Analysis
+        </h4>
+        <p class="text-xs text-gray-400 mt-1">Weightage breakdown of every unit to score 9+ SGPA in minimum study time.</p>
+        <a href="https://www.youtube.com/watch?v=WcQ30a89iFU&list=PLkIvxvvDMKq2WNbEUkyNcGeUkZYRLTJ28" target="_blank" class="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-bw-cyan hover:underline">
+          <span>Watch on YouTube</span> <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+        </a>
+      </div>
+
+      <div class="spotlight-card p-5 rounded-3xl group">
+        <div class="relative rounded-2xl overflow-hidden mb-4 aspect-video bg-gradient-to-tr from-bw-deepBlue to-bw-surface flex items-center justify-center border border-white/5">
+          <div class="w-14 h-14 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform">
+            <i data-lucide="youtube" class="w-7 h-7"></i>
+          </div>
+        </div>
+        <h4 class="text-base font-display font-bold text-white group-hover:text-bw-cyan transition-colors">
+          40+ AKTU University Playlists
+        </h4>
+        <p class="text-xs text-gray-400 mt-1">Full semester archives covering CSE, IT, and 1st year foundation subjects.</p>
+        <a href="https://www.youtube.com/@bitwiselearning" target="_blank" class="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-bw-cyan hover:underline">
+          <span>Explore All Playlists</span> <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+        </a>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 6. PAGE 5: STUDENT PROFILE & ACCOUNT (`#profile`) -->
+  <!-- ========================================================================= -->
+  <main id="page-profile" class="spa-page min-h-screen pt-32 pb-24 px-4 sm:px-8 max-w-5xl mx-auto">
+    
+    <div class="spotlight-card p-8 sm:p-10 rounded-3xl border border-white/10 bg-bw-surface/90 mb-8">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-white/10">
+        <div class="flex items-center gap-4">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-bw-cyan to-bw-blue flex items-center justify-center font-display font-black text-2xl text-black shadow-xl shadow-bw-cyan/20">
+            PY
+          </div>
+          <div>
+            <h3 class="text-2xl font-display font-black text-white">Pussy Yadav</h3>
+            <p class="text-xs text-gray-400 mt-0.5">B.Tech Computer Science & Engineering • 2nd Year (Semester 4)</p>
+            <span class="inline-block mt-1 text-[10px] font-mono px-2 py-0.5 rounded bg-bw-cyan/15 text-bw-cyan border border-bw-cyan/30">AKTU Roll No: 220001010044</span>
+          </div>
+        </div>
+
+        <div class="text-right">
+          <span class="text-xs text-emerald-400 font-bold px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+            ● Active Student Plan
+          </span>
+        </div>
+      </div>
+
+      <!-- Quick Details Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 my-8">
+        <div class="p-4 rounded-2xl bg-black/40 border border-white/5">
+          <div class="text-xs text-gray-400">Enrolled College</div>
+          <div class="text-sm font-bold text-white mt-1">Anand Engineering College (AKTU)</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-black/40 border border-white/5">
+          <div class="text-xs text-gray-400">Unlocked Notes</div>
+          <div class="text-sm font-bold text-bw-cyan mt-1">2 Unit Bundles</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-black/40 border border-white/5">
+          <div class="text-xs text-gray-400">Target SGPA</div>
+          <div class="text-sm font-bold text-emerald-400 mt-1">9.5+ Distinction</div>
+        </div>
+      </div>
+
+      <!-- Settings & Actions -->
+      <div class="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-white/10">
+        <div class="flex items-center gap-3">
+          <button onclick="navigateTo('library')" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white transition-all flex items-center gap-2">
+            <i data-lucide="library" class="w-4 h-4 text-bw-cyan"></i> Go to My Library
+          </button>
+          <button onclick="navigateTo('dashboard')" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white transition-all flex items-center gap-2">
+            <i data-lucide="book-open" class="w-4 h-4 text-bw-cyan"></i> Browse AKTU Catalog
+          </button>
+        </div>
+
+        <button onclick="alert('Session signed out successfully in demo mode.')" class="px-5 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs font-bold text-rose-400 hover:bg-rose-500/20 transition-all flex items-center gap-2">
+          <i data-lucide="log-out" class="w-4 h-4"></i> Sign Out
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 7. INTERACTIVE SAMPLE PREVIEW & READER MODAL -->
+  <!-- ========================================================================= -->
+  <div id="sampleModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300">
+    <div class="glass-pill max-w-xl w-full p-8 rounded-3xl border border-white/20 bg-bw-surface/95 shadow-2xl transform scale-95 transition-transform duration-300" id="sampleModalCard">
+      <div class="flex items-start justify-between">
+        <div>
+          <span class="text-[11px] font-mono font-bold uppercase px-3 py-1 rounded-full bg-bw-cyan/20 text-bw-cyan border border-bw-cyan/30">
+            AKTU Sample Notes Preview
+          </span>
+          <h3 class="text-2xl font-display font-extrabold text-white mt-3" id="sampleTitle">
+            Subject Title
+          </h3>
+        </div>
+        <button onclick="closeSampleModal()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-300 hover:text-white transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="my-6 p-4 rounded-2xl bg-black/40 border border-white/10">
+        <h4 class="text-xs font-mono font-bold uppercase tracking-wider text-bw-cyan mb-3 flex items-center gap-1.5">
+          <i data-lucide="list-tree" class="w-4 h-4"></i> Topics Covered in this Unit:
+        </h4>
+        <pre class="text-gray-300 text-xs font-mono whitespace-pre-line leading-relaxed" id="sampleContent">
+          Units preview...
+        </pre>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button class="rzp-btn-primary flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-wider text-white shadow-xl flex items-center justify-center gap-2" onclick="triggerConfetti(); playSound('success'); simulateCheckout(document.getElementById('sampleTitle').innerText, 49);">
+          <i data-lucide="lock-open" class="w-4 h-4"></i>
+          <span>Unlock Full Unit • ₹49</span>
+        </button>
+        <button onclick="closeSampleModal()" class="px-5 py-3 rounded-xl font-semibold text-xs text-gray-400 hover:text-white bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Document Reader Fullscreen Simulation Modal -->
+  <div id="readerModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl opacity-0 pointer-events-none transition-all duration-300">
+    <div class="glass-pill max-w-3xl w-full h-[80vh] p-6 rounded-3xl border border-white/20 bg-bw-surface/98 shadow-2xl flex flex-col justify-between" id="readerModalCard">
+      <div class="flex items-center justify-between pb-4 border-b border-white/10">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+          <h3 class="text-base font-bold text-white" id="readerTitle">Document Reader</h3>
+        </div>
+        <button onclick="closeReaderModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-300 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="my-auto text-center p-8">
+        <div class="w-16 h-16 rounded-2xl bg-bw-cyan/10 border border-bw-cyan/30 flex items-center justify-center text-bw-cyan mx-auto mb-4">
+          <i data-lucide="file-check" class="w-8 h-8"></i>
+        </div>
+        <h4 class="text-xl font-display font-bold text-white">Full High-Yield PDF Loaded</h4>
+        <p class="text-gray-400 text-xs mt-2 max-w-md mx-auto" id="readerDesc">
+          Clean handwritten derivations, diagrams, and model answer structures for AKTU evaluations.
+        </p>
+      </div>
+
+      <div class="pt-4 border-t border-white/10 flex items-center justify-between text-xs text-gray-400">
+        <span>Protected PDF View • Bitwise Secure DRM</span>
+        <button onclick="closeReaderModal()" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold">
+          Close Reader
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 8. FOOTER -->
+  <!-- ========================================================================= -->
+  <footer class="py-12 px-4 border-t border-white/10 text-center relative z-10 bg-black/70">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full p-0.5 bg-white/95 border border-bw-cyan/50 overflow-hidden flex items-center justify-center shrink-0">
+          <img src="public/logo.jpg" alt="Bitwise Learning" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null; this.src='assets/logo.png';" />
+        </div>
+        <div class="text-left">
+          <span class="font-bold text-white tracking-wider font-display">BITWISE LEARNING</span>
+          <span class="hidden sm:inline text-gray-500"> • Focused Exclusively on AKTU B.Tech</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-6">
+        <button onclick="navigateTo('landing')" class="hover:text-bw-cyan transition-colors">Home</button>
+        <button onclick="navigateTo('dashboard')" class="hover:text-bw-cyan transition-colors">AKTU Catalog</button>
+        <button onclick="navigateTo('library')" class="hover:text-bw-cyan transition-colors">My Library</button>
+        <button onclick="navigateTo('lectures')" class="hover:text-bw-cyan transition-colors">Video Lectures</button>
+        <button onclick="navigateTo('profile')" class="hover:text-bw-cyan transition-colors">Account</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- 9. MULTI-PAGE REACT-STYLE CLIENT ROUTER & APPLICATION LOGIC -->
+  <!-- ========================================================================= -->
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // AKTU Syllabus Database
+    const AKTU_CATALOG = {
+      '1st Year': {
+        semesters: [1, 2],
+        subjects: [
+          { name: 'Engineering Physics', code: 'BAS101/201', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Relativistic Mechanics, Wave Optics, Quantum Mechanics, Lasers & Fiber Optics.' },
+          { name: 'Engineering Chemistry', code: 'BAS102/202', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Atomic & Molecular Structure, Spectroscopy, Electrochemistry, Polymers & Fuels.' },
+          { name: 'Engineering Mathematics-I', code: 'BAS103', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Matrices, Differential Calculus, Taylor Series, Multiple Integrals & Vector Calculus.' },
+          { name: 'Programming for Problem Solving (PPS)', code: 'BCS101/201', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Basics of C, Control Statements, Arrays, Functions, Pointers, Structures & File Handling.' },
+          { name: 'Fundamentals of Electronics Engineering', code: 'BEC101/201', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Semiconductor Diodes, BJT, Op-Amps, IoT fundamentals & Digital Logic.' },
+          { name: 'Environment and Ecology', code: 'BAS104/204', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Ecosystems, Biodiversity, Natural Resources, Environmental Pollution & Waste Management.' },
+          { name: 'Soft Skills', code: 'BAS105/205', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Communication Skills, Phonetics, Personality Development & Presentation Skills.' }
+        ]
+      },
+      '2nd Year': {
+        semesters: [3, 4],
+        subjects: [
+          { name: 'Data Structure', code: 'BCS301', semester: 3, unitsCount: 5, pyqsCount: 5, desc: 'Arrays, Linked Lists, Stacks, Queues, Trees, Graphs, Sorting & Hashing algorithms.' },
+          { name: 'Computer Organization & Architecture', code: 'BCS302', semester: 3, unitsCount: 5, pyqsCount: 5, desc: 'Functional Units, Instruction Set, Pipelining, Memory Hierarchy & Cache Mapping.' },
+          { name: 'Discrete Structures & Theory of Logic', code: 'BCS303', semester: 3, unitsCount: 5, pyqsCount: 5, desc: 'Set Theory, Relations, Functions, Propositional Logic, Recurrence Relations & Graph Theory.' },
+          { name: 'Operating System', code: 'BCS401', semester: 4, unitsCount: 5, pyqsCount: 5, desc: 'Process Scheduling, Deadlocks (Banker’s Algo), Paging, Virtual Memory & Disk Scheduling.' },
+          { name: 'Theory of Automata and Formal Languages', code: 'BCS402', semester: 4, unitsCount: 5, pyqsCount: 5, desc: 'DFA, NFA, Regular Expressions, Context-Free Grammars, Pushdown Automata & Turing Machines.' },
+          { name: 'Object Oriented Programming with Java', code: 'BCS403', semester: 4, unitsCount: 5, pyqsCount: 5, desc: 'Core Java, OOPs concepts, Exception Handling, Multithreading, Collections & Streams.' },
+          { name: 'Math IV', code: 'BAS303/403', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Partial Differential Equations, Complex Integration, Probability & Statistics distributions.' },
+          { name: 'Technical Communication', code: 'BAS301/401', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Technical Writing, Business Correspondence, Reports & Ethical Communication.' },
+          { name: 'Cyber Security', code: 'BCC301/401', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Threats, DES, AES, RSA, Public Key Cryptography, IPsec, Firewalls & IT Act 2000.' },
+          { name: 'Python Programming', code: 'BCC302/402', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Python Syntax, Data Structures, OOPs in Python, Modules, NumPy & File I/O.' },
+          { name: 'Universal Human Values (UHV)', code: 'BVE301/401', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Self-exploration, Harmony in Human Being, Family, Society and Nature.' },
+          { name: 'Energy Science and Engineering', code: 'BOE301/401', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Conventional & Renewable Energy Systems, Solar, Wind, Biomass & Nuclear energy.' }
+        ]
+      },
+      '3rd Year': {
+        semesters: [5, 6],
+        subjects: [
+          { name: 'Database Management System', code: 'BCS501', semester: 5, unitsCount: 5, pyqsCount: 5, desc: 'ER Modeling, Relational Algebra, SQL, Normalization (1NF to BCNF), ACID & Concurrency.' },
+          { name: 'Web Technology', code: 'BCS502', semester: 5, unitsCount: 5, pyqsCount: 5, desc: 'HTML5, CSS3, JavaScript, DOM, Servlets, JSP, JDBC & REST API architecture.' },
+          { name: 'Design and Analysis of Algorithm (DAA)', code: 'BCS503', semester: 5, unitsCount: 5, pyqsCount: 5, desc: 'Asymptotic Notations, Divide & Conquer, Greedy, Dynamic Programming & NP-Completeness.' },
+          { name: 'Data Analytics', code: 'BCS504', semester: 5, unitsCount: 5, pyqsCount: 5, desc: 'Data Preprocessing, Descriptive Statistics, Regression, Clustering & Visualization.' },
+          { name: 'Compiler Design', code: 'BCS601', semester: 6, unitsCount: 5, pyqsCount: 5, desc: 'Lexical Analysis, LL(1) / LR Parsing Tables, SDT, Intermediate Code & DAG Optimization.' },
+          { name: 'Computer Networks', code: 'BCS602', semester: 6, unitsCount: 5, pyqsCount: 5, desc: 'OSI & TCP/IP models, Data Link Protocols, Routing (Dijkstra, Bellman), Congestion Control.' },
+          { name: 'Software Engineering', code: 'BCS603', semester: 6, unitsCount: 5, pyqsCount: 5, desc: 'SDLC Models, Agile, Requirement Analysis, Software Testing (Black/White Box) & Maintenance.' },
+          { name: 'Blockchain Architecture Design', code: 'BCS604', semester: 6, unitsCount: 5, pyqsCount: 5, desc: 'Distributed Ledgers, Cryptographic Hashes, Consensus (PoW, PoS) & Smart Contracts.' },
+          { name: 'Constitution of India (COI)', code: 'BNC501/601', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Preamble, Fundamental Rights, Directive Principles, Union & State Executive.' },
+          { name: 'Essence of Indian Traditional Knowledge (EITK)', code: 'BNC502/602', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Indian Philosophy, Ayurveda, Vedic Mathematics & Traditional Engineering heritage.' }
+        ]
+      },
+      '4th Year': {
+        semesters: [7, 8],
+        subjects: [
+          { name: 'Cloud Computing', code: 'BCS701', semester: 7, unitsCount: 5, pyqsCount: 5, desc: 'IaaS, PaaS, SaaS, Virtualization, Hypervisors, AWS/Azure architectures & Cloud Security.' },
+          { name: 'Machine Learning & AI', code: 'BCS702', semester: 7, unitsCount: 5, pyqsCount: 5, desc: 'Supervised Learning, Neural Networks, Backpropagation, SVM, Decision Trees & Deep Learning.' },
+          { name: 'Distributed Systems', code: 'BCS801', semester: 8, unitsCount: 5, pyqsCount: 5, desc: 'RPC, Message Passing, Mutual Exclusion, Leader Election & Fault Tolerance.' },
+          { name: 'Placement & Campus Interview Master Pack', code: 'PL101', semester: 'Common', unitsCount: 5, pyqsCount: 5, desc: 'Top 100 Coding Questions, System Design Primer, HR Questions & Resume Blueprints.' }
+        ]
+      }
+    };
+
+    // Client-Side Router State
+    let currentPage = 'landing';
+    let currentYear = '2nd Year';
+    let currentSemester = null;
+    let currentSubject = null;
+    let currentCategory = 'notes';
+    let searchQuery = '';
+
+    // SPA Navigation Handler
+    function navigateTo(pageId, yearParam) {
+      playSound('click');
+      currentPage = pageId;
+
+      document.querySelectorAll('.spa-page').forEach(page => {
+        page.classList.remove('active-page');
+      });
+
+      const target = document.getElementById(`page-${pageId}`);
+      if (target) {
+        target.classList.add('active-page');
+      }
+
+      document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+        if (btn.getAttribute('data-page') === pageId) {
+          btn.className = 'nav-tab-btn active px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-bw-cyan text-black shadow-md shadow-bw-cyan/20 flex items-center gap-1.5';
+        } else {
+          btn.className = 'nav-tab-btn px-4 py-1.5 rounded-full text-xs font-semibold text-gray-300 hover:text-white transition-all hover:bg-white/10 flex items-center gap-1.5';
+        }
+      });
+
+      if (yearParam) {
+        setYear(yearParam);
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Set Year in Catalog
+    function setYear(year) {
+      playSound('click');
+      currentYear = year;
+      currentSemester = null;
+      currentSubject = null;
+      
+      document.querySelectorAll('.year-tab-btn').forEach(btn => {
+        if (btn.getAttribute('data-year') === year) {
+          btn.className = 'year-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition-all bg-bw-cyan text-black shadow-lg shadow-bw-cyan/30';
+        } else {
+          btn.className = 'year-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition-all bg-white/10 text-gray-300 hover:text-white';
+        }
+      });
+
+      renderSemesterTabs();
+      renderSubjectsGrid();
+      showSubjectsView();
+    }
+
+    function renderSemesterTabs() {
+      const sems = AKTU_CATALOG[currentYear].semesters;
+      const container = document.getElementById('semesterTabsContainer');
+      
+      let html = `
+        <button class="sem-btn ${currentSemester === null ? 'bg-white/20 text-white font-bold border-bw-cyan/40' : 'bg-white/5 text-gray-400 hover:text-white'} px-4 py-1.5 rounded-xl text-xs whitespace-nowrap border border-white/10 transition-all" onclick="setSemester(null)">
+          All Semesters
+        </button>
+      `;
+
+      sems.forEach(sem => {
+        html += `
+          <button class="sem-btn ${currentSemester === sem ? 'bg-bw-blue text-white font-bold shadow-lg shadow-bw-blue/30 border-bw-cyan/40' : 'bg-white/5 text-gray-400 hover:text-white'} px-4 py-1.5 rounded-xl text-xs whitespace-nowrap border border-white/10 transition-all" onclick="setSemester(${sem})">
+            Semester ${sem}
+          </button>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function setSemester(sem) {
+      playSound('click');
+      currentSemester = sem;
+      currentSubject = null;
+      renderSemesterTabs();
+      renderSubjectsGrid();
+      showSubjectsView();
+    }
+
+    function renderSubjectsGrid() {
+      const container = document.getElementById('subjectsGrid');
+      const yearData = AKTU_CATALOG[currentYear];
+      
+      let list = yearData.subjects;
+
+      if (currentSemester !== null) {
+        list = list.filter(s => s.semester === currentSemester || s.semester === 'Common');
+      }
+
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase();
+        list = list.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q));
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full py-12 text-center text-gray-400 text-xs">
+            No AKTU subjects found matching your search. Try another keyword.
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      list.forEach(subj => {
+        const semLabel = subj.semester === 'Common' ? 'Common' : `Sem ${subj.semester}`;
+        html += `
+          <div class="spotlight-card p-6 rounded-2xl flex flex-col justify-between group cursor-pointer border border-white/10 hover:border-bw-cyan/50" onclick="openSubject('${subj.name}')" onmouseenter="playSound('hover')">
+            <div>
+              <div class="flex items-start justify-between gap-3 mb-3">
+                <span class="text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-md bg-bw-cyan/15 text-bw-cyan border border-bw-cyan/30">
+                  ${subj.code} • ${semLabel}
+                </span>
+                <span class="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                  <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Unit 1-5 Ready
+                </span>
+              </div>
+
+              <h4 class="text-lg font-display font-bold text-white group-hover:text-bw-cyan transition-colors">
+                ${subj.name}
+              </h4>
+              <p class="text-xs text-gray-400 mt-2 line-clamp-2">
+                ${subj.desc}
+              </p>
+            </div>
+
+            <div class="mt-5 pt-4 border-t border-white/5 flex items-center justify-between">
+              <div class="flex items-center gap-2 text-[11px] text-gray-400">
+                <span class="text-gray-300 font-semibold">5 Units</span>
+                <span>•</span>
+                <span class="text-purple-300 font-semibold">Solved PYQs</span>
+              </div>
+
+              <button class="px-3.5 py-1.5 rounded-lg bg-white/10 group-hover:bg-bw-cyan group-hover:text-black font-bold text-xs text-white flex items-center gap-1 transition-all">
+                <span>View Notes</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+      lucide.createIcons();
+      attachSpotlightPhysics();
+    }
+
+    function openSubject(subjectName) {
+      playSound('click');
+      currentSubject = subjectName;
+      currentCategory = 'notes';
+
+      let subjData = null;
+      for (const y in AKTU_CATALOG) {
+        const found = AKTU_CATALOG[y].subjects.find(s => s.name === subjectName);
+        if (found) {
+          subjData = found;
+          break;
+        }
+      }
+
+      if (!subjData) return;
+
+      document.getElementById('breadYear').innerText = currentYear;
+      document.getElementById('breadSubject').innerText = subjectName;
+      document.getElementById('breadcrumbBar').classList.remove('hidden');
+      document.getElementById('breadcrumbBar').classList.add('flex');
+
+      document.getElementById('portalSubjectCode').innerText = `AKTU ${subjData.code}`;
+      document.getElementById('portalSubjectTitle').innerText = subjData.name;
+      document.getElementById('portalSubjectDesc').innerText = subjData.desc;
+      document.getElementById('syncedSubjectName').innerText = subjData.name;
+      document.getElementById('syncedVideoTitle').innerText = `${subjData.name} AKTU One-Shot Revision Lecture`;
+
+      renderPortalItems();
+
+      document.getElementById('subjectsView').classList.add('hidden');
+      document.getElementById('subjectPortalView').classList.remove('hidden');
+
+      window.scrollTo({ top: document.getElementById('notes-catalog') ? document.getElementById('notes-catalog').offsetTop - 80 : 0, behavior: 'smooth' });
+    }
+
+    function backToSubjects() {
+      playSound('click');
+      currentSubject = null;
+      showSubjectsView();
+    }
+
+    function showSubjectsView() {
+      document.getElementById('breadcrumbBar').classList.add('hidden');
+      document.getElementById('breadcrumbBar').classList.remove('flex');
+      document.getElementById('subjectPortalView').classList.add('hidden');
+      document.getElementById('subjectsView').classList.remove('hidden');
+    }
+
+    function setCategory(cat) {
+      playSound('click');
+      currentCategory = cat;
+      document.querySelectorAll('.category-tab-btn').forEach(btn => {
+        if (btn.getAttribute('data-cat') === cat) {
+          btn.className = 'category-tab-btn active px-5 py-2.5 rounded-xl text-xs font-bold transition-all bg-bw-blue text-white shadow-lg shadow-bw-blue/30 flex items-center gap-2';
+        } else {
+          btn.className = 'category-tab-btn px-5 py-2.5 rounded-xl text-xs font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 transition-all flex items-center gap-2';
+        }
+      });
+      renderPortalItems();
+    }
+
+    function renderPortalItems() {
+      const container = document.getElementById('portalItemsGrid');
+      let html = '';
+
+      if (currentCategory === 'notes') {
+        const units = [
+          { num: 1, title: `Unit 1: Fundamentals & Core Architecture`, pages: 28, price: 49, topics: ['Definitions', 'Derivations', 'Evaluator Marking Hints'] },
+          { num: 2, title: `Unit 2: Detailed Proofs & Numerical Solutions`, pages: 32, price: 49, topics: ['Algorithms & Flowcharts', 'Numericals', 'AKTU 10-Mark Questions'] },
+          { num: 3, title: `Unit 3: Advanced Principles & Real-Time Models`, pages: 30, price: 49, topics: ['Architecture Diagrams', 'Case Studies', 'Theorem Proofs'] },
+          { num: 4, title: `Unit 4: Optimization, Protocols & Mechanisms`, pages: 26, price: 49, topics: ['Comparative Tables', 'State Diagrams', 'Formula Blueprints'] },
+          { num: 5, title: `Unit 5: Applications, Trends & Revision Cheat Sheets`, pages: 24, price: 49, topics: ['Final Exam Cheat Sheets', 'High-Probability Questions', 'Glossary'] }
+        ];
+
+        units.forEach(u => {
+          html += `
+            <div class="glass-pill p-5 rounded-2xl border border-white/10 hover:border-bw-cyan/40 bg-black/40 flex flex-col justify-between group">
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full bg-bw-cyan/15 text-bw-cyan border border-bw-cyan/30">
+                    AKTU UNIT ${u.num}
+                  </span>
+                  <span class="text-[11px] text-gray-400 font-medium">${u.pages} PDF Pages</span>
+                </div>
+                <h5 class="text-base font-display font-bold text-white group-hover:text-bw-cyan transition-colors">
+                  ${u.title}
+                </h5>
+                <div class="flex flex-wrap gap-1.5 mt-2">
+                  ${u.topics.map(t => `<span class="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-300 font-mono">${t}</span>`).join('')}
+                </div>
+              </div>
+
+              <div class="mt-5 pt-3 border-t border-white/5 flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] text-gray-500 line-through">₹149</span>
+                  <span class="text-xl font-bold font-display text-white ml-1.5">₹${u.price}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button onclick="openSampleModal('${currentSubject} - Unit ${u.num}', '${u.topics.join('\\n')} \\n\\nIncludes complete hand-annotated diagrams, formulas, and solved derivations.')" class="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 transition-all flex items-center gap-1">
+                    <i data-lucide="eye" class="w-3.5 h-3.5"></i> Preview
+                  </button>
+                  <button onclick="simulateCheckout('${currentSubject} - Unit ${u.num}', ${u.price})" class="rzp-btn-primary px-4 py-1.5 rounded-lg font-bold text-xs uppercase tracking-wider text-white shadow-lg flex items-center gap-1.5">
+                    <i data-lucide="lock-open" class="w-3.5 h-3.5 text-bw-cyan"></i> Unlock
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      } else {
+        const pyqs = [
+          { year: '2024-25', term: 'Odd/Even Semester Regular Exam Paper', pages: 20, price: 49 },
+          { year: '2023-24', term: 'Regular + Carry Over Solved Paper', pages: 22, price: 49 },
+          { year: '2022-23', term: 'Full 100-Marks Model Answer Key', pages: 18, price: 49 },
+          { year: '2021-22', term: '5-Year High Frequency Question Bank', pages: 24, price: 49 }
+        ];
+
+        pyqs.forEach(p => {
+          html += `
+            <div class="glass-pill p-5 rounded-2xl border border-white/10 hover:border-purple-400/40 bg-black/40 flex flex-col justify-between group">
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    AKTU PYQ ${p.year}
+                  </span>
+                  <span class="text-[11px] text-gray-400 font-medium">${p.pages} Pages</span>
+                </div>
+                <h5 class="text-base font-display font-bold text-white group-hover:text-purple-300 transition-colors">
+                  AKTU ${currentSubject} ${p.year} Solved Paper
+                </h5>
+                <p class="text-xs text-gray-400 mt-1">${p.term} with step-by-step solutions for Section A (2 marks), Section B (10 marks) & Section C.</p>
+              </div>
+
+              <div class="mt-5 pt-3 border-t border-white/5 flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] text-gray-500 line-through">₹149</span>
+                  <span class="text-xl font-bold font-display text-white ml-1.5">₹${p.price}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button onclick="openSampleModal('${currentSubject} - ${p.year} Solved Paper', 'Section A (2-Mark Short Questions)\\nSection B (10-Mark Derivations)\\nSection C (Numerical Case Studies)')" class="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 transition-all flex items-center gap-1">
+                    <i data-lucide="eye" class="w-3.5 h-3.5"></i> Preview
+                  </button>
+                  <button onclick="simulateCheckout('${currentSubject} - ${p.year} Solved PYQ', ${p.price})" class="rzp-btn-primary px-4 py-1.5 rounded-lg font-bold text-xs uppercase tracking-wider text-white shadow-lg flex items-center gap-1.5">
+                    <i data-lucide="lock-open" class="w-3.5 h-3.5 text-bw-cyan"></i> Unlock
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      container.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function handleSearch(val) {
+      searchQuery = val;
+      renderSubjectsGrid();
+    }
+
+    // Modal Handlers
+    function openSampleModal(title, content) {
+      playSound('click');
+      document.getElementById('sampleTitle').innerText = title;
+      document.getElementById('sampleContent').innerText = content;
+      const modal = document.getElementById('sampleModal');
+      const card = document.getElementById('sampleModalCard');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      modal.classList.add('opacity-100');
+      card.classList.remove('scale-95');
+      card.classList.add('scale-100');
+    }
+
+    function closeSampleModal() {
+      playSound('hover');
+      const modal = document.getElementById('sampleModal');
+      const card = document.getElementById('sampleModalCard');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+      modal.classList.remove('opacity-100');
+      card.classList.add('scale-95');
+      card.classList.remove('scale-100');
+    }
+
+    function openReaderModal(title, desc) {
+      playSound('click');
+      document.getElementById('readerTitle').innerText = title;
+      document.getElementById('readerDesc').innerText = desc;
+      const modal = document.getElementById('readerModal');
+      const card = document.getElementById('readerModalCard');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      modal.classList.add('opacity-100');
+      card.classList.remove('scale-95');
+      card.classList.add('scale-100');
+    }
+
+    function closeReaderModal() {
+      playSound('hover');
+      const modal = document.getElementById('readerModal');
+      const card = document.getElementById('readerModalCard');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+      modal.classList.remove('opacity-100');
+      card.classList.add('scale-95');
+      card.classList.remove('scale-100');
+    }
+
+    function simulateCheckout(title, price) {
+      triggerConfetti();
+      playSound('success');
+      alert(`Razorpay UPI Instant Checkout (Demo Mode)\n\nSubject: ${title}\nAmount: ₹${price}\nUniversity: AKTU Lucknow\n\nIn the production React app, this connects with Razorpay Payment Gateway directly and saves the PDF into your account library.`);
+      closeSampleModal();
+    }
+
+    function triggerConfetti() {
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 80,
+          spread: 75,
+          origin: { y: 0.7 },
+          colors: ['#38BDF8', '#305EFF', '#FFFFFF', '#A855F7']
+        });
+      }
+    }
+
+
+
+    // Trailing Cursor
+    const cursor = document.getElementById('customCursor');
+    const trail = document.getElementById('cursorTrail');
+    let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
+    let trailX = mouseX, trailY = mouseY;
+
+    window.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      if (cursor) {
+        cursor.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
+      }
+    });
+
+    function renderTrail() {
+      trailX += (mouseX - trailX) * 0.15;
+      trailY += (mouseY - trailY) * 0.15;
+      if (trail) {
+        trail.style.transform = `translate(${trailX}px, ${trailY}px) translate(-50%, -50%)`;
+      }
+      requestAnimationFrame(renderTrail);
+    }
+    renderTrail();
+
+    // Attach Spotlight physics
+    function attachSpotlightPhysics() {
+      const cards = document.querySelectorAll('.spotlight-card');
+      cards.forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+          const rect = card.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          card.style.setProperty('--mouse-x', `${x}px`);
+          card.style.setProperty('--mouse-y', `${y}px`);
+
+          const centerX = rect.width / 2;
+          const centerY = rect.height / 2;
+          const rotateX = ((y - centerY) / centerY) * -4;
+          const rotateY = ((x - centerX) / centerX) * 4;
+          card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-3px)`;
+        });
+
+        card.addEventListener('mouseleave', () => {
+          card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)';
+        });
+      });
+    }
+
+    // 3D Parallax & Gyroscope Physics for the Floating Stadium / Pill Mask Feature
+    const stadiumMask = document.getElementById('stadiumPillMask');
+    const stadiumSection = document.getElementById('stadiumShowcaseSection');
+    
+    if (stadiumMask && stadiumSection) {
+      stadiumSection.addEventListener('mousemove', (e) => {
+        const rect = stadiumSection.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+
+        const tiltX = ((y - centerY) / centerY) * -8;
+        const tiltY = ((x - centerX) / centerX) * 8;
+        const moveX = ((x - centerX) / centerX) * 16;
+        const moveY = ((y - centerY) / centerY) * 16;
+
+        stadiumMask.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) translate(${moveX}px, ${moveY}px) scale(1.02)`;
+        stadiumMask.style.boxShadow = `0 35px 60px -15px rgba(0, 0, 0, 0.9), ${-moveX * 1.5}px ${-moveY * 1.5}px 40px rgba(56, 189, 248, 0.25)`;
+      });
+
+      stadiumSection.addEventListener('mouseleave', () => {
+        stadiumMask.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translate(0px, 0px) scale(1)';
+        stadiumMask.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.8)';
+      });
+    }
+
+    // Kinetic Typography Scroll Trigger
+    const words = document.querySelectorAll('.kinetic-word');
+    window.addEventListener('scroll', () => {
+      const triggerBottom = window.innerHeight * 0.85;
+      words.forEach(word => {
+        const box = word.getBoundingClientRect();
+        if (box.top < triggerBottom) {
+          word.classList.add('active');
+        } else {
+          word.classList.remove('active');
+        }
+      });
+    });
+
+    // Stat Counters
+    const counters = document.querySelectorAll('.counter');
+    let countersStarted = false;
+    function startCounters() {
+      counters.forEach(counter => {
+        const target = +counter.getAttribute('data-target');
+        let count = 0;
+        const speed = target / 40;
+        const updateCount = () => {
+          count += speed;
+          if (count < target) {
+            counter.innerText = Math.ceil(count);
+            setTimeout(updateCount, 25);
+          } else {
+            counter.innerText = target.toLocaleString();
+          }
+        };
+        updateCount();
+      });
+    }
+
+    // Trigger counters automatically and on scroll
+    setTimeout(() => {
+      if (!countersStarted) {
+        startCounters();
+        countersStarted = true;
+      }
+    }, 300);
+
+    window.addEventListener('scroll', () => {
+      if (!countersStarted && window.scrollY > 100) {
+        startCounters();
+        countersStarted = true;
+      }
+    });
+
+    // Ambient Geometric Canvas
+    const canvas = document.getElementById('ambientCanvas');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      let width, height;
+      let particles = [];
+      function resizeCanvas() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      }
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      class Particle {
+        constructor() {
+          this.x = Math.random() * width;
+          this.y = Math.random() * height;
+          this.vx = (Math.random() - 0.5) * 0.55;
+          this.vy = (Math.random() - 0.5) * 0.55;
+          this.radius = Math.random() * 1.8 + 0.8;
+        }
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          if (this.x < 0 || this.x > width) this.vx *= -1;
+          if (this.y < 0 || this.y > height) this.vy *= -1;
+        }
+        draw() {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+          ctx.fill();
+        }
+      }
+
+      for (let i = 0; i < 45; i++) particles.push(new Particle());
+
+      function animateCanvas() {
+        ctx.clearRect(0, 0, width, height);
+        for (let i = 0; i < particles.length; i++) {
+          particles[i].update();
+          particles[i].draw();
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 130) {
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = `rgba(56, 189, 248, ${0.15 * (1 - dist / 130)})`;
+              ctx.lineWidth = 0.8;
+              ctx.stroke();
+            }
+          }
+        }
+        requestAnimationFrame(animateCanvas);
+      }
+      animateCanvas();
+    }
+
+    // Interactive Notes Anatomy Switcher
+    const ANATOMY_DATA = {
+      dsa: {
+        code: 'AKTU BCS301 • Unit 1: Arrays & Time Complexity',
+        content: `
+          <div class="p-3.5 rounded-xl bg-bw-cyan/10 border border-bw-cyan/30 text-bw-cyan mb-2">
+            <span class="text-[10px] uppercase font-bold tracking-wider">[1] KEYWORD BOX:</span>
+            <div class="text-white mt-1">Asymptotic Notations: O(g(n)) = {f(n): ∃ c>0, n₀>0 s.t. 0 ≤ f(n) ≤ c·g(n) ∀ n ≥ n₀}</div>
+          </div>
+          <div class="p-3.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 mb-2">
+            <span class="text-[10px] uppercase font-bold tracking-wider text-amber-400">[2] 2D ARRAY ROW-MAJOR MAPPING:</span>
+            <div class="text-white font-mono mt-1 text-[11px]">Address(A[i][j]) = Base + W · [(i - LB₁) · N₂ + (j - LB₂)]</div>
+          </div>
+          <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+            <span class="text-[10px] uppercase font-bold tracking-wider">[3] EXAMINER STEP MARK:</span>
+            <div class="text-white mt-1">✓ Derivation drawn with index matrix • ✓ Big-O bounds explicitly plotted</div>
+          </div>
+        `
+      },
+      os: {
+        code: 'AKTU BCS401 • Unit 3: Deadlock & Banker’s Algorithm',
+        content: `
+          <div class="p-3.5 rounded-xl bg-bw-cyan/10 border border-bw-cyan/30 text-bw-cyan mb-2">
+            <span class="text-[10px] uppercase font-bold tracking-wider">[1] 4 COFFMAN CONDITIONS (2 Marks):</span>
+            <div class="text-white mt-1">1. Mutual Exclusion  2. Hold & Wait  3. No Preemption  4. Circular Wait</div>
+          </div>
+          <div class="p-3.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 mb-2">
+            <span class="text-[10px] uppercase font-bold tracking-wider text-amber-400">[2] BANKER'S SAFETY MATRIX (6 Marks):</span>
+            <div class="text-white font-mono mt-1 text-[11px]">Need[i][j] = Max[i][j] - Allocation[i][j] | Work = Available</div>
+          </div>
+          <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+            <span class="text-[10px] uppercase font-bold tracking-wider">[3] SAFE SEQUENCE PROOF (2 Marks):</span>
+            <div class="text-white mt-1">✓ Safe State Verified: &lt;P1, P3, P4, P0, P2&gt; with zero deadlocks</div>
+          </div>
+        `
+      },
+      cd: {
+        code: 'AKTU BCS601 • Unit 2: LL(1) Parsing Table Construction',
+        content: `
+          <div class="p-3.5 rounded-xl bg-bw-cyan/10 border border-bw-cyan/30 text-bw-cyan mb-2">
+            <span class="text-[10px] uppercase font-bold tracking-wider">[1] FIRST & FOLLOW SET RULES (3 Marks):</span>
+            <div class="text-white mt-1">FIRST(A) = {a ∈ T | A ⇒* aα} | FOLLOW(A) = {a ∈ T ∪ {$} | S ⇒* αAaβ}</div>
+          </div>
+          <div class="p-3.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 mb-2">
+            <span class="text-[10px] uppercase font-bold tracking-wider text-amber-400">[2] M[A, a] PARSING TABLE (5 Marks):</span>
+            <div class="text-white font-mono mt-1 text-[11px]">If A → α, then for each terminal a in FIRST(α), add A → α to M[A, a]</div>
+          </div>
+          <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+            <span class="text-[10px] uppercase font-bold tracking-wider">[3] CONFLICT-FREE CRITERIA (2 Marks):</span>
+            <div class="text-white mt-1">✓ No multiple entries in any cell ⇒ Grammar is unambiguously LL(1)</div>
+          </div>
+        `
+      }
+    };
+
+    function switchAnatomy(key) {
+      const data = ANATOMY_DATA[key];
+      if (!data) return;
+      document.getElementById('anatomyNoteCode').innerText = data.code;
+      document.getElementById('anatomyNoteContent').innerHTML = data.content;
+
+      document.querySelectorAll('.anatomy-tab-btn').forEach(btn => {
+        if (btn.innerText.toLowerCase().includes(key)) {
+          btn.className = 'anatomy-tab-btn active px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all bg-bw-cyan text-black shadow-md shadow-bw-cyan/20';
+        } else {
+          btn.className = 'anatomy-tab-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-400 hover:text-white transition-all';
+        }
+      });
+    }
+
+    // SGPA Target Calculator
+    function setTargetSGPA(sgpa) {
+      document.querySelectorAll('.sgpa-btn').forEach(btn => {
+        if (btn.innerText.includes(sgpa)) {
+          btn.className = 'sgpa-btn active px-4 py-2 rounded-xl text-xs font-bold transition-all bg-amber-400 text-black shadow-lg shadow-amber-400/20';
+        } else {
+          btn.className = 'sgpa-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-white/5 text-gray-300 hover:text-white border border-white/10';
+        }
+      });
+
+      if (sgpa === '9.5') {
+        document.getElementById('sgpaTime').innerText = '45 Mins';
+        document.getElementById('sgpaUnits').innerText = 'All 5 Units';
+        document.getElementById('sgpaPyqs').innerText = '5 Years';
+      } else if (sgpa === '8.8') {
+        document.getElementById('sgpaTime').innerText = '30 Mins';
+        document.getElementById('sgpaUnits').innerText = '4 Units';
+        document.getElementById('sgpaPyqs').innerText = '3 Years';
+      } else {
+        document.getElementById('sgpaTime').innerText = '20 Mins';
+        document.getElementById('sgpaUnits').innerText = '3 High-Yield';
+        document.getElementById('sgpaPyqs').innerText = '2 Years';
+      }
+    }
+
+    // Initialize App & Catalog
+    setYear('2nd Year');
+    attachSpotlightPhysics();
+    lucide.createIcons();
+  </script>
+</body>
+</html>

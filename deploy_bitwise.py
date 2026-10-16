@@ -33,16 +33,13 @@ def run_cmd(cmd):
         print(f"[STDERR]\n{err.strip()}", flush=True)
     return out, err
 
-# 1. Update APT & Install Nginx + Certbot
-print("\n📦 Step 1: Installing Nginx & Certbot on VPS...", flush=True)
-run_cmd("apt-get update -y && apt-get install -y nginx certbot python3-certbot-nginx")
+CYBERPANEL_DIR = f"/home/{DOMAIN}/public_html"
 
-# 2. Create Remote Web Root Directory
-print("\n📁 Step 2: Preparing web root directory...", flush=True)
-run_cmd(f"mkdir -p {REMOTE_DIR}")
+print("\n📦 Step 1: Preparing web root directories on VPS...", flush=True)
+run_cmd(f"mkdir -p {REMOTE_DIR} {CYBERPANEL_DIR}")
 
-# 3. SFTP Upload Static Files & Backend Server Files (Skipping node_modules for 100x ultra-fast deployment)
-print("\n⬆️ Step 3: Uploading static dist files and backend server code to VPS...", flush=True)
+# SFTP Upload Static Files & Backend Server Files
+print("\n⬆️ Step 2: Uploading static dist files and backend server code to VPS...", flush=True)
 sftp = client.open_sftp()
 
 def upload_dir(local_path, remote_path):
@@ -63,6 +60,7 @@ def upload_dir(local_path, remote_path):
             sftp.put(l_item, r_item)
 
 upload_dir(LOCAL_DIST, REMOTE_DIR)
+upload_dir(LOCAL_DIST, CYBERPANEL_DIR)
 
 LOCAL_SERVER = "/Users/akhalaq/Programming/Notes Selling App/server"
 REMOTE_SERVER = "/var/www/bitwise-backend"
@@ -72,83 +70,38 @@ upload_dir(LOCAL_SERVER, REMOTE_SERVER)
 if os.path.exists("bitwise-learning.apk"):
     print("   Uploading bitwise-learning.apk...", flush=True)
     sftp.put("bitwise-learning.apk", f"{REMOTE_DIR}/bitwise-learning.apk")
+    sftp.put("bitwise-learning.apk", f"{CYBERPANEL_DIR}/bitwise-learning.apk")
 sftp.close()
 print("✅ All static assets and backend server files uploaded successfully!", flush=True)
 
-# 4. Create Nginx Configuration
-print("\n⚙️ Step 4: Configuring Nginx for React SPA...", flush=True)
-nginx_config = f"""server {{
-    listen 80;
-    server_name {DOMAIN} www.{DOMAIN};
+# Step 3: Configure OpenLiteSpeed / CyberPanel .htaccess and permissions
+print("\n⚙️ Step 3: Configuring CyberPanel/OpenLiteSpeed .htaccess and permissions...", flush=True)
+htaccess_config = """RewriteEngine On
+RewriteBase /
 
-    root {REMOTE_DIR};
-    index index.html;
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+# Exclude API from SPA rewrite
+RewriteRule ^api - [L]
 
-    client_max_body_size 200M;
-
-    # Cloudflare Real IP Header Restoration
-    set_real_ip_from 103.21.244.0/22;
-    set_real_ip_from 103.22.200.0/22;
-    set_real_ip_from 103.31.4.0/22;
-    set_real_ip_from 104.16.0.0/13;
-    set_real_ip_from 104.24.0.0/14;
-    set_real_ip_from 108.162.192.0/18;
-    set_real_ip_from 131.0.72.0/22;
-    set_real_ip_from 141.101.64.0/18;
-    set_real_ip_from 162.158.0.0/15;
-    set_real_ip_from 172.64.0.0/13;
-    set_real_ip_from 173.245.48.0/21;
-    set_real_ip_from 188.114.96.0/20;
-    set_real_ip_from 190.93.240.0/20;
-    set_real_ip_from 197.234.240.0/22;
-    set_real_ip_from 198.41.128.0/17;
-    real_ip_header CF-Connecting-IP;
-
-    location / {{
-        try_files $uri $uri/ /index.html;
-    }}
-
-    location /api/ {{
-        proxy_pass http://127.0.0.1:5000/api/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }}
-
-    location /assets/ {{
-        expires 1y;
-        add_header Cache-Control "public, no-transform";
-    }}
-
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Content-Security-Policy "default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval';" always;
-    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-}}
+# SPA Fallback for React
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
 """
+run_cmd(f"cat << 'EOF' > {CYBERPANEL_DIR}/.htaccess\n{htaccess_config}\nEOF")
+run_cmd(f"chmod 755 {CYBERPANEL_DIR} && find {CYBERPANEL_DIR} -type d -exec chmod 755 {{}} + && find {CYBERPANEL_DIR} -type f -exec chmod 644 {{}} +")
+run_cmd(f"chown -R bitwi2915:nogroup {CYBERPANEL_DIR}")
+run_cmd(f"rm -rf {CYBERPANEL_DIR}/uploads && ln -s {REMOTE_DIR}/uploads {CYBERPANEL_DIR}/uploads && chown -h bitwi2915:nogroup {CYBERPANEL_DIR}/uploads")
 
-run_cmd(f"cat << 'EOF' > /etc/nginx/sites-available/bitwise-learning\n{nginx_config}\nEOF")
-run_cmd("rm -f /etc/nginx/sites-enabled/default")
-run_cmd("ln -sf /etc/nginx/sites-available/bitwise-learning /etc/nginx/sites-enabled/bitwise-learning")
-
-# 5. Restart Backend PM2 Process & Reload Nginx
-print("\n🛡️ Step 5: Restarting Backend API Node process & Reloading Nginx...", flush=True)
+# Step 4: Restart Backend PM2 Process & Reload OpenLiteSpeed
+print("\n🛡️ Step 4: Restarting Backend API Node process & Reloading OpenLiteSpeed...", flush=True)
 run_cmd("cd /var/www/bitwise-backend && npm install --omit=dev || true")
 run_cmd("pm2 restart all || pm2 start /var/www/bitwise-backend/index.js --name bitwise-backend")
-run_cmd("ufw allow 80/tcp; ufw allow 443/tcp; ufw allow 'Nginx Full' || true")
-run_cmd("nginx -t")
-run_cmd("systemctl reload nginx")
-
-# 6. Issue Certbot SSL Certificate
-print("\n🔒 Step 6: Setting up Free SSL Certificate via Certbot...", flush=True)
-run_cmd(f"certbot --nginx --non-interactive --agree-tos -m bitwiselearning0@gmail.com -d {DOMAIN} -d www.{DOMAIN} || echo 'Certbot will issue SSL once DNS finishes propagating.'")
+run_cmd("/usr/local/lsws/bin/lswsctrl restart || systemctl reload lsws || true")
 
 client.close()
 print("\n🎉 ALL DEPLOYMENT STEPS COMPLETED!", flush=True)
+

@@ -25,7 +25,7 @@ export interface ApiPurchase {
   expires_at?: string;
 }
 
-const safeFetchJson = async (url: string, options?: RequestInit) => {
+const safeFetchJson = async (url: string, options?: RequestInit, isRetry = false): Promise<any> => {
   try {
     const token = typeof localStorage !== 'undefined' ? localStorage.getItem('bw_auth_token') : null;
     let user: any = null;
@@ -46,6 +46,37 @@ const safeFetchJson = async (url: string, options?: RequestInit) => {
     };
 
     const res = await fetch(url, { ...options, headers });
+
+    // 1. Transparently save renewed JWT token if server returned one
+    const renewedToken = res.headers.get('x-renewed-token');
+    if (renewedToken && typeof localStorage !== 'undefined') {
+      localStorage.setItem('bw_auth_token', renewedToken);
+    }
+
+    // 2. Handle 401 Unauthorized via instant background session refresh & replay
+    if (res.status === 401 && !isRetry && !url.includes('/auth/refresh') && !url.includes('/auth/signin')) {
+      const targetUserId = user?.id || user?.email;
+      if (targetUserId && sessionId) {
+        try {
+          const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh-session`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: targetUserId, sessionId })
+          });
+          if (refreshRes.ok) {
+            const refreshData = await refreshRes.json();
+            if (refreshData?.token && typeof localStorage !== 'undefined') {
+              localStorage.setItem('bw_auth_token', refreshData.token);
+              // Replay original request with fresh token
+              return await safeFetchJson(url, options, true);
+            }
+          }
+        } catch (refreshErr) {
+          console.warn('Auto session refresh attempt failed:', refreshErr);
+        }
+      }
+    }
+
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
       const text = await res.text();
@@ -111,6 +142,14 @@ export const vpsApi = {
 
   verifyDeviceSession: async (userId: string, sessionId: string) => {
     return safeFetchJson(`${API_BASE_URL}/auth/verify-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, sessionId })
+    });
+  },
+
+  refreshSession: async (userId: string, sessionId: string) => {
+    return safeFetchJson(`${API_BASE_URL}/auth/refresh-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, sessionId })

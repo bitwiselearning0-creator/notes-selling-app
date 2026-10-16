@@ -27,45 +27,86 @@ const CanvasPage: React.FC<{
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
+  const pageProxyRef = useRef<any>(null);
   const [isVisible, setIsVisible] = useState(pageNumber <= 2);
 
   useEffect(() => {
-    if (pageNumber <= 2) return;
     const el = containerRef.current;
     if (!el) return;
 
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) {
-        setIsVisible(true);
-        observer.disconnect();
+    const scrollContainer = el.closest('.pdf-viewer-scroll-container') || null;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) {
+          setIsVisible(entry.isIntersecting);
+        }
+      },
+      {
+        root: scrollContainer,
+        rootMargin: '750px 0px 750px 0px',
+        threshold: 0
       }
-    }, { rootMargin: '500px 0px 500px 0px' });
+    );
 
     observer.observe(el);
-    return () => observer.disconnect();
-  }, [pageNumber]);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
-    if (!pdfDoc || !canvasRef.current || !isVisible) return;
+    if (!pdfDoc || !isVisible) {
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch (e) {}
+        renderTaskRef.current = null;
+      }
+      if (pageProxyRef.current) {
+        try {
+          if (typeof pageProxyRef.current.cleanup === 'function') {
+            pageProxyRef.current.cleanup();
+          }
+        } catch (e) {}
+        pageProxyRef.current = null;
+      }
+      if (canvasRef.current) {
+        canvasRef.current.width = 0;
+        canvasRef.current.height = 0;
+      }
+      return;
+    }
     
     let isMounted = true;
 
     const renderPage = async () => {
       try {
         const page = await pdfDoc.getPage(pageNumber);
-        if (!isMounted) return;
+        if (!isMounted) {
+          try {
+            if (typeof page.cleanup === 'function') page.cleanup();
+          } catch (e) {}
+          return;
+        }
+        pageProxyRef.current = page;
 
         if (renderTaskRef.current) {
           try {
             renderTaskRef.current.cancel();
           } catch (e) {}
+          renderTaskRef.current = null;
         }
 
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Render at ultra high-definition 2.0x scale for razor-sharp text
-        const scale = 2.0;
+        // Mobile memory optimization:
+        // On mobile (<768px), 1.4x scale provides razor-sharp text while cutting GPU canvas memory by over 50%.
+        // On desktop, 2.0x scale provides ultra high-definition.
+        const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+        const scale = isMobile ? 1.4 : 2.0;
         const viewport = page.getViewport({ scale, rotation });
 
         canvas.height = viewport.height;
@@ -83,6 +124,7 @@ const CanvasPage: React.FC<{
         renderTaskRef.current = renderTask;
 
         await renderTask.promise;
+        if (!isMounted) return;
 
         // Clean, Organized Forensic Watermark (Balanced Grid & Institutional Header/Footer)
         const activeUser = user || dbService.getCurrentUser();
@@ -167,6 +209,19 @@ const CanvasPage: React.FC<{
         try {
           renderTaskRef.current.cancel();
         } catch (e) {}
+        renderTaskRef.current = null;
+      }
+      if (pageProxyRef.current) {
+        try {
+          if (typeof pageProxyRef.current.cleanup === 'function') {
+            pageProxyRef.current.cleanup();
+          }
+        } catch (e) {}
+        pageProxyRef.current = null;
+      }
+      if (canvasRef.current) {
+        canvasRef.current.width = 0;
+        canvasRef.current.height = 0;
       }
     };
   }, [pdfDoc, pageNumber, rotation, isVisible, user, userIp, isInverted]);
@@ -188,7 +243,8 @@ const CanvasPage: React.FC<{
         justifyContent: 'center', 
         alignItems: 'center',
         width: `${targetWidth}px`,
-        minHeight: isVisible ? 'auto' : `${estimatedMinHeight}px`,
+        minHeight: `${estimatedMinHeight}px`,
+        height: isVisible ? 'auto' : `${estimatedMinHeight}px`,
         maxWidth: 'none',
         boxSizing: 'border-box',
         transition: 'none'
@@ -207,6 +263,39 @@ const CanvasPage: React.FC<{
           transition: 'filter 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease'
         }} 
       />
+      {!isVisible && (
+        <div 
+          style={{
+            width: '100%',
+            height: `${estimatedMinHeight}px`,
+            borderRadius: '12px',
+            background: isInverted ? '#0f172a' : '#182032',
+            border: '1px solid rgba(255, 255, 255, 0.05)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            color: '#94a3b8',
+            boxSizing: 'border-box',
+            userSelect: 'none'
+          }}
+        >
+          <div style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '50%',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <span style={{ fontSize: '14px', fontWeight: '700', color: '#94a3b8' }}>{pageNumber}</span>
+          </div>
+          <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Page {pageNumber}</span>
+        </div>
+      )}
     </div>
   );
 });
@@ -226,6 +315,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
   const [jumpPageInput, setJumpPageInput] = useState<string>('1');
   const [pdfjsLoaded, setPdfjsLoaded] = useState(false);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
+  const pdfDocRef = useRef<any>(null);
+  const loadingTaskRef = useRef<any>(null);
   const [pageAspectRatio, setPageAspectRatio] = useState<number>(1.414);
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -546,8 +637,30 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
     }
   }, [note.id, note.previewUrl, note.pdfUrl]);
 
+  // Cleanup PDF document on unmount to completely free worker and WebAssembly heap
+  useEffect(() => {
+    return () => {
+      if (loadingTaskRef.current) {
+        try { loadingTaskRef.current.destroy(); } catch (e) {}
+        loadingTaskRef.current = null;
+      }
+      if (pdfDocRef.current) {
+        try { pdfDocRef.current.destroy(); } catch (e) {}
+        pdfDocRef.current = null;
+      }
+    };
+  }, []);
+
   // Reset document state whenever active note changes
   useEffect(() => {
+    if (loadingTaskRef.current) {
+      try { loadingTaskRef.current.destroy(); } catch (e) {}
+      loadingTaskRef.current = null;
+    }
+    if (pdfDocRef.current) {
+      try { pdfDocRef.current.destroy(); } catch (e) {}
+      pdfDocRef.current = null;
+    }
     setPdfDoc(null);
     setLoadError(null);
     setScrollPage(1);
@@ -559,6 +672,14 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
     if (!pdfjsLoaded || !pdfUrl) return;
 
     if (!isUnlocked) {
+      if (loadingTaskRef.current) {
+        try { loadingTaskRef.current.destroy(); } catch (e) {}
+        loadingTaskRef.current = null;
+      }
+      if (pdfDocRef.current) {
+        try { pdfDocRef.current.destroy(); } catch (e) {}
+        pdfDocRef.current = null;
+      }
       setPdfDoc(null);
       setLoadingDoc(false);
       setLoadError(null);
@@ -566,11 +687,21 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
     }
 
     if (!isNotePdfAvailable(note)) {
+      if (loadingTaskRef.current) {
+        try { loadingTaskRef.current.destroy(); } catch (e) {}
+        loadingTaskRef.current = null;
+      }
+      if (pdfDocRef.current) {
+        try { pdfDocRef.current.destroy(); } catch (e) {}
+        pdfDocRef.current = null;
+      }
       setLoadError('PDF document is currently under faculty review.');
       setPdfDoc(null);
       setLoadingDoc(false);
       return;
     }
+
+    let isCurrent = true;
 
     const loadDocument = async () => {
       setLoadingDoc(true);
@@ -613,26 +744,61 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
           };
         }
 
+        if (loadingTaskRef.current) {
+          try { loadingTaskRef.current.destroy(); } catch (e) {}
+          loadingTaskRef.current = null;
+        }
+
         const loadingTask = pdfjsLib.getDocument(pdfSource);
+        loadingTaskRef.current = loadingTask;
+
         const pdf = await loadingTask.promise;
+        if (!isCurrent) {
+          try { pdf.destroy(); } catch (e) {}
+          return;
+        }
+
         try {
           const firstPage = await pdf.getPage(1);
           const vp = firstPage.getViewport({ scale: 1 });
           if (vp && vp.width > 0 && vp.height > 0) {
             setPageAspectRatio(vp.height / vp.width);
           }
+          if (typeof firstPage.cleanup === 'function') {
+            firstPage.cleanup();
+          }
         } catch (e) {}
+
+        if (pdfDocRef.current && pdfDocRef.current !== pdf) {
+          try { pdfDocRef.current.destroy(); } catch (e) {}
+        }
+        pdfDocRef.current = pdf;
         setPdfDoc(pdf);
       } catch (err: any) {
+        if (!isCurrent) return;
         console.error('Error loading PDF document:', err);
         setLoadError(err.message || 'Error parsing document content.');
+        if (pdfDocRef.current) {
+          try { pdfDocRef.current.destroy(); } catch (e) {}
+          pdfDocRef.current = null;
+        }
         setPdfDoc(null);
       } finally {
-        setLoadingDoc(false);
+        if (isCurrent) {
+          setLoadingDoc(false);
+        }
       }
     };
 
     loadDocument();
+
+    return () => {
+      isCurrent = false;
+      if (loadingTaskRef.current) {
+        try { loadingTaskRef.current.destroy(); } catch (e) {}
+        loadingTaskRef.current = null;
+      }
+    };
   }, [pdfjsLoaded, pdfUrl, note]);
 
   // Sync jumpPageInput with active scroll page

@@ -15,7 +15,7 @@ const authenticateToken = async (req, res, next) => {
       req.user = decoded;
       return next();
     } catch (err) {
-      return res.status(401).json({ data: null, error: 'Access Denied: Invalid or expired token.' });
+      // JWT token expired or invalid - fall through to verify active device session instead of hard 401 abort
     }
   }
 
@@ -32,19 +32,34 @@ const authenticateToken = async (req, res, next) => {
         [userEmail, userId, sessionId]
       );
       if (sessRes.rows.length > 0) {
-        const profile = await db.query(
+        const profileRes = await db.query(
           "SELECT id, name, email, role FROM profiles WHERE LOWER(email) = $1 OR id = $2 LIMIT 1",
           [userEmail, userId]
         );
-        if (profile.rows.length > 0) {
-          req.user = profile.rows[0];
+        if (profileRes.rows.length > 0) {
+          const profile = profileRes.rows[0];
+          req.user = profile;
+
+          // Seamless auto-renewal: issue fresh token valid for 180 days
+          try {
+            const renewedToken = jwt.sign(
+              { id: profile.id, email: profile.email, role: profile.role },
+              JWT_SECRET,
+              { expiresIn: '180d' }
+            );
+            res.setHeader('x-renewed-token', renewedToken);
+            res.setHeader('Access-Control-Expose-Headers', 'x-renewed-token');
+          } catch (tokErr) {}
+
           return next();
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Session fallback auth error:', e);
+    }
   }
 
-  return res.status(401).json({ data: null, error: 'Access Denied: Authentication required.' });
+  return res.status(401).json({ data: null, error: 'Access Denied: Authentication required or session expired.' });
 };
 
 /**
@@ -63,7 +78,7 @@ const requireAdmin = async (req, res, next) => {
         return next();
       }
     } catch (err) {
-      return res.status(401).json({ data: null, error: 'Unauthorized: Invalid or expired admin token.' });
+      // Fall through to active admin session verification
     }
   }
 
@@ -84,7 +99,19 @@ const requireAdmin = async (req, res, next) => {
           [userEmail, userId]
         );
         if (adminProfile.rows.length > 0) {
-          req.user = adminProfile.rows[0];
+          const profile = adminProfile.rows[0];
+          req.user = profile;
+
+          try {
+            const renewedToken = jwt.sign(
+              { id: profile.id, email: profile.email, role: profile.role },
+              JWT_SECRET,
+              { expiresIn: '180d' }
+            );
+            res.setHeader('x-renewed-token', renewedToken);
+            res.setHeader('Access-Control-Expose-Headers', 'x-renewed-token');
+          } catch (tokErr) {}
+
           return next();
         }
       }

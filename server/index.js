@@ -61,6 +61,7 @@ app.post('/api/auth/send-otp', authRateLimiter, authController.sendPasswordReset
 app.post('/api/auth/verify-otp-reset', authRateLimiter, authController.verifyOtpAndUpdatePassword);
 app.post('/api/auth/device-session', authController.registerDeviceSession);
 app.post('/api/auth/verify-session', authController.verifyDeviceSession);
+app.post('/api/auth/refresh-session', authController.refreshSession);
 
 // Admin-Protected Session Management
 app.get('/api/admin/active-sessions', requireAdmin, authController.getAllActiveSessions);

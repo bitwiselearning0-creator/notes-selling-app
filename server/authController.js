@@ -48,7 +48,7 @@ const signUp = async (req, res) => {
     );
 
     const user = insertRes.rows[0];
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '180d' });
 
     // Enforce 1 Device Active Session
     const activeSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
@@ -101,7 +101,7 @@ const signIn = async (req, res) => {
       created_at: user.created_at
     };
 
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '180d' });
 
     // Enforce 1 Device Active Session (Overwrites any previous device session instantly!)
     const activeSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
@@ -199,7 +199,7 @@ const verifyOtpAndUpdatePassword = async (req, res) => {
     await db.query('DELETE FROM otps WHERE LOWER(email) = $1', [cleanEmail]);
 
     const user = updateRes.rows[0];
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '180d' });
 
     const activeSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
     await db.query(
@@ -258,18 +258,67 @@ const verifyDeviceSession = async (req, res) => {
           [cleanUserId, clientSessionId]
         );
       }
-      return res.json({ valid: true, error: null });
+    } else {
+      const dbSessionId = result.rows[0].session_id;
+      if (!clientSessionId || dbSessionId !== clientSessionId) {
+        return res.json({ valid: false, error: 'Your account was logged in on another device.' });
+      }
     }
 
-    const dbSessionId = result.rows[0].session_id;
+    // Auto-generate fresh renewed token so frontend session stays alive
+    let token = null;
+    try {
+      const pRes = await db.query(
+        'SELECT id, name, email, role FROM profiles WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+        [cleanUserId]
+      );
+      if (pRes.rows.length > 0) {
+        const u = pRes.rows[0];
+        token = jwt.sign({ id: u.id, email: u.email, role: u.role }, JWT_SECRET, { expiresIn: '180d' });
+      }
+    } catch (tokErr) {}
 
-    if (!clientSessionId || dbSessionId !== clientSessionId) {
-      return res.json({ valid: false, error: 'Your account was logged in on another device.' });
-    }
-
-    return res.json({ valid: true, error: null });
+    return res.json({ valid: true, token, error: null });
   } catch (err) {
     return res.json({ valid: true, error: null });
+  }
+};
+
+const refreshSession = async (req, res) => {
+  try {
+    const { userId, sessionId } = req.body;
+    if (!userId || !sessionId) {
+      return res.status(400).json({ data: null, error: 'User ID and Session ID required' });
+    }
+
+    const cleanUserId = String(userId).trim();
+    const clientSessionId = String(sessionId).trim();
+
+    const result = await db.query(
+      'SELECT session_id FROM active_sessions WHERE user_id = $1 OR LOWER(user_id) = LOWER($2) ORDER BY updated_at DESC LIMIT 1',
+      [cleanUserId, cleanUserId.toLowerCase()]
+    );
+
+    if (result.rows.length === 0 || result.rows[0].session_id !== clientSessionId) {
+      return res.status(401).json({ data: null, error: 'Session invalid or logged in on another device' });
+    }
+
+    const pRes = await db.query(
+      'SELECT id, name, email, phone, role, created_at FROM profiles WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+      [cleanUserId]
+    );
+
+    if (pRes.rows.length === 0) {
+      return res.status(404).json({ data: null, error: 'User profile not found' });
+    }
+
+    const user = pRes.rows[0];
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '180d' });
+
+    return res.json({ data: user, token, error: null });
+  } catch (err) {
+    console.error('refreshSession error:', err);
+    return res.status(500).json({ data: null, error: err.message });
   }
 };
 
@@ -277,23 +326,27 @@ const getAllActiveSessions = async (req, res) => {
   try {
     // 1. Fetch all registered user profiles with their active session status
     const result = await db.query(
-      `SELECT 
-         p.id as user_id,
-         p.name as user_name,
-         p.email as user_email,
-         p.phone as user_phone,
-         p.role as user_role,
-         COALESCE(s.session_id, 'sess_active_' || SUBSTRING(MD5(p.id) FROM 1 FOR 10)) as session_id,
-         COALESCE(s.updated_at, p.created_at) as updated_at,
-         CASE WHEN s.session_id IS NOT NULL AND s.session_id NOT LIKE 'sess_terminated_%' THEN true ELSE false END as is_active
-       FROM profiles p
-       LEFT JOIN active_sessions s ON LOWER(s.user_id) = LOWER(p.id) OR LOWER(s.user_id) = LOWER(p.email)
-       ORDER BY s.updated_at DESC NULLS LAST, p.created_at DESC`
+      `WITH latest_profile_sessions AS (
+         SELECT DISTINCT ON (p.id)
+           p.id as user_id,
+           p.name as user_name,
+           p.email as user_email,
+           p.phone as user_phone,
+           p.role as user_role,
+           COALESCE(s.session_id, 'sess_active_' || SUBSTRING(MD5(p.id) FROM 1 FOR 10)) as session_id,
+           COALESCE(s.updated_at, p.created_at) as updated_at,
+           CASE WHEN s.session_id IS NOT NULL AND s.session_id NOT LIKE 'sess_terminated_%' THEN true ELSE false END as is_active
+         FROM profiles p
+         LEFT JOIN active_sessions s ON LOWER(s.user_id) = LOWER(p.id) OR LOWER(s.user_id) = LOWER(p.email)
+         ORDER BY p.id, s.updated_at DESC NULLS LAST, p.created_at DESC
+       )
+       SELECT * FROM latest_profile_sessions
+       ORDER BY updated_at DESC NULLS LAST`
     );
 
     // 2. Also fetch standalone sessions not linked to profiles
     const standaloneSessions = await db.query(
-      `SELECT 
+      `SELECT DISTINCT ON (s.user_id)
          s.user_id,
          s.session_id,
          s.updated_at,
@@ -305,10 +358,22 @@ const getAllActiveSessions = async (req, res) => {
        FROM active_sessions s
        WHERE NOT EXISTS (
          SELECT 1 FROM profiles p WHERE LOWER(p.id) = LOWER(s.user_id) OR LOWER(p.email) = LOWER(s.user_id)
-       )`
+       )
+       ORDER BY s.user_id, s.updated_at DESC NULLS LAST`
     );
 
-    const combined = [...result.rows, ...standaloneSessions.rows];
+    // Deduplicate in JS as an extra safety layer
+    const sessionMap = new Map();
+    for (const row of [...result.rows, ...standaloneSessions.rows]) {
+      const key = String(row.user_id || row.user_email || row.session_id).toLowerCase().trim();
+      if (!sessionMap.has(key)) {
+        sessionMap.set(key, row);
+      }
+    }
+    const combined = Array.from(sessionMap.values()).sort(
+      (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+
     return res.json({ data: combined, error: null });
   } catch (err) {
     console.error('getAllActiveSessions Error:', err);
@@ -466,7 +531,7 @@ const googleSignIn = async (req, res) => {
       created_at: user.created_at
     };
 
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '180d' });
 
     // Enforce 1 Device Active Session
     const activeSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
@@ -724,6 +789,7 @@ module.exports = {
   verifyOtpAndUpdatePassword,
   registerDeviceSession,
   verifyDeviceSession,
+  refreshSession,
   getAllActiveSessions,
   terminateSession,
 };
