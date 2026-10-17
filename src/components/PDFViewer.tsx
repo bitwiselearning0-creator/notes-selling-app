@@ -301,6 +301,15 @@ const CanvasPage: React.FC<{
   );
 });
 
+interface ScrollAnchor {
+  pageIndex: number;
+  fractionY: number;
+  fractionX: number;
+  viewportX: number;
+  viewportY: number;
+  isTop?: boolean;
+}
+
 export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, onBack, onUnlock }) => {
   const [zoom, setZoom] = useState(100);
 
@@ -563,21 +572,151 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
   }, []);
   // ─── End Protection Guard ─────────────────────────────────────────────────
 
+  const totalPages = isUnlocked ? (pdfDoc ? pdfDoc.numPages : note.pagesCount) : 0;
+  const totalPagesRef = useRef(totalPages);
+  useEffect(() => {
+    totalPagesRef.current = totalPages;
+  }, [totalPages]);
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pagesWrapperRef = useRef<HTMLDivElement>(null);
-  const pendingScrollRef = useRef<{ left: number; top: number } | null>(null);
+  const pendingAnchorRef = useRef<ScrollAnchor | null>(null);
   const lastScrollTopRef = useRef<number>(0);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // Capture the currently visible page and exact fractional focus point in viewport
+  const captureScrollAnchor = (focalViewportX?: number, focalViewportY?: number): ScrollAnchor | null => {
+    const container = scrollContainerRef.current;
+    const count = totalPagesRef.current;
+    if (!container || count <= 0) return null;
+
+    const containerRect = container.getBoundingClientRect();
+    const vX = focalViewportX !== undefined ? focalViewportX : container.clientWidth / 2;
+    const vY = focalViewportY !== undefined ? focalViewportY : container.clientHeight / 2;
+
+    // If reading the top security banner / top of document (< 25px)
+    if (container.scrollTop < 25) {
+      return {
+        pageIndex: 0,
+        fractionY: 0,
+        fractionX: 0.5,
+        viewportX: vX,
+        viewportY: vY,
+        isTop: true
+      };
+    }
+
+    const focalScreenY = containerRect.top + vY;
+    const focalScreenX = containerRect.left + vX;
+
+    let chosenIndex = -1;
+    let minDistance = Infinity;
+
+    for (let i = 0; i < count; i++) {
+      const pageEl = pageRefs.current[i];
+      if (!pageEl) continue;
+      const rect = pageEl.getBoundingClientRect();
+
+      // Check if focal point is vertically inside this page
+      if (rect.top <= focalScreenY && rect.bottom >= focalScreenY) {
+        chosenIndex = i;
+        break;
+      }
+
+      // Fallback: Distance to page center
+      const pageCenterY = (rect.top + rect.bottom) / 2;
+      const dist = Math.abs(pageCenterY - focalScreenY);
+      if (dist < minDistance) {
+        minDistance = dist;
+        chosenIndex = i;
+      }
+    }
+
+    if (chosenIndex === -1) {
+      chosenIndex = Math.min(Math.max(0, scrollPage - 1), count - 1);
+    }
+
+    const chosenEl = pageRefs.current[chosenIndex];
+    if (!chosenEl) return null;
+
+    const rect = chosenEl.getBoundingClientRect();
+    const fractionY = rect.height > 0 ? (focalScreenY - rect.top) / rect.height : 0;
+    const fractionX = rect.width > 0 ? (focalScreenX - rect.left) / rect.width : 0.5;
+
+    return {
+      pageIndex: chosenIndex,
+      fractionY: Math.max(0, Math.min(1, fractionY)),
+      fractionX: Math.max(0, Math.min(1, fractionX)),
+      viewportX: vX,
+      viewportY: vY,
+      isTop: false
+    };
+  };
+
+  // Restore scroll position with exact pixel accuracy to keep the exact page and relative focal point in view
+  const restoreScrollAnchor = (anchor: ScrollAnchor) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (anchor.isTop) {
+      container.scrollTop = 0;
+      return;
+    }
+
+    const targetEl = pageRefs.current[anchor.pageIndex];
+    if (!targetEl) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+
+    const targetTopInContent = targetRect.top - containerRect.top + container.scrollTop;
+    const targetLeftInContent = targetRect.left - containerRect.left + container.scrollLeft;
+
+    const targetPointY = targetTopInContent + (anchor.fractionY * targetRect.height);
+    const targetPointX = targetLeftInContent + (anchor.fractionX * targetRect.width);
+
+    const newScrollTop = targetPointY - anchor.viewportY;
+    const newScrollLeft = targetPointX - anchor.viewportX;
+
+    container.scrollTop = Math.max(0, newScrollTop);
+    if (zoomRef.current > 100) {
+      container.scrollLeft = Math.max(0, newScrollLeft);
+    } else {
+      container.scrollLeft = 0;
+    }
+  };
+
   // Synchronously update scroll position before browser paint when zoom changes to prevent page jump
   React.useLayoutEffect(() => {
-    if (pendingScrollRef.current && scrollContainerRef.current) {
-      const { left, top } = pendingScrollRef.current;
-      scrollContainerRef.current.scrollLeft = left;
-      scrollContainerRef.current.scrollTop = top;
-      pendingScrollRef.current = null;
+    if (pagesWrapperRef.current) {
+      pagesWrapperRef.current.style.transform = 'none';
+      pagesWrapperRef.current.style.willChange = 'auto';
+    }
+
+    if (pendingAnchorRef.current && scrollContainerRef.current) {
+      const anchor = pendingAnchorRef.current;
+      pendingAnchorRef.current = null;
+      restoreScrollAnchor(anchor);
+
+      requestAnimationFrame(() => {
+        restoreScrollAnchor(anchor);
+      });
     }
   }, [zoom]);
+
+  const handleZoomIn = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (zoom >= 220) return;
+    pendingAnchorRef.current = captureScrollAnchor();
+    setZoom(z => Math.min(220, z + 15));
+  };
+
+  const handleZoomOut = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (zoom <= 60) return;
+    pendingAnchorRef.current = captureScrollAnchor();
+    setZoom(z => Math.max(60, z - 15));
+  };
 
   // 1. Load PDF.js from CDN dynamically
   useEffect(() => {
@@ -873,11 +1012,9 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
     setJumpPageInput(scrollPage.toString());
   }, [scrollPage]);
 
-  // 4. Ultra-Smooth Direct GPU Pinch-to-Zoom Engine (Zero React Re-render Latency)
+  // 4. Ultra-Smooth Direct GPU Pinch-to-Zoom Engine (Zero React Re-render Latency & Drift-Free Page Anchoring)
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartZoomRef = useRef<number>(100);
-  const touchStartScrollLeftRef = useRef<number>(0);
-  const touchStartScrollTopRef = useRef<number>(0);
   const touchStartMidXRef = useRef<number>(0);
   const touchStartMidYRef = useRef<number>(0);
   const touchLastMidXRef = useRef<number>(0);
@@ -908,14 +1045,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
           touchLastMidXRef.current = midX;
           touchLastMidYRef.current = midY;
 
-          touchStartScrollLeftRef.current = container.scrollLeft;
-          touchStartScrollTopRef.current = container.scrollTop;
-
-          const docX = midX + container.scrollLeft;
-          const docY = midY + container.scrollTop;
-
           if (pagesWrapperRef.current) {
-            pagesWrapperRef.current.style.transformOrigin = `${docX}px ${docY}px`;
+            const wrapperRect = pagesWrapperRef.current.getBoundingClientRect();
+            const originX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - wrapperRect.left;
+            const originY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - wrapperRect.top;
+            pagesWrapperRef.current.style.transformOrigin = `${originX}px ${originY}px`;
             pagesWrapperRef.current.style.willChange = 'transform';
             pagesWrapperRef.current.style.transition = 'none';
           }
@@ -943,8 +1077,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
 
         const rawScale = currentDist / touchStartDistRef.current;
         const startZoom = touchStartZoomRef.current;
-        const maxScale = 200 / startZoom;
-        const minScale = 100 / startZoom;
+        const maxScale = 220 / startZoom;
+        const minScale = 60 / startZoom;
 
         const clampedScale = Math.min(maxScale, Math.max(minScale, rawScale));
         currentScaleRef.current = clampedScale;
@@ -962,27 +1096,22 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
         const finalScale = currentScaleRef.current;
         const startZoom = touchStartZoomRef.current;
         const rawTargetZoom = startZoom * finalScale;
-        const finalZoom = Math.min(200, Math.max(100, Math.round(rawTargetZoom / 5) * 5));
+        const finalZoom = Math.min(220, Math.max(60, Math.round(rawTargetZoom / 5) * 5));
 
-        const zoomRatio = finalZoom / startZoom;
-        const startMidX = touchStartMidXRef.current;
-        const startMidY = touchStartMidYRef.current;
-        const lastMidX = touchLastMidXRef.current || startMidX;
-        const lastMidY = touchLastMidYRef.current || startMidY;
+        const lastMidX = touchLastMidXRef.current || touchStartMidXRef.current;
+        const lastMidY = touchLastMidYRef.current || touchStartMidYRef.current;
 
-        const startScrollLeft = touchStartScrollLeftRef.current;
-        const startScrollTop = touchStartScrollTopRef.current;
-
-        const newScrollLeft = Math.max(0, (startScrollLeft + startMidX) * zoomRatio - lastMidX);
-        const newScrollTop = Math.max(0, (startScrollTop + startMidY) * zoomRatio - lastMidY);
-
-        // Reset direct DOM transform before React layout commit
-        if (pagesWrapperRef.current) {
-          pagesWrapperRef.current.style.transform = 'none';
-          pagesWrapperRef.current.style.willChange = 'auto';
+        if (finalZoom === startZoom) {
+          if (pagesWrapperRef.current) {
+            pagesWrapperRef.current.style.transform = 'none';
+            pagesWrapperRef.current.style.willChange = 'auto';
+          }
+          touchStartDistRef.current = null;
+          return;
         }
 
-        pendingScrollRef.current = { left: newScrollLeft, top: newScrollTop };
+        // Anchor on exact page and touch coordinate BEFORE updating zoom state
+        pendingAnchorRef.current = captureScrollAnchor(lastMidX, lastMidY);
 
         zoomRef.current = finalZoom;
         setZoom(finalZoom);
@@ -1028,9 +1157,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
       document.removeEventListener('cut', preventCopyPaste);
     };
   }, []);
-
-  // Calculate total pages count (0 when locked/revoked)
-  const totalPages = isUnlocked ? (pdfDoc ? pdfDoc.numPages : note.pagesCount) : 0;
 
   const isInputFocusedRef = useRef(false);
   const isJumpingRef = useRef(false);
@@ -1259,21 +1385,19 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
           }}
         >
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setZoom(z => Math.max(60, z - 15));
-            }}
+            onClick={handleZoomOut}
+            disabled={zoom <= 60}
             style={{
               background: 'rgba(255,255,255,0.08)',
               border: 'none',
               borderRadius: '50%',
               width: '30px',
               height: '30px',
-              color: 'var(--color-white)',
+              color: zoom <= 60 ? 'rgba(255,255,255,0.3)' : 'var(--color-white)',
+              cursor: zoom <= 60 ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer'
+              justifyContent: 'center'
             }}
             title="Zoom Out"
           >
@@ -1285,21 +1409,19 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
           </span>
 
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setZoom(z => Math.min(220, z + 15));
-            }}
+            onClick={handleZoomIn}
+            disabled={zoom >= 220}
             style={{
               background: 'rgba(255,255,255,0.08)',
               border: 'none',
               borderRadius: '50%',
               width: '30px',
               height: '30px',
-              color: 'var(--color-white)',
+              color: zoom >= 220 ? 'rgba(255,255,255,0.3)' : 'var(--color-white)',
+              cursor: zoom >= 220 ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer'
+              justifyContent: 'center'
             }}
             title="Zoom In"
           >
@@ -1649,7 +1771,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
             style={{ 
               minWidth: '100%',
               width: 'max-content',
-              margin: '0 auto',
+              margin: zoom > 100 ? '0' : '0 auto',
               position: 'relative', 
               display: 'flex', 
               flexDirection: 'column', 
