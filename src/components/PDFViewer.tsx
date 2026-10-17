@@ -708,7 +708,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
       setLoadError(null);
       try {
         const pdfjsLib = (window as any).pdfjsLib;
-        const token = localStorage.getItem('bw_auth_token') || '';
+        const token = (typeof localStorage !== 'undefined' ? (localStorage.getItem('bw_auth_token') || localStorage.getItem('bw_token')) : '') || '';
         const currentUserProfile = user || activeUserProfile || dbService.getCurrentUser();
         const userId = currentUserProfile?.id || '';
         const userEmail = currentUserProfile?.email || '';

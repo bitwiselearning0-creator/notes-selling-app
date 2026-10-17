@@ -106,6 +106,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, navigate }) => {
               if (token && userStr) {
                 const userProfile: UserProfile = JSON.parse(decodeURIComponent(userStr));
                 if (typeof localStorage !== 'undefined') {
+                  localStorage.setItem('bw_auth_token', token);
                   localStorage.setItem('bw_token', token);
                   if (activeSessionId) {
                     localStorage.setItem('bw_active_session_id', activeSessionId);

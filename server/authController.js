@@ -708,8 +708,8 @@ const mobileGoogleCallback = async (req, res) => {
       created_at: user.created_at
     };
 
-    // 5. Sign Bitwise 30-day JWT
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    // 5. Sign Bitwise 180-day JWT
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '180d' });
 
     // 6. Enforce 1 Device Active Session
     const activeSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);

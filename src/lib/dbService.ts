@@ -651,6 +651,7 @@ export const dbService = {
       localStorage.removeItem('bw_active_session_id');
       localStorage.removeItem('bw_current_device_session');
       localStorage.removeItem('bw_auth_token');
+      localStorage.removeItem('bw_token');
     }
   },
 
@@ -1085,7 +1086,7 @@ export const dbService = {
   },
 
   // --- PURCHASES & LICENSING ---
-  getAllUserPurchasesState: async (): Promise<{
+  getAllUserPurchasesState: async (preFetchedNotes?: Note[], preFetchedBundles?: Bundle[]): Promise<{
     purchasedNoteIds: string[];
     explicitlyPurchasedNoteIds: string[];
     purchasedBundleIds: string[];
@@ -1094,6 +1095,7 @@ export const dbService = {
     bundleDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }>;
   }> => {
     let user = currentUser || getStoredData<UserProfile | null>('bw_mock_current_user', null);
+    if (!user) user = dbService.getCurrentUser();
     const noteDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
     const bundleDetailsMap: Record<string, { expiresAt: string | null; daysLeft: number | null }> = {};
 
@@ -1116,9 +1118,13 @@ export const dbService = {
         const explicitlyPurchasedNoteIds: string[] = [];
         const purchasedBundleIds: string[] = [];
 
-        const notesToScan = getStoredData<Note[]>('bw_cached_notes', mockNotes);
+        const notesToScan = preFetchedNotes && preFetchedNotes.length > 0
+          ? preFetchedNotes
+          : getStoredData<Note[]>('bw_cached_notes', mockNotes);
         // Decode bundles so subjects/notesIds are extracted from encoded description
-        const bundlesToScan = getStoredData<Bundle[]>('bw_cached_bundles', INITIAL_BUNDLES).map(decodeBundleFromDb);
+        const bundlesToScan = preFetchedBundles && preFetchedBundles.length > 0
+          ? preFetchedBundles.map(decodeBundleFromDb)
+          : getStoredData<Bundle[]>('bw_cached_bundles', INITIAL_BUNDLES).map(decodeBundleFromDb);
         const decodedInitialBundles = INITIAL_BUNDLES.map(decodeBundleFromDb);
 
         rawPurchases.forEach(p => {

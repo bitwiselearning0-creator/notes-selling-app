@@ -90,15 +90,17 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
     }
 
     try {
-      // Single consolidated parallel fetch (NO duplicate inner API calls)
-      const [allNotesRes, purchaseState, bundlesRes] = await Promise.all([
+      // Fetch notes and bundles first so full catalog is available for bundle & purchase resolution
+      const [allNotesRes, bundlesRes] = await Promise.all([
         dbService.getNotes(),
-        dbService.getAllUserPurchasesState(),
         dbService.getBundles()
       ]);
 
       const fullCatalog = allNotesRes.data || [];
+      const fullBundles = bundlesRes.data || [];
       setAllNotes(fullCatalog);
+
+      const purchaseState = await dbService.getAllUserPurchasesState(fullCatalog, fullBundles);
 
       const explicitSet = new Set<string>(purchaseState.explicitlyPurchasedNoteIds || []);
 

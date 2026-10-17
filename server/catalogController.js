@@ -35,6 +35,10 @@ const getUserPurchases = async (req, res) => {
     const emailParam = req.query.email ? req.query.email.trim().toLowerCase() : '';
     let cleanEmail = emailParam || (userId && userId.includes('@') ? userId.trim().toLowerCase() : '');
     
+    if (!cleanEmail && req.user && req.user.email) {
+      cleanEmail = req.user.email.trim().toLowerCase();
+    }
+
     if (!cleanEmail && userId) {
       const pRes = await db.query('SELECT LOWER(email) as email FROM profiles WHERE id = $1', [userId]);
       if (pRes.rows.length > 0) cleanEmail = pRes.rows[0].email;
@@ -42,11 +46,17 @@ const getUserPurchases = async (req, res) => {
 
     const result = await db.query(
       `SELECT DISTINCT p.* FROM purchases p
-       LEFT JOIN profiles pr ON (LOWER(pr.email) = $2 AND pr.email != '')
+       LEFT JOIN profiles pr ON (LOWER(TRIM(pr.email)) = LOWER(TRIM($2)) AND pr.email != '')
        WHERE (
-         LOWER(p.user_id) = LOWER($1)
-         OR ($2 != '' AND LOWER(p.user_id) = $2)
-         OR (pr.id IS NOT NULL AND LOWER(p.user_id) = LOWER(pr.id))
+         LOWER(TRIM(p.user_id)) = LOWER(TRIM($1))
+         OR ($2 != '' AND LOWER(TRIM(p.user_id)) = LOWER(TRIM($2)))
+         OR (pr.id IS NOT NULL AND LOWER(TRIM(p.user_id)) = LOWER(TRIM(pr.id)))
+         OR ($2 != '' AND LOWER(TRIM(p.user_id)) IN (SELECT LOWER(TRIM(id)) FROM profiles WHERE LOWER(TRIM(email)) = LOWER(TRIM($2))))
+         OR (LOWER(TRIM(p.user_id)) IN (
+               SELECT LOWER(TRIM(pr2.id)) FROM profiles pr1
+               JOIN profiles pr2 ON LOWER(TRIM(pr1.email)) = LOWER(TRIM(pr2.email))
+               WHERE pr1.id = $1 OR LOWER(TRIM(pr1.email)) = LOWER(TRIM($2))
+            ))
        )
          AND p.status = 'active'
          AND (p.expires_at IS NULL OR p.expires_at > NOW())`,

@@ -1,6 +1,16 @@
 // VPS API Client Service for Bitwise Learning (Self-Hosted on Bluehost VPS)
 
-const API_BASE_URL = typeof window !== 'undefined' && (window.location.origin.includes('localhost') || window.location.protocol === 'file:' || window.location.origin.includes('capacitor'))
+const isNativeApp = typeof window !== 'undefined' && (
+  !!(window as any).Capacitor?.isNativePlatform?.() ||
+  window.location.protocol === 'capacitor:' ||
+  window.location.protocol === 'file:' ||
+  window.location.origin.includes('capacitor') ||
+  window.location.origin.includes('localhost') ||
+  window.location.hostname === 'localhost' ||
+  window.location.hostname !== 'bitwiselearning.online'
+);
+
+const API_BASE_URL = isNativeApp
   ? 'https://bitwiselearning.online/api' 
   : '/api';
 
@@ -27,7 +37,12 @@ export interface ApiPurchase {
 
 const safeFetchJson = async (url: string, options?: RequestInit, isRetry = false): Promise<any> => {
   try {
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('bw_auth_token') : null;
+    let token = typeof localStorage !== 'undefined' 
+      ? (localStorage.getItem('bw_auth_token') || localStorage.getItem('bw_token')) 
+      : null;
+    if (token && typeof localStorage !== 'undefined' && !localStorage.getItem('bw_auth_token')) {
+      localStorage.setItem('bw_auth_token', token);
+    }
     let user: any = null;
     try {
       const rawUser = typeof localStorage !== 'undefined' ? localStorage.getItem('bw_mock_current_user') : null;
