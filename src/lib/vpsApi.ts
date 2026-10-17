@@ -1,6 +1,6 @@
 // VPS API Client Service for Bitwise Learning (Self-Hosted on Bluehost VPS)
 
-const isNativeApp = typeof window !== 'undefined' && (
+export const isNativeApp = typeof window !== 'undefined' && (
   !!(window as any).Capacitor?.isNativePlatform?.() ||
   window.location.protocol === 'capacitor:' ||
   window.location.protocol === 'file:' ||

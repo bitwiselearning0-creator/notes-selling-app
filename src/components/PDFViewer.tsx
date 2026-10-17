@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Lock, FileText, SunMoon, ShieldAlert } from 'lucide-react';
 import type { Note } from '../lib/supabase';
 import { isNotePdfAvailable, dbService, type UserProfile } from '../lib/dbService';
+import { isNativeApp } from '../lib/vpsApi';
 
 interface PDFViewerProps {
   note: Note;
@@ -602,11 +603,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
     let url = note.previewUrl || note.pdfUrl || (note.id ? `/api/notes/${note.id}/pdf` : '');
     if (!url) return;
 
-    // In Capacitor app, relative paths like /uploads/xxx.pdf resolve to capacitor://localhost/uploads/...
-    // which doesn't exist. Convert to absolute VPS URL only for native Capacitor environment.
-    const isCapacitor = typeof window !== 'undefined' && ((window as any).Capacitor?.isNativePlatform?.() || window.location.protocol === 'capacitor:');
-    if (isCapacitor && (url.startsWith('/uploads/') || url.startsWith('/api/'))) {
-      url = 'https://bitwiselearning.online' + url;
+    // In Capacitor / mobile app, relative paths resolve to https://bitwiselearning.online
+    if (isNativeApp && (url.startsWith('/uploads/') || url.startsWith('/api/') || url.startsWith('uploads/'))) {
+      const cleanPath = url.startsWith('/') ? url : `/${url}`;
+      url = 'https://bitwiselearning.online' + cleanPath;
     }
 
     if (url.startsWith('data:application/pdf;base64,') || url.includes(';base64,')) {
@@ -713,46 +713,113 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
         const userId = currentUserProfile?.id || '';
         const userEmail = currentUserProfile?.email || '';
 
-        let targetUrl = pdfUrl;
-        const isNative = typeof window !== 'undefined' && ((window as any).Capacitor?.isNativePlatform?.() || window.location.protocol === 'capacitor:');
-        if (isNative && typeof targetUrl === 'string' && (targetUrl.startsWith('/uploads/') || targetUrl.startsWith('/api/'))) {
-          targetUrl = 'https://bitwiselearning.online' + targetUrl;
-        }
+        const toAbsolute = (u: string) => {
+          if (!u || typeof u !== 'string') return '';
+          if (u.startsWith('blob:') || u.startsWith('data:') || u.startsWith('http://') || u.startsWith('https://')) return u;
+          const cleanPath = u.startsWith('/') ? u : `/${u}`;
+          return isNativeApp ? `https://bitwiselearning.online${cleanPath}` : cleanPath;
+        };
 
-        let pdfSource: any = targetUrl;
-        if (typeof targetUrl === 'string' && targetUrl.includes('/api/notes/')) {
-          const params = new URLSearchParams();
-          if (token) params.set('token', token);
-          if (userId) params.set('userId', userId);
-          if (userEmail) params.set('email', userEmail);
+        const targetUrl = toAbsolute(pdfUrl);
 
-          const qs = params.toString();
-          if (qs) {
-            const separator = targetUrl.includes('?') ? '&' : '?';
-            targetUrl = `${targetUrl}${separator}${qs}`;
+        // Candidate URLs to try in order (direct upload URL and API stream URL)
+        const candidateUrls: string[] = [];
+        if (targetUrl) candidateUrls.push(targetUrl);
+        if (note.id) {
+          const streamUrl = toAbsolute(`/api/notes/${encodeURIComponent(note.id)}/pdf`);
+          if (!candidateUrls.includes(streamUrl)) {
+            candidateUrls.push(streamUrl);
           }
-
-          const httpHeaders: Record<string, string> = {};
-          if (token) httpHeaders['Authorization'] = `Bearer ${token}`;
-          if (userId) httpHeaders['x-user-id'] = userId;
-          if (userEmail) httpHeaders['x-user-email'] = userEmail;
-
-          pdfSource = {
-            url: targetUrl,
-            httpHeaders,
-            withCredentials: true
-          };
         }
+
+        const httpHeaders: Record<string, string> = {};
+        if (token) httpHeaders['Authorization'] = `Bearer ${token}`;
+        if (userId) httpHeaders['x-user-id'] = userId;
+        if (userEmail) httpHeaders['x-user-email'] = userEmail;
 
         if (loadingTaskRef.current) {
           try { loadingTaskRef.current.destroy(); } catch (e) {}
           loadingTaskRef.current = null;
         }
 
-        const loadingTask = pdfjsLib.getDocument(pdfSource);
-        loadingTaskRef.current = loadingTask;
+        let pdf: any = null;
+        let lastError: any = null;
 
-        const pdf = await loadingTask.promise;
+        // Try loading from candidate URLs
+        for (const candidateUrl of candidateUrls) {
+          if (!isCurrent) return;
+
+          // If blob or data URL, pass directly to PDF.js
+          if (candidateUrl.startsWith('blob:') || candidateUrl.startsWith('data:')) {
+            try {
+              const loadingTask = pdfjsLib.getDocument({
+                url: candidateUrl,
+                withCredentials: false
+              });
+              loadingTaskRef.current = loadingTask;
+              pdf = await loadingTask.promise;
+              if (pdf) break;
+            } catch (blobErr) {
+              lastError = blobErr;
+              continue;
+            }
+          }
+
+          // For HTTP/HTTPS URLs, fetch binary ArrayBuffer first to avoid worker CORS/range request issues in WebView
+          try {
+            const fetchHeaders = { ...httpHeaders };
+            const params = new URLSearchParams();
+            if (token) params.set('token', token);
+            if (userId) params.set('userId', userId);
+            if (userEmail) params.set('email', userEmail);
+            const qs = params.toString();
+            const sep = candidateUrl.includes('?') ? '&' : '?';
+            const fetchUrl = (candidateUrl.includes('/api/') && qs) ? `${candidateUrl}${sep}${qs}` : candidateUrl;
+
+            const res = await fetch(fetchUrl, {
+              headers: fetchHeaders,
+              credentials: 'omit' // Explicitly omit cookies to comply with Access-Control-Allow-Origin: *
+            });
+
+            if (!res.ok) {
+              throw new Error(`Server returned ${res.status} ${res.statusText}`);
+            }
+
+            const arrayBuffer = await res.arrayBuffer();
+            if (!arrayBuffer || arrayBuffer.byteLength < 100) {
+              throw new Error('Received empty or corrupt document data');
+            }
+
+            const loadingTask = pdfjsLib.getDocument({
+              data: new Uint8Array(arrayBuffer),
+              withCredentials: false
+            });
+            loadingTaskRef.current = loadingTask;
+            pdf = await loadingTask.promise;
+            if (pdf) break;
+          } catch (fetchErr) {
+            console.warn(`Direct fetch failed for ${candidateUrl}, trying PDF.js getDocument fallback:`, fetchErr);
+            lastError = fetchErr;
+
+            // Secondary fallback: let PDF.js attempt getDocument directly with the URL
+            try {
+              const loadingTask = pdfjsLib.getDocument({
+                url: candidateUrl,
+                httpHeaders,
+                withCredentials: false
+              });
+              loadingTaskRef.current = loadingTask;
+              pdf = await loadingTask.promise;
+              if (pdf) break;
+            } catch (directPdfErr) {
+              lastError = directPdfErr;
+            }
+          }
+        }
+
+        if (!pdf) {
+          throw lastError || new Error('Failed to load PDF document from any source.');
+        }
         if (!isCurrent) {
           try { pdf.destroy(); } catch (e) {}
           return;
