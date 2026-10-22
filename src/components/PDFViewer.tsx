@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Lock, FileText, S
 import type { Note } from '../lib/supabase';
 import { isNotePdfAvailable, dbService, type UserProfile } from '../lib/dbService';
 import { isNativeApp } from '../lib/vpsApi';
+import { getOfflinePdf, saveOfflinePdf } from '../lib/offlineStorage';
 
 interface PDFViewerProps {
   note: Note;
@@ -30,6 +31,7 @@ const CanvasPage: React.FC<{
   const renderTaskRef = useRef<any>(null);
   const pageProxyRef = useRef<any>(null);
   const [isVisible, setIsVisible] = useState(pageNumber <= 2);
+  const [actualRatio, setActualRatio] = useState<number | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -109,6 +111,10 @@ const CanvasPage: React.FC<{
         const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
         const scale = isMobile ? 1.4 : 2.0;
         const viewport = page.getViewport({ scale, rotation });
+
+        if (viewport.width > 0 && viewport.height > 0) {
+          setActualRatio(viewport.height / viewport.width);
+        }
 
         canvas.height = viewport.height;
         canvas.width = viewport.width;
@@ -230,21 +236,23 @@ const CanvasPage: React.FC<{
   const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
   const baseWidth = Math.min(screenWidth - 24, 850);
   const targetWidth = Math.round(baseWidth * (zoom / 100));
-  const estimatedMinHeight = Math.round(targetWidth * pageAspectRatio);
+  const currentRatio = actualRatio ?? (pageAspectRatio || 1.414);
+  const estimatedMinHeight = Math.round(targetWidth * currentRatio);
 
   return (
     <div 
       ref={containerRef}
       style={{ 
-        margin: '12px auto', 
+        margin: '8px auto', 
         borderRadius: '12px',
         overflow: 'hidden',
         background: 'transparent',
         display: 'flex', 
-        justifyContent: 'center', 
+        flexDirection: 'column',
+        justifyContent: 'flex-start', 
         alignItems: 'center',
         width: `${targetWidth}px`,
-        minHeight: `${estimatedMinHeight}px`,
+        minHeight: isVisible ? 'auto' : `${estimatedMinHeight}px`,
         height: isVisible ? 'auto' : `${estimatedMinHeight}px`,
         maxWidth: 'none',
         boxSizing: 'border-box',
@@ -718,23 +726,45 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
     setZoom(z => Math.max(60, z - 15));
   };
 
-  // 1. Load PDF.js from CDN dynamically
+  // 1. Load PDF.js engine: Try local bundled assets first (100% offline capability), with CDN fallback
   useEffect(() => {
     if ((window as any).pdfjsLib) {
       setPdfjsLoaded(true);
       return;
     }
 
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
-    script.onload = () => {
-      (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-      setPdfjsLoaded(true);
+    const loadLocal = () => {
+      const script = document.createElement('script');
+      script.src = '/pdfjs/pdf.min.js';
+      script.onload = () => {
+        try {
+          (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.js';
+        } catch (e) {}
+        setPdfjsLoaded(true);
+      };
+      script.onerror = () => {
+        // Fallback to CDN if local bundle fails
+        loadCdn();
+      };
+      document.head.appendChild(script);
     };
-    script.onerror = () => {
-      setLoadError('Failed to load secure document renderer engine.');
+
+    const loadCdn = () => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+      script.onload = () => {
+        try {
+          (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        } catch (e) {}
+        setPdfjsLoaded(true);
+      };
+      script.onerror = () => {
+        setLoadError('Failed to load document renderer. Please check connection.');
+      };
+      document.head.appendChild(script);
     };
-    document.head.appendChild(script);
+
+    loadLocal();
   }, []);
 
   // 2. Convert Base64 previewUrl to Blob URL if necessary
@@ -884,74 +914,94 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
         let pdf: any = null;
         let lastError: any = null;
 
-        // Try loading from candidate URLs
-        for (const candidateUrl of candidateUrls) {
-          if (!isCurrent) return;
-
-          // If blob or data URL, pass directly to PDF.js
-          if (candidateUrl.startsWith('blob:') || candidateUrl.startsWith('data:')) {
-            try {
-              const loadingTask = pdfjsLib.getDocument({
-                url: candidateUrl,
-                withCredentials: false
-              });
-              loadingTaskRef.current = loadingTask;
-              pdf = await loadingTask.promise;
-              if (pdf) break;
-            } catch (blobErr) {
-              lastError = blobErr;
-              continue;
-            }
-          }
-
-          // For HTTP/HTTPS URLs, fetch binary ArrayBuffer first to avoid worker CORS/range request issues in WebView
-          try {
-            const fetchHeaders = { ...httpHeaders };
-            const params = new URLSearchParams();
-            if (token) params.set('token', token);
-            if (userId) params.set('userId', userId);
-            if (userEmail) params.set('email', userEmail);
-            const qs = params.toString();
-            const sep = candidateUrl.includes('?') ? '&' : '?';
-            const fetchUrl = (candidateUrl.includes('/api/') && qs) ? `${candidateUrl}${sep}${qs}` : candidateUrl;
-
-            const res = await fetch(fetchUrl, {
-              headers: fetchHeaders,
-              credentials: 'omit' // Explicitly omit cookies to comply with Access-Control-Allow-Origin: *
-            });
-
-            if (!res.ok) {
-              throw new Error(`Server returned ${res.status} ${res.statusText}`);
-            }
-
-            const arrayBuffer = await res.arrayBuffer();
-            if (!arrayBuffer || arrayBuffer.byteLength < 100) {
-              throw new Error('Received empty or corrupt document data');
-            }
-
+        // ─── Step 1: Check Offline Storage First (100% Offline Instant Load) ─────
+        try {
+          const offlineData = await getOfflinePdf(note.id);
+          if (offlineData && offlineData.byteLength > 100) {
             const loadingTask = pdfjsLib.getDocument({
-              data: new Uint8Array(arrayBuffer),
+              data: new Uint8Array(offlineData),
               withCredentials: false
             });
             loadingTaskRef.current = loadingTask;
             pdf = await loadingTask.promise;
-            if (pdf) break;
-          } catch (fetchErr) {
-            console.warn(`Direct fetch failed for ${candidateUrl}, trying PDF.js getDocument fallback:`, fetchErr);
-            lastError = fetchErr;
+          }
+        } catch (offlineErr) {
+          console.warn('Could not read from offline storage, falling back to network:', offlineErr);
+        }
 
-            // Secondary fallback: let PDF.js attempt getDocument directly with the URL
+        // Try loading from candidate URLs if not already loaded offline
+        if (!pdf) {
+          for (const candidateUrl of candidateUrls) {
+            if (!isCurrent) return;
+
+            // If blob or data URL, pass directly to PDF.js
+            if (candidateUrl.startsWith('blob:') || candidateUrl.startsWith('data:')) {
+              try {
+                const loadingTask = pdfjsLib.getDocument({
+                  url: candidateUrl,
+                  withCredentials: false
+                });
+                loadingTaskRef.current = loadingTask;
+                pdf = await loadingTask.promise;
+                if (pdf) break;
+              } catch (blobErr) {
+                lastError = blobErr;
+                continue;
+              }
+            }
+
+            // For HTTP/HTTPS URLs, fetch binary ArrayBuffer first to avoid worker CORS/range request issues in WebView
             try {
+              const fetchHeaders = { ...httpHeaders };
+              const params = new URLSearchParams();
+              if (token) params.set('token', token);
+              if (userId) params.set('userId', userId);
+              if (userEmail) params.set('email', userEmail);
+              const qs = params.toString();
+              const sep = candidateUrl.includes('?') ? '&' : '?';
+              const fetchUrl = (candidateUrl.includes('/api/') && qs) ? `${candidateUrl}${sep}${qs}` : candidateUrl;
+
+              const res = await fetch(fetchUrl, {
+                headers: fetchHeaders,
+                credentials: 'omit' // Explicitly omit cookies to comply with Access-Control-Allow-Origin: *
+              });
+
+              if (!res.ok) {
+                throw new Error(`Server returned ${res.status} ${res.statusText}`);
+              }
+
+              const arrayBuffer = await res.arrayBuffer();
+              if (!arrayBuffer || arrayBuffer.byteLength < 100) {
+                throw new Error('Received empty or corrupt document data');
+              }
+
+              // ─── Auto-Cache for Offline Study ─────────────────────────
+              saveOfflinePdf(note.id, arrayBuffer, note.title).catch(() => {});
+
               const loadingTask = pdfjsLib.getDocument({
-                url: candidateUrl,
-                httpHeaders,
+                data: new Uint8Array(arrayBuffer),
                 withCredentials: false
               });
               loadingTaskRef.current = loadingTask;
               pdf = await loadingTask.promise;
               if (pdf) break;
-            } catch (directPdfErr) {
-              lastError = directPdfErr;
+            } catch (fetchErr) {
+              console.warn(`Direct fetch failed for ${candidateUrl}, trying PDF.js getDocument fallback:`, fetchErr);
+              lastError = fetchErr;
+
+              // Secondary fallback: let PDF.js attempt getDocument directly with the URL
+              try {
+                const loadingTask = pdfjsLib.getDocument({
+                  url: candidateUrl,
+                  httpHeaders,
+                  withCredentials: false
+                });
+                loadingTaskRef.current = loadingTask;
+                pdf = await loadingTask.promise;
+                if (pdf) break;
+              } catch (directPdfErr) {
+                lastError = directPdfErr;
+              }
             }
           }
         }
@@ -1369,19 +1419,20 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
           onClick={(e) => e.stopPropagation()}
           style={{
             position: 'fixed',
-            bottom: '24px',
+            bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
             right: '16px',
             zIndex: 1000001,
-            background: 'rgba(10, 17, 43, 0.88)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
+            background: 'rgba(10, 17, 43, 0.90)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
             border: '1px solid var(--glass-border)',
             borderRadius: '30px',
             padding: '6px 12px',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            boxShadow: '0 8px 30px rgba(0,0,0,0.6)'
+            boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
+            touchAction: 'manipulation'
           }}
         >
           <button
@@ -1391,20 +1442,22 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
               background: 'rgba(255,255,255,0.08)',
               border: 'none',
               borderRadius: '50%',
-              width: '30px',
-              height: '30px',
+              width: '32px',
+              height: '32px',
               color: zoom <= 60 ? 'rgba(255,255,255,0.3)' : 'var(--color-white)',
               cursor: zoom <= 60 ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              touchAction: 'manipulation',
+              transition: 'transform 0.1s ease'
             }}
             title="Zoom Out"
           >
-            <ZoomOut size={15} />
+            <ZoomOut size={16} />
           </button>
 
-          <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-white)', minWidth: '36px', textAlign: 'center' }}>
+          <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--color-white)', minWidth: '36px', textAlign: 'center', userSelect: 'none' }}>
             {zoom}%
           </span>
 
@@ -1415,17 +1468,19 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ note, isUnlocked, user, on
               background: 'rgba(255,255,255,0.08)',
               border: 'none',
               borderRadius: '50%',
-              width: '30px',
-              height: '30px',
+              width: '32px',
+              height: '32px',
               color: zoom >= 220 ? 'rgba(255,255,255,0.3)' : 'var(--color-white)',
               cursor: zoom >= 220 ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              touchAction: 'manipulation',
+              transition: 'transform 0.1s ease'
             }}
             title="Zoom In"
           >
-            <ZoomIn size={15} />
+            <ZoomIn size={16} />
           </button>
         </div>
       )}

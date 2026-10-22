@@ -1,4 +1,5 @@
 import { vpsApi } from './vpsApi';
+import { saveOfflinePurchases, getOfflinePurchases, getAllOfflinePdfIds } from './offlineStorage';
 
 // Determine if we should use mock database
 export const isMock = false;
@@ -1101,141 +1102,173 @@ export const dbService = {
 
     if (!user) return { purchasedNoteIds: [], explicitlyPurchasedNoteIds: [], purchasedBundleIds: [], rawPurchases: [], noteDetailsMap, bundleDetailsMap };
 
+    let rawPurchasesData: any[] | null = null;
+
     try {
       const res = await vpsApi.getUserPurchases(user.id, user.email);
       if (res.data && Array.isArray(res.data)) {
-        const rawPurchases: Purchase[] = res.data.map((p: any) => ({
-          id: p.id,
-          userId: p.user_id || user!.id,
-          itemId: p.item_id,
-          itemType: (p.item_type === 'note' ? 'notes' : p.item_type) as any,
-          purchasedAt: p.granted_at || p.purchasedAt || new Date().toISOString(),
-          expiresAt: p.expires_at || p.expiresAt || new Date(Date.now() + 180 * 86400000).toISOString(),
-          paymentId: p.razorpay_payment_id || p.paymentId || ''
-        }));
+        rawPurchasesData = res.data;
+        saveOfflinePurchases(user.id, res.data);
+      }
+    } catch (e) {
+      console.warn('Network error fetching live purchases, checking offline cache:', e);
+    }
 
-        const purchasedNoteIds: string[] = [];
-        const explicitlyPurchasedNoteIds: string[] = [];
-        const purchasedBundleIds: string[] = [];
+    // Offline fallback: Use locally cached purchases if network unavailable
+    if (!rawPurchasesData || rawPurchasesData.length === 0) {
+      const cached = getOfflinePurchases(user.id);
+      if (cached && Array.isArray(cached) && cached.length > 0) {
+        rawPurchasesData = cached;
+      }
+    }
 
-        const notesToScan = preFetchedNotes && preFetchedNotes.length > 0
-          ? preFetchedNotes
-          : getStoredData<Note[]>('bw_cached_notes', mockNotes);
-        // Decode bundles so subjects/notesIds are extracted from encoded description
-        const bundlesToScan = preFetchedBundles && preFetchedBundles.length > 0
-          ? preFetchedBundles.map(decodeBundleFromDb)
-          : getStoredData<Bundle[]>('bw_cached_bundles', INITIAL_BUNDLES).map(decodeBundleFromDb);
-        const decodedInitialBundles = INITIAL_BUNDLES.map(decodeBundleFromDb);
+    if (rawPurchasesData && Array.isArray(rawPurchasesData)) {
+      const rawPurchases: Purchase[] = rawPurchasesData.map((p: any) => ({
+        id: p.id,
+        userId: p.user_id || user!.id,
+        itemId: p.item_id,
+        itemType: (p.item_type === 'note' ? 'notes' : p.item_type) as any,
+        purchasedAt: p.granted_at || p.purchasedAt || new Date().toISOString(),
+        expiresAt: p.expires_at || p.expiresAt || new Date(Date.now() + 180 * 86400000).toISOString(),
+        paymentId: p.razorpay_payment_id || p.paymentId || ''
+      }));
 
-        rawPurchases.forEach(p => {
-          const expDate = p.expiresAt ? new Date(p.expiresAt) : new Date(Date.now() + 180 * 86400000);
-          const now = new Date();
-          const diffTime = expDate.getTime() - now.getTime();
-          const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-          const daysLeft = calculatedDays > 0 ? (calculatedDays > 180 ? 180 : calculatedDays) : 180;
+      const purchasedNoteIds: string[] = [];
+      const explicitlyPurchasedNoteIds: string[] = [];
+      const purchasedBundleIds: string[] = [];
 
-          // Use decoded bundle so subjects list is properly parsed from description
-          const foundBundle = bundlesToScan.find(b => b.id === p.itemId) || decodedInitialBundles.find(b => b.id === p.itemId);
-          const foundNote = notesToScan.find(n => n.id === p.itemId) || mockNotes.find(n => n.id === p.itemId);
+      const notesToScan = preFetchedNotes && preFetchedNotes.length > 0
+        ? preFetchedNotes
+        : getStoredData<Note[]>('bw_cached_notes', mockNotes);
+      // Decode bundles so subjects/notesIds are extracted from encoded description
+      const bundlesToScan = preFetchedBundles && preFetchedBundles.length > 0
+        ? preFetchedBundles.map(decodeBundleFromDb)
+        : getStoredData<Bundle[]>('bw_cached_bundles', INITIAL_BUNDLES).map(decodeBundleFromDb);
+      const decodedInitialBundles = INITIAL_BUNDLES.map(decodeBundleFromDb);
 
-          const rawItemType = ((p.itemType as string) || '').toLowerCase();
+      rawPurchases.forEach(p => {
+        const expDate = p.expiresAt ? new Date(p.expiresAt) : new Date(Date.now() + 180 * 86400000);
+        const now = new Date();
+        const diffTime = expDate.getTime() - now.getTime();
+        const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+        const daysLeft = calculatedDays > 0 ? (calculatedDays > 180 ? 180 : calculatedDays) : 180;
 
-          // Strict check: Is this an individual note file purchase or key grant?
-          const isIndividualNote = 
-            rawItemType === 'note' || 
-            rawItemType === 'notes' || 
-            rawItemType === 'unit' || 
-            rawItemType === 'file' ||
-            p.itemId.startsWith('note_') || 
-            p.itemId.startsWith('unit_') || 
-            (foundNote !== undefined && foundBundle === undefined);
+        // Use decoded bundle so subjects list is properly parsed from description
+        const foundBundle = bundlesToScan.find(b => b.id === p.itemId) || decodedInitialBundles.find(b => b.id === p.itemId);
+        const foundNote = notesToScan.find(n => n.id === p.itemId) || mockNotes.find(n => n.id === p.itemId);
 
-          if (isIndividualNote) {
-            // 🟢 INDIVIDUAL NOTE: Add ONLY to note arrays, NEVER to bundle arrays!
-            if (!purchasedNoteIds.includes(p.itemId)) purchasedNoteIds.push(p.itemId);
-            if (!explicitlyPurchasedNoteIds.includes(p.itemId)) explicitlyPurchasedNoteIds.push(p.itemId);
-            noteDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
-          } else {
-            // 🟣 BUNDLE (Semester Combo or Subject Pack)
-            const derivedType = (rawItemType === 'subject' || rawItemType === 'semester')
-              ? rawItemType
-              : (foundBundle 
-                  ? deriveBundleType(foundBundle) 
-                  : 'subject');
+        const rawItemType = ((p.itemType as string) || '').toLowerCase();
 
-            const isSemesterBundle = derivedType === 'semester';
-            const isSubjectBundle = derivedType === 'subject';
+        // Strict check: Is this an individual note file purchase or key grant?
+        const isIndividualNote = 
+          rawItemType === 'note' || 
+          rawItemType === 'notes' || 
+          rawItemType === 'unit' || 
+          rawItemType === 'file' ||
+          p.itemId.startsWith('note_') || 
+          p.itemId.startsWith('unit_') || 
+          (foundNote !== undefined && foundBundle === undefined);
 
-            if (isSemesterBundle) {
-              if (!purchasedBundleIds.includes(p.itemId)) purchasedBundleIds.push(p.itemId);
-              bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
+        if (isIndividualNote) {
+          // 🟢 INDIVIDUAL NOTE: Add ONLY to note arrays, NEVER to bundle arrays!
+          if (!purchasedNoteIds.includes(p.itemId)) purchasedNoteIds.push(p.itemId);
+          if (!explicitlyPurchasedNoteIds.includes(p.itemId)) explicitlyPurchasedNoteIds.push(p.itemId);
+          noteDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
+        } else {
+          // 🟣 BUNDLE (Semester Combo or Subject Pack)
+          const derivedType = (rawItemType === 'subject' || rawItemType === 'semester')
+            ? rawItemType
+            : (foundBundle 
+                ? deriveBundleType(foundBundle) 
+                : 'subject');
 
-              if (foundBundle) {
-                // ✅ STRICT: Only unlock notes explicitly included in this bundle.
-                // Either the note ID is in notesIds list, OR the note's subject
-                // is in the bundle's subjects list. NEVER unlock by year/semester alone.
+          const isSemesterBundle = derivedType === 'semester';
+          const isSubjectBundle = derivedType === 'subject';
 
-                // Step 1: Unlock by explicit notesIds list
-                if (foundBundle.notesIds && foundBundle.notesIds.length > 0) {
-                  foundBundle.notesIds.forEach(nid => {
-                    if (!purchasedNoteIds.includes(nid)) purchasedNoteIds.push(nid);
-                    noteDetailsMap[nid] = { expiresAt: p.expiresAt, daysLeft };
-                  });
-                }
+          if (isSemesterBundle) {
+            if (!purchasedBundleIds.includes(p.itemId)) purchasedBundleIds.push(p.itemId);
+            bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
 
-                // Step 2: Unlock by subjects list (match note subject to bundle subjects)
-                const bundleSubjectList = Array.isArray(foundBundle.subjects) && foundBundle.subjects.length > 0
-                  ? foundBundle.subjects
-                  : [];
-                if (bundleSubjectList.length > 0) {
-                  notesToScan.forEach(n => {
-                    const subjectMatches = bundleSubjectList.some(s => isSameSubject(n.subject, s));
-                    if (subjectMatches) {
-                      if (!purchasedNoteIds.includes(n.id)) purchasedNoteIds.push(n.id);
-                      noteDetailsMap[n.id] = { expiresAt: p.expiresAt, daysLeft };
-                    }
-                  });
-                }
-              } else {
-                // Bundle not found in local cache — cannot safely unlock anything
-                // Do NOT fall back to unlocking all notes in the year
-                if (!purchasedBundleIds.includes(p.itemId)) purchasedBundleIds.push(p.itemId);
-              }
-            } else if (isSubjectBundle) {
-              if (!purchasedBundleIds.includes(p.itemId)) purchasedBundleIds.push(p.itemId);
-              bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
-
-              const targetSubject = foundBundle ? (foundBundle.subject || foundBundle.title) : p.itemId;
-
-              notesToScan.forEach(n => {
-                if (isSameSubject(n.subject, targetSubject) || (foundBundle && foundBundle.notesIds && foundBundle.notesIds.includes(n.id))) {
-                  if (!purchasedNoteIds.includes(n.id)) purchasedNoteIds.push(n.id);
-                  noteDetailsMap[n.id] = { expiresAt: p.expiresAt, daysLeft };
-                }
-              });
-
-              if (foundBundle && foundBundle.notesIds) {
+            if (foundBundle) {
+              // ✅ STRICT: Only unlock notes explicitly included in this bundle.
+              if (foundBundle.notesIds && foundBundle.notesIds.length > 0) {
                 foundBundle.notesIds.forEach(nid => {
                   if (!purchasedNoteIds.includes(nid)) purchasedNoteIds.push(nid);
                   noteDetailsMap[nid] = { expiresAt: p.expiresAt, daysLeft };
                 });
               }
+
+              const bundleSubjectList = Array.isArray(foundBundle.subjects) && foundBundle.subjects.length > 0
+                ? foundBundle.subjects
+                : [];
+              if (bundleSubjectList.length > 0) {
+                notesToScan.forEach(n => {
+                  const subjectMatches = bundleSubjectList.some(s => isSameSubject(n.subject, s));
+                  if (subjectMatches) {
+                    if (!purchasedNoteIds.includes(n.id)) purchasedNoteIds.push(n.id);
+                    noteDetailsMap[n.id] = { expiresAt: p.expiresAt, daysLeft };
+                  }
+                });
+              }
+            } else {
+              if (!purchasedBundleIds.includes(p.itemId)) purchasedBundleIds.push(p.itemId);
+            }
+          } else if (isSubjectBundle) {
+            if (!purchasedBundleIds.includes(p.itemId)) purchasedBundleIds.push(p.itemId);
+            bundleDetailsMap[p.itemId] = { expiresAt: p.expiresAt, daysLeft };
+
+            const targetSubject = foundBundle ? (foundBundle.subject || foundBundle.title) : p.itemId;
+
+            notesToScan.forEach(n => {
+              if (isSameSubject(n.subject, targetSubject) || (foundBundle && foundBundle.notesIds && foundBundle.notesIds.includes(n.id))) {
+                if (!purchasedNoteIds.includes(n.id)) purchasedNoteIds.push(n.id);
+                noteDetailsMap[n.id] = { expiresAt: p.expiresAt, daysLeft };
+              }
+            });
+
+            if (foundBundle && foundBundle.notesIds) {
+              foundBundle.notesIds.forEach(nid => {
+                if (!purchasedNoteIds.includes(nid)) purchasedNoteIds.push(nid);
+                noteDetailsMap[nid] = { expiresAt: p.expiresAt, daysLeft };
+              });
             }
           }
+        }
+      });
+
+      // Merge any note files downloaded locally into offline IndexedDB
+      try {
+        const offlineIds = await getAllOfflinePdfIds();
+        offlineIds.forEach(id => {
+          if (!purchasedNoteIds.includes(id)) purchasedNoteIds.push(id);
+          if (!explicitlyPurchasedNoteIds.includes(id)) explicitlyPurchasedNoteIds.push(id);
+          if (!noteDetailsMap[id]) noteDetailsMap[id] = { expiresAt: null, daysLeft: 180 };
         });
+      } catch {}
 
-        return {
-          purchasedNoteIds,
-          explicitlyPurchasedNoteIds,
-          purchasedBundleIds,
-          rawPurchases,
-          noteDetailsMap,
-          bundleDetailsMap
-        };
-      }
-    } catch (e) {}
+      return {
+        purchasedNoteIds,
+        explicitlyPurchasedNoteIds,
+        purchasedBundleIds,
+        rawPurchases,
+        noteDetailsMap,
+        bundleDetailsMap
+      };
+    }
 
-    return { purchasedNoteIds: [], explicitlyPurchasedNoteIds: [], purchasedBundleIds: [], rawPurchases: [], noteDetailsMap, bundleDetailsMap };
+    // If no purchases exist but some notes are saved offline on device:
+    const fallbackNoteIds: string[] = [];
+    const fallbackExplicitIds: string[] = [];
+    try {
+      const offlineIds = await getAllOfflinePdfIds();
+      offlineIds.forEach(id => {
+        if (!fallbackNoteIds.includes(id)) fallbackNoteIds.push(id);
+        if (!fallbackExplicitIds.includes(id)) fallbackExplicitIds.push(id);
+        noteDetailsMap[id] = { expiresAt: null, daysLeft: 180 };
+      });
+    } catch {}
+
+    return { purchasedNoteIds: fallbackNoteIds, explicitlyPurchasedNoteIds: fallbackExplicitIds, purchasedBundleIds: [], rawPurchases: [], noteDetailsMap, bundleDetailsMap };
   },
 
   purchaseNotes: async (notesId: string, paymentDetails?: { paymentId?: string; orderId?: string; signature?: string }): Promise<{ success: boolean; error: string | null }> => {

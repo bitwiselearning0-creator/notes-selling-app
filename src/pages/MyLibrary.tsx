@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, FolderOpen, ChevronRight, ArrowRight, ArrowLeft, Clock, FileText } from 'lucide-react';
+import { BookOpen, FolderOpen, ChevronRight, ArrowRight, ArrowLeft, Clock, FileText, Download, CheckCircle2, CloudDownload, Trash2, WifiOff } from 'lucide-react';
 import { dbService, deriveBundleType, isNotePdfAvailable, isSameSubject, getStoredData } from '../lib/dbService';
 import type { Note, UserProfile, Bundle } from '../lib/dbService';
+import { deleteOfflinePdf, downloadNoteForOffline, getAllOfflinePdfIds, getTotalOfflineStorageSize, formatBytes } from '../lib/offlineStorage';
 
 interface MyLibraryProps {
   user: UserProfile | null;
@@ -14,8 +15,6 @@ type LibraryView =
   | { mode: 'CATEGORY'; category: 'semester' | 'subject' | 'individual' }
   | { mode: 'PACK_DETAIL'; bundle: Bundle; daysLeft: number | null; originCategory: 'semester' | 'subject' };
 
-
-
 export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate }) => {
   const [libraryNotes, setLibraryNotes] = useState<Note[]>([]);
   const [libraryBundles, setLibraryBundles] = useState<{ bundle: Bundle; expiresAt: string; daysLeft: number }[]>([]);
@@ -23,6 +22,71 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
   const [notesDetails, setNotesDetails] = useState<Record<string, { expiresAt: string | null; daysLeft: number | null }>>({});
   const [loading, setLoading] = useState(true);
   const [viewState, setViewState] = useState<LibraryView>({ mode: 'HUB' });
+
+  // Offline Storage States
+  const [downloadedNoteIds, setDownloadedNoteIds] = useState<Set<string>>(new Set());
+  const [downloadingNoteIds, setDownloadingNoteIds] = useState<Set<string>>(new Set());
+  const [totalOfflineSize, setTotalOfflineSize] = useState<number>(0);
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  const refreshOfflineState = async () => {
+    try {
+      const ids = await getAllOfflinePdfIds();
+      setDownloadedNoteIds(new Set(ids));
+      const size = await getTotalOfflineStorageSize();
+      setTotalOfflineSize(size);
+    } catch {}
+  };
+
+  useEffect(() => {
+    refreshOfflineState();
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    const handleStorageChange = () => refreshOfflineState();
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('bw_offline_storage_changed', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('bw_offline_storage_changed', handleStorageChange);
+    };
+  }, []);
+
+  const handleDownloadNote = async (e: React.MouseEvent, note: Note) => {
+    e.stopPropagation();
+    if (downloadingNoteIds.has(note.id)) return;
+    if (!isOnline && !downloadedNoteIds.has(note.id)) {
+      alert('You are currently offline. Please connect to the internet to download this note.');
+      return;
+    }
+
+    setDownloadingNoteIds(prev => new Set(prev).add(note.id));
+    const res = await downloadNoteForOffline(note, user);
+    setDownloadingNoteIds(prev => {
+      const next = new Set(prev);
+      next.delete(note.id);
+      return next;
+    });
+
+    if (res.success) {
+      refreshOfflineState();
+    } else {
+      alert(res.error || 'Failed to download note. Please try again.');
+    }
+  };
+
+  const handleDeleteOfflineNote = async (e: React.MouseEvent, note: Note) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(`Remove offline copy of "${note.title}" to free up device space?`);
+    if (confirmed) {
+      await deleteOfflinePdf(note.id);
+      refreshOfflineState();
+    }
+  };
 
   // URL Hash Synchronizer for seamless Browser & Native Back Button support in MyLibrary
   useEffect(() => {
@@ -181,6 +245,65 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user]);
+
+  const handleReadNoteSafe = (note: Note) => {
+    if (!isOnline && !downloadedNoteIds.has(note.id)) {
+      alert(`"${note.title}" has not been saved for offline study yet. Please connect to the internet once to download it.`);
+      return;
+    }
+    onReadNote(note);
+  };
+
+  const renderOfflineBanner = () => {
+    if (!isOnline) {
+      return (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.15)',
+          border: '1px solid rgba(239, 68, 68, 0.35)',
+          borderRadius: '16px',
+          padding: '12px 18px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              background: 'rgba(239, 68, 68, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#f87171'
+            }}>
+              <WifiOff size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>
+                ⚡ You're Currently Offline
+              </div>
+              <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.7)' }}>
+                {downloadedNoteIds.size > 0 
+                  ? `${downloadedNoteIds.size} downloaded notes are ready to read without internet.`
+                  : 'Connect to internet once to download notes for offline study.'}
+              </div>
+            </div>
+          </div>
+          {downloadedNoteIds.size > 0 && (
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '5px 12px', borderRadius: '100px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <CheckCircle2 size={13} color="#10b981" /> {downloadedNoteIds.size} Ready ({formatBytes(totalOfflineSize)})
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   if (!user) {
     return (
@@ -342,6 +465,8 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
         >
           <ArrowLeft size={16} /> Back to {isSemCombo ? 'Semester Packs' : 'Subject Packs'}
         </button>
+
+        {renderOfflineBanner()}
 
         {/* Hero Pack Header Card */}
         <div 
@@ -617,7 +742,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
                       transition: 'all 0.2s ease',
                       textAlign: 'left'
                     }}
-                    onClick={() => onReadNote(noteItem)}
+                    onClick={() => handleReadNoteSafe(noteItem)}
                   >
                     <div style={{
                       width: '44px',
@@ -643,25 +768,102 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
                       </span>
                     </div>
 
-                    <button
-                      className="btn-primary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onReadNote(noteItem);
-                      }}
-                      style={{
-                        fontSize: '12px',
-                        padding: '8px 16px',
-                        fontWeight: '700',
-                        borderRadius: '10px',
-                        flexShrink: 0,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      Read Note <ChevronRight size={14} />
-                    </button>
+                    {/* Offline Save & Read Buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      {downloadedNoteIds.has(noteItem.id) ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            color: '#10b981',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <CheckCircle2 size={12} color="#10b981" />
+                            Offline
+                          </span>
+                          <button
+                            onClick={(e) => handleDeleteOfflineNote(e, noteItem)}
+                            title="Remove offline copy from device"
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: '1px solid rgba(239, 68, 68, 0.25)',
+                              borderRadius: '8px',
+                              padding: '6px',
+                              color: '#f87171',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      ) : downloadingNoteIds.has(noteItem.id) ? (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          color: '#60a5fa',
+                          background: 'rgba(59, 130, 246, 0.15)',
+                          border: '1px solid rgba(59, 130, 246, 0.3)',
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <CloudDownload size={13} className="animate-spin" />
+                          Saving...
+                        </span>
+                      ) : (
+                        <button
+                          onClick={(e) => handleDownloadNote(e, noteItem)}
+                          disabled={!isOnline}
+                          title={isOnline ? "Download note to device for offline study" : "Connect to internet to download"}
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            padding: '7px 11px',
+                            borderRadius: '8px',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            border: '1px solid rgba(255, 255, 255, 0.18)',
+                            color: isOnline ? 'var(--color-white)' : 'rgba(255, 255, 255, 0.35)',
+                            cursor: isOnline ? 'pointer' : 'not-allowed',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}
+                        >
+                          <Download size={12} />
+                          Save Offline
+                        </button>
+                      )}
+
+                      <button
+                        className="btn-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReadNoteSafe(noteItem);
+                        }}
+                        style={{
+                          fontSize: '12px',
+                          padding: '8px 16px',
+                          fontWeight: '700',
+                          borderRadius: '10px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        Read Note <ChevronRight size={14} />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -694,6 +896,8 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
         >
           <ArrowLeft size={16} /> Back to Library Hub
         </button>
+
+        {renderOfflineBanner()}
 
         {/* 🟨 CATEGORY 1: SEMESTER COMBO PACKS */}
         {category === 'semester' && (
@@ -924,7 +1128,7 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
                         cursor: 'pointer',
                         textAlign: 'left'
                       }}
-                      onClick={() => onReadNote(note)}
+                      onClick={() => handleReadNoteSafe(note)}
                     >
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -952,28 +1156,105 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
                         </div>
                       </div>
 
-                      <button
-                        className="btn-primary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onReadNote(note);
-                        }}
-                        style={{
-                          width: '100%',
-                          marginTop: '6px',
-                          padding: '9px 14px',
-                          fontSize: '12px',
-                          fontWeight: '700',
-                          borderRadius: '10px',
-                          background: isPyq ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        Read Note <ChevronRight size={14} />
-                      </button>
+                      {/* Offline & Read Buttons */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                        {downloadedNoteIds.has(note.id) ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: '700',
+                              color: '#10b981',
+                              background: 'rgba(16, 185, 129, 0.15)',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              padding: '5px 8px',
+                              borderRadius: '8px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              <CheckCircle2 size={11} color="#10b981" />
+                              Offline
+                            </span>
+                            <button
+                              onClick={(e) => handleDeleteOfflineNote(e, note)}
+                              title="Remove offline copy from device"
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                borderRadius: '8px',
+                                padding: '5px',
+                                color: '#f87171',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ) : downloadingNoteIds.has(note.id) ? (
+                          <span style={{
+                            fontSize: '10px',
+                            fontWeight: '700',
+                            color: '#60a5fa',
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            padding: '5px 8px',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <CloudDownload size={11} className="animate-spin" />
+                            Saving...
+                          </span>
+                        ) : (
+                          <button
+                            onClick={(e) => handleDownloadNote(e, note)}
+                            disabled={!isOnline}
+                            title={isOnline ? "Download note to device for offline study" : "Connect to internet to download"}
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: '700',
+                              padding: '5px 8px',
+                              borderRadius: '8px',
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              border: '1px solid rgba(255, 255, 255, 0.18)',
+                              color: isOnline ? 'var(--color-white)' : 'rgba(255, 255, 255, 0.35)',
+                              cursor: isOnline ? 'pointer' : 'not-allowed',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <Download size={11} />
+                            Save
+                          </button>
+                        )}
+
+                        <button
+                          className="btn-primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReadNoteSafe(note);
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '8px 12px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            borderRadius: '10px',
+                            background: isPyq ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          Read <ChevronRight size={14} />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -1008,6 +1289,8 @@ export const MyLibrary: React.FC<MyLibraryProps> = ({ user, onReadNote, navigate
           }
         </p>
       </div>
+
+      {renderOfflineBanner()}
 
       {loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }} className="fade-in">

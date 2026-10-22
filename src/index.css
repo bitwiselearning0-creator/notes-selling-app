@@ -77,6 +77,8 @@ html, body {
   overflow-x: clip;
   line-height: 1.6;
   scroll-behavior: smooth;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Completely Hide Scrollbars Globally for Native App Feel */
@@ -2755,18 +2757,76 @@ body.app-mode .form-toggle-link span {
   transform-origin: center 20%;
 }
 
-/* Rubberband Spring Physics on Interactive Cards & Buttons */
-.subject-card, .glass-card, .btn-primary, .btn-secondary {
-  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease;
-  will-change: transform, opacity;
-  backface-visibility: hidden;
-  -webkit-tap-highlight-color: transparent;
+/* ==========================================================================
+   ULTRA-RESPONSIVE NATIVE APP FEEL & TACTILE INTERACTION ENGINE
+   ========================================================================== */
+
+/* Zero-Latency Touch on All Interactive Elements (Eliminates 300ms mobile tap delay) */
+*, *::before, *::after {
+  -webkit-tap-highlight-color: transparent !important;
 }
 
-/* Touch Active Press Feedback (Native Spring Dip Response) */
-.subject-card:active, .glass-card[style*="cursor: pointer"]:active, .btn-primary:active, .btn-secondary:active {
-  transform: scale(0.95) translate3d(0, 1px, 0) !important;
-  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1) !important;
+button, a, [role="button"], input, select, textarea,
+.glass-card, .subject-card, .note-unit-card, .library-hub-card,
+.year-tab-btn, .library-back-btn, .viewer-action-btn, .bottom-nav-item,
+.auth-switch-btn, .nav-link-btn, .note-card {
+  touch-action: manipulation;
+}
+
+/* Tactile Native Micro-Interactions (Immediate Responsive Dip on Press) */
+button:active:not(:disabled),
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.btn-icon:active:not(:disabled),
+.year-tab-btn:active,
+.library-back-btn:active,
+.viewer-action-btn:active,
+.viewer-back-btn:active,
+.bottom-nav-item:active,
+.nav-link-btn:active,
+.auth-switch-btn:active {
+  transform: scale(0.94) translate3d(0, 1px, 0) !important;
+  transition: transform 0.08s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Subtle, Natural Card Compression on Press */
+.glass-card:active,
+.subject-card:active,
+.note-unit-card:active,
+.library-hub-card:active,
+.semester-bundle-card:active,
+.subject-pack-banner:active,
+.note-card:active {
+  transform: scale(0.982) translate3d(0, 1px, 0) !important;
+  transition: transform 0.08s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Snappy Fluid Enter Animations (.fade-in) */
+@keyframes snappyFadeIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.fade-in {
+  animation: snappyFadeIn 0.20s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+/* Hardware accelerated card compositing for 60fps/120fps smooth scrolling */
+.glass-card,
+.subject-card,
+.note-unit-card,
+.library-hub-card {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 /* Respect user accessibility settings */
@@ -2774,7 +2834,8 @@ body.app-mode .form-toggle-link span {
   .page-transition-enter,
   .page-transition-back,
   .tab-transition-right,
-  .tab-transition-left {
+  .tab-transition-left,
+  .fade-in {
     animation: none !important;
     transition: opacity 0.15s linear !important;
   }
@@ -2787,37 +2848,37 @@ body.app-mode .form-toggle-link span {
 /* Slide Right (Enter from Right when moving to a higher tab) */
 @keyframes tabSlideRightEnter {
   0% {
-    opacity: 0.2;
-    transform: translate3d(60px, 0, 0);
+    opacity: 0;
+    transform: translate3d(22px, 0, 0);
   }
   100% {
     opacity: 1;
-    transform: none;
+    transform: translate3d(0, 0, 0);
   }
 }
 
 /* Slide Left (Enter from Left when moving to a lower tab or back) */
 @keyframes tabSlideLeftEnter {
   0% {
-    opacity: 0.2;
-    transform: translate3d(-60px, 0, 0);
+    opacity: 0;
+    transform: translate3d(-22px, 0, 0);
   }
   100% {
     opacity: 1;
-    transform: none;
+    transform: translate3d(0, 0, 0);
   }
 }
 
 .tab-transition-right {
   will-change: transform, opacity;
-  animation: tabSlideRightEnter 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: tabSlideRightEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   backface-visibility: hidden;
   width: 100%;
 }
 
 .tab-transition-left {
   will-change: transform, opacity;
-  animation: tabSlideLeftEnter 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: tabSlideLeftEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   backface-visibility: hidden;
   width: 100%;
 }

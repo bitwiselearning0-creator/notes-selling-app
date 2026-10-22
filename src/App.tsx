@@ -670,10 +670,10 @@ function App() {
       )}
 
       {/* Main Pages */}
-      <main style={{ flexGrow: 1 }}>
+      <main style={{ flexGrow: 1, paddingBottom: isAppMode && currentUser && currentPage !== 'viewer' ? 'calc(75px + env(safe-area-inset-bottom, 0px))' : undefined }}>
         <div
           key={currentPage}
-          className={tabSlideDir === 'right' ? 'tab-transition-right' : 'tab-transition-left'}
+          className={currentPage === 'viewer' ? '' : (tabSlideDir === 'right' ? 'tab-transition-right' : 'tab-transition-left')}
         >
           {currentPage === 'landing' && (
             <LandingPage
@@ -836,46 +836,72 @@ function App() {
 
       {/* Bottom Nav (App Mode Only) */}
       {isAppMode && currentUser && currentPage !== 'viewer' && (
-        <div style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: '60px',
-          background: 'rgba(7, 12, 27, 0.9)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderTop: '1px solid var(--glass-border)',
-          display: 'flex',
-          justifyContent: 'space-around',
-          alignItems: 'center',
-          zIndex: 9998,
-          boxShadow: '0 -8px 24px rgba(0,0,0,0.5)'
-        }}>
+        <div 
+          className="bottom-nav-bar"
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 'calc(62px + env(safe-area-inset-bottom, 0px))',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            background: 'rgba(10, 16, 35, 0.94)',
+            backdropFilter: 'blur(24px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            display: 'flex',
+            justifyContent: 'space-around',
+            alignItems: 'center',
+            zIndex: 9998,
+            boxShadow: '0 -8px 30px rgba(0,0,0,0.6)',
+            willChange: 'transform',
+            transform: 'translateZ(0)'
+          }}
+        >
           <button
             onClick={() => navigate('dashboard')}
+            className={`bottom-nav-item ${currentPage === 'dashboard' ? 'active' : ''}`}
             style={{
               background: 'none', border: 'none', display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: '4px',
               color: currentPage === 'dashboard' ? 'var(--color-yellow)' : 'var(--color-muted)',
-              fontSize: '11px', fontWeight: '600', cursor: 'pointer', flex: 1
+              fontSize: '11px', fontWeight: currentPage === 'dashboard' ? '800' : '600',
+              cursor: 'pointer', flex: 1, touchAction: 'manipulation',
+              transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
-            <BookOpen size={20} />
+            <BookOpen 
+              size={20} 
+              style={{
+                transform: currentPage === 'dashboard' ? 'scale(1.12)' : 'scale(1)',
+                filter: currentPage === 'dashboard' ? 'drop-shadow(0 0 8px rgba(245, 158, 11, 0.45))' : 'none',
+                transition: 'transform 0.15s ease, filter 0.15s ease'
+              }}
+            />
             <span>Catalog</span>
           </button>
 
           {currentUser && (
             <button
               onClick={() => navigate('library')}
+              className={`bottom-nav-item ${currentPage === 'library' ? 'active' : ''}`}
               style={{
                 background: 'none', border: 'none', display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center', gap: '4px',
                 color: currentPage === 'library' ? 'var(--color-yellow)' : 'var(--color-muted)',
-                fontSize: '11px', fontWeight: '600', cursor: 'pointer', flex: 1
+                fontSize: '11px', fontWeight: currentPage === 'library' ? '800' : '600',
+                cursor: 'pointer', flex: 1, touchAction: 'manipulation',
+                transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
               }}
             >
-              <Library size={20} />
+              <Library 
+                size={20} 
+                style={{
+                  transform: currentPage === 'library' ? 'scale(1.12)' : 'scale(1)',
+                  filter: currentPage === 'library' ? 'drop-shadow(0 0 8px rgba(245, 158, 11, 0.45))' : 'none',
+                  transition: 'transform 0.15s ease, filter 0.15s ease'
+                }}
+              />
               <span>Library</span>
             </button>
           )}
@@ -883,27 +909,47 @@ function App() {
           {currentUser ? (
             <button
               onClick={() => navigate('profile')}
+              className={`bottom-nav-item ${currentPage === 'profile' ? 'active' : ''}`}
               style={{
                 background: 'none', border: 'none', display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center', gap: '4px',
                 color: currentPage === 'profile' ? 'var(--color-yellow)' : 'var(--color-muted)',
-                fontSize: '11px', fontWeight: '600', cursor: 'pointer', flex: 1
+                fontSize: '11px', fontWeight: currentPage === 'profile' ? '800' : '600',
+                cursor: 'pointer', flex: 1, touchAction: 'manipulation',
+                transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
               }}
             >
-              <User size={20} />
+              <User 
+                size={20} 
+                style={{
+                  transform: currentPage === 'profile' ? 'scale(1.12)' : 'scale(1)',
+                  filter: currentPage === 'profile' ? 'drop-shadow(0 0 8px rgba(245, 158, 11, 0.45))' : 'none',
+                  transition: 'transform 0.15s ease, filter 0.15s ease'
+                }}
+              />
               <span>Profile</span>
             </button>
           ) : (
             <button
               onClick={() => navigate('auth')}
+              className={`bottom-nav-item ${currentPage === 'auth' ? 'active' : ''}`}
               style={{
                 background: 'none', border: 'none', display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center', gap: '4px',
                 color: currentPage === 'auth' ? 'var(--color-yellow)' : 'var(--color-muted)',
-                fontSize: '11px', fontWeight: '600', cursor: 'pointer', flex: 1
+                fontSize: '11px', fontWeight: currentPage === 'auth' ? '800' : '600',
+                cursor: 'pointer', flex: 1, touchAction: 'manipulation',
+                transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
               }}
             >
-              <User size={20} />
+              <User 
+                size={20} 
+                style={{
+                  transform: currentPage === 'auth' ? 'scale(1.12)' : 'scale(1)',
+                  filter: currentPage === 'auth' ? 'drop-shadow(0 0 8px rgba(245, 158, 11, 0.45))' : 'none',
+                  transition: 'transform 0.15s ease, filter 0.15s ease'
+                }}
+              />
               <span>Sign In</span>
             </button>
           )}
@@ -911,14 +957,24 @@ function App() {
           {currentUser?.role === 'admin' && (
             <button
               onClick={() => navigate('admin')}
+              className={`bottom-nav-item ${currentPage === 'admin' ? 'active' : ''}`}
               style={{
                 background: 'none', border: 'none', display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center', gap: '4px',
                 color: currentPage === 'admin' ? 'var(--color-yellow)' : 'var(--color-muted)',
-                fontSize: '11px', fontWeight: '600', cursor: 'pointer', flex: 1
+                fontSize: '11px', fontWeight: currentPage === 'admin' ? '800' : '600',
+                cursor: 'pointer', flex: 1, touchAction: 'manipulation',
+                transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
               }}
             >
-              <ShieldCheck size={20} />
+              <ShieldCheck 
+                size={20} 
+                style={{
+                  transform: currentPage === 'admin' ? 'scale(1.12)' : 'scale(1)',
+                  filter: currentPage === 'admin' ? 'drop-shadow(0 0 8px rgba(245, 158, 11, 0.45))' : 'none',
+                  transition: 'transform 0.15s ease, filter 0.15s ease'
+                }}
+              />
               <span>Admin</span>
             </button>
           )}
