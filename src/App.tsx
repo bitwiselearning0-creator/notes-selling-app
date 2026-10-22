@@ -690,6 +690,7 @@ function App() {
               onReadNote={handleReadNote}
               navigate={navigate}
               onRegisterBackHandler={(fn) => { childBackHandlerRef.current = fn; }}
+              isAppMode={isAppMode}
             />
           )}
 
