@@ -250,7 +250,50 @@ export const isSameSubject = (subject1?: string, subject2?: string): boolean => 
   const isJava = (s: string) => s.includes('java') && !s.includes('python');
   const isPython = (s: string) => s.includes('python') && !s.includes('java');
   const isOOSD = (s: string) => (s.includes('oosd') || s.includes('c++') || (s.includes('object oriented') && !s.includes('java'))) && !s.includes('python');
-  const isMath = (s: string) => s.includes('math') || s.includes('mathematics');
+  
+  const getMathLevel = (s: string): number => {
+    if (/\b[bk]as103\b/.test(s)) return 1;
+    if (/\b[bk]as203\b/.test(s)) return 2;
+    if (/\b[bk]as403\b/.test(s)) return 4;
+    if (/\b[bk]as303\b/.test(s) && !/\b(4|iv|four)\b/.test(s)) return 3;
+
+    const directMatch = s.match(/\b(?:engineering\s+)?math(?:ematics)?\s*(?:-|–)?\s*(iv|iii|ii|i|4|3|2|1|four|three|two|one)\b/);
+    if (directMatch) {
+      const val = directMatch[1];
+      if (val === '1' || val === 'i' || val === 'one') return 1;
+      if (val === '2' || val === 'ii' || val === 'two') return 2;
+      if (val === '3' || val === 'iii' || val === 'three') return 3;
+      if (val === '4' || val === 'iv' || val === 'four') return 4;
+    }
+
+    const mPrefixMatch = s.match(/\bm([1-4])\b/);
+    if (mPrefixMatch) {
+      return parseInt(mPrefixMatch[1], 10);
+    }
+
+    const reverseMatch = s.match(/\b(iv|iii|ii|i|4|3|2|1)\s*math(?:ematics)?\b/);
+    if (reverseMatch) {
+      const val = reverseMatch[1];
+      if (val === '1' || val === 'i') return 1;
+      if (val === '2' || val === 'ii') return 2;
+      if (val === '3' || val === 'iii') return 3;
+      if (val === '4' || val === 'iv') return 4;
+    }
+
+    const sCleaned = s.replace(/\b(unit|module|chapter|sem|semester|part)\s*[0-9ivx]+\b/g, '');
+    if (/\b(4|iv|four)\b/.test(sCleaned)) return 4;
+    if (/\b(3|iii|three)\b/.test(sCleaned)) return 3;
+    if (/\b(2|ii|two)\b/.test(sCleaned)) return 2;
+    if (/\b(1|i|one)\b/.test(sCleaned)) return 1;
+
+    return 0;
+  };
+
+  const isMath = (s: string) =>
+    s.includes('math') ||
+    s.includes('mathematics') ||
+    /\bm[1-4]\b/.test(s) ||
+    /\b[bk]as[1-4]03\b/.test(s);
   const isEnergy = (s: string) => s.includes('energy science') || s.includes('ese');
   const isUHV = (s: string) => s.includes('uhv') || s.includes('human values');
   const isCyber = (s: string) => s.includes('cyber') || s.includes('security');
@@ -293,7 +336,14 @@ export const isSameSubject = (subject1?: string, subject2?: string): boolean => 
   if (isDataStructure(s1) || isDataStructure(s2)) return isDataStructure(s1) && isDataStructure(s2);
   if (isTAFL(s1) || isTAFL(s2)) return isTAFL(s1) && isTAFL(s2);
   if (isOS(s1) || isOS(s2)) return isOS(s1) && isOS(s2);
-  if (isMath(s1) || isMath(s2)) return isMath(s1) && isMath(s2);
+  if (isMath(s1) || isMath(s2)) {
+    if (!isMath(s1) || !isMath(s2)) return false;
+    const lvl1 = getMathLevel(s1);
+    const lvl2 = getMathLevel(s2);
+    if (lvl1 > 0 && lvl2 > 0) return lvl1 === lvl2;
+    if (lvl1 > 0 || lvl2 > 0) return false;
+    return true;
+  }
   if (isEnergy(s1) || isEnergy(s2)) return isEnergy(s1) && isEnergy(s2);
   if (isUHV(s1) || isUHV(s2)) return isUHV(s1) && isUHV(s2);
   if (isCyber(s1) || isCyber(s2)) return isCyber(s1) && isCyber(s2);

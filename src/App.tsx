@@ -300,8 +300,8 @@ function App() {
 
   // ─── Session check & initial mount ───────────────────────────────────────
   useEffect(() => {
-    // Cache buster: flush stale local storage caches from before strict access control fix
-    const BUILD_VERSION = 'v5_2026_08_17';
+    // Cache buster: flush stale local storage caches
+    const BUILD_VERSION = 'v6_2026_10_28';
     if (localStorage.getItem('bw_build_ver') !== BUILD_VERSION) {
       localStorage.setItem('bw_build_ver', BUILD_VERSION);
       localStorage.removeItem('bw_mock_bundles');
