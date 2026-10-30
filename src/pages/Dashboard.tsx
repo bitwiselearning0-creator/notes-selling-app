@@ -127,10 +127,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   setSelectedYear,
   onReadNote,
   navigate,
-  onRegisterBackHandler,
-  isAppMode
+  onRegisterBackHandler
 }) => {
-  const isApp = isAppMode || (typeof document !== 'undefined' && document.body.classList.contains('app-mode')) || (typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.());
   const [notes, setNotes] = useState<Note[]>([]);
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [purchasedIds, setPurchasedIds] = useState<string[]>([]);
@@ -659,7 +657,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </h3>
                   <span style={{ fontSize: '11px', color: '#fbbf24', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
                     <Info size={12} style={{ flexShrink: 0, color: '#f59e0b' }} />
-                    <span>{isApp ? 'Notes are only accessible on website and mobile app' : 'Notes are only accessible on website'}</span>
+                    <span>Notes are only accessible on website and mobile app</span>
                   </span>
                 </div>
               </div>
@@ -803,7 +801,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 textAlign: 'left'
               }}>
                 <Info size={15} style={{ flexShrink: 0, color: '#f59e0b' }} />
-                <span>{isApp ? 'Notice: Study notes and PYQs are only accessible for reading directly on the website and mobile app.' : 'Notice: Study notes and PYQs are only accessible for reading directly on the website.'}</span>
+                <span>Notice: Study notes and PYQs are only accessible for reading directly on the website and mobile app.</span>
               </div>
 
               {/* Golden Subject All-In-One Combo Banner (Positioned Right Above 2 Square Cards ONLY if created by Admin) */}
@@ -1334,7 +1332,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       textAlign: 'left'
                     }}>
                       <Info size={16} style={{ flexShrink: 0, color: '#f59e0b' }} />
-                      <span>{isApp ? 'Note: Notes and study materials are only accessible on the website and mobile app.' : 'Note: Notes and study materials are only accessible on the website.'}</span>
+                      <span>Note: Notes and study materials are only accessible on the website and mobile app.</span>
                     </div>
 
                     <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '4px' }} className="yellow-accent">
